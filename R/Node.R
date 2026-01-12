@@ -137,13 +137,17 @@ Node = R6::R6Class("Node", public = list(
   #'   Maximum tree depth.
   #' @return (`NULL`)
   split_node = function(Z, Y, objective_value_root_j, objective_value_root,
-    min_node_size, n_quantiles, impr_par, depth, max_depth) {
+    min_node_size, n_quantiles, impr_par, depth, max_depth, verbose = 0) {
     t0 = proc.time()
     # 1. Stopping criteria
     if (objective_value_root < 1e-10 || depth >= max_depth ||
         length(self$subset_idx) < min_node_size || isTRUE(self$improvement_met)) {
       self$stop_criterion_met = TRUE
       # Recursion exit: stop splitting at this node
+      if (verbose > 0) {
+        print(paste("Terminated at beginning of Node$split_node at node id ", self$id))
+        flush.console()
+      }
       return(NULL)
     }
     # 2. Find the best split
@@ -152,25 +156,33 @@ Node = R6::R6Class("Node", public = list(
         Y = Y, idx = self$subset_idx, grid = self$grid,
         is_child = !is.null(self$parent)
       )
-      self$find_best_split(Z, y_curr, min_node_size, n_quantiles)
+      self$find_best_split(Z, y_curr, min_node_size, n_quantiles, verbose = verbose)
     }, error = function(e) {
       cli::cli_warn("find_best_split error at node {self$id} (depth {self$depth}): {e$message}")
       NULL
     })
     if (is.null(split_info)) {
       self$stop_criterion_met = TRUE
+      if (verbose > 0) {
+        print(paste("Terminated at split_info=NULL of Node$split_node at node id ", self$id))
+        flush.console()
+      }
       return(NULL)
     }
     # 3. Create left and right child nodes
     children_info = tryCatch({
       self$create_children(Z[[split_info$split_feature]], Y, split_info,
-        objective_value_root_j, objective_value_root, impr_par)
+        objective_value_root_j, objective_value_root, impr_par, verbose = verbose)
     }, error = function(e) {
       cli::cli_warn("create_children error at node {self$id} (depth {self$depth}): {e$message}")
       NULL
     })
     if (is.null(children_info)) {
       self$stop_criterion_met = TRUE
+      if (verbose > 0) {
+        print(paste("Terminated at children_info=NULL of Node$split_node at node id ", self$id))
+        flush.console()
+      }
       return(NULL)
     }
     # 4. Apply the split
@@ -192,7 +204,8 @@ Node = R6::R6Class("Node", public = list(
         n_quantiles,
         impr_par,
         depth + 1,
-        max_depth)
+        max.depth,
+        verbose = verbose)
     }
     if (!is.null(self$children$right_child)) {
       self$children$right_child$split_node(
@@ -203,7 +216,8 @@ Node = R6::R6Class("Node", public = list(
         n_quantiles,
         impr_par,
         depth + 1,
-        max_depth)
+        max.depth,
+        verbose = verbose)
     }
   },
 
@@ -222,11 +236,15 @@ Node = R6::R6Class("Node", public = list(
   #'   Quantiles for candidate split points.
   #' @return (`list()` or `NULL`) \cr
   #'   Best split info or \code{NULL} if no valid split.
-  find_best_split = function(Z, y_curr, min_node_size, n_quantiles) {
+  find_best_split = function(Z, y_curr, min_node_size, n_quantiles, verbose = 0) {
     z_subset = Z[self$subset_idx, ]
     split_res = self$strategy$find_best_split(Z = z_subset, Y = y_curr,
       min_node_size = min_node_size, n_quantiles = n_quantiles)
     if (is.null(split_res$best_split) || length(split_res$best_split) == 0 || all(!split_res$best_split)) {
+      if (verbose > 0) {
+        print(paste("Terminated in Node$find_best_split (no split found) at node id ", self$id))
+        flush.console()
+      }
       NULL
     } else {
       list(
@@ -258,7 +276,7 @@ Node = R6::R6Class("Node", public = list(
   #'   Improvement threshold.
   #' @return (`list()`) \cr
   #'   Left/right child nodes and split statistics.
-  create_children = function(z_split_feature, Y, split_info, objective_value_root_j, objective_value_root, impr_par) {
+  create_children = function(z_split.feature, Y, split_info, objective_value_root_j, objective_value_root, impr_par, verbose = 0) {
     split_feature = split_info$split_feature
     split_value = split_info$split_value
     is_categorical = split_info$is_categorical
@@ -299,9 +317,14 @@ Node = R6::R6Class("Node", public = list(
     # Threshold for root node: impr_par; for child node: parent int_imp * impr_par
     threshold = if (is.null(self$parent)) impr_par else self$parent$int_imp * impr_par
     # Check if improvement meets threshold
-    if (int_imp < threshold) {
-      self$improvement_met = TRUE
-      return(NULL) # Improvement not sufficient: stop splitting at this node
+    if (intImp < threshold) {
+      self$improvement.met = TRUE
+      # Improvement not sufficient: stop splitting at this node
+      if (verbose > 0) {
+        print(paste("Terminated at intImp < threshold of Node$create_children at node id ", self$id))
+        flush.console()
+      }
+      return(NULL)
     }
     # Create child nodes
     left_child = Node$new(

@@ -121,12 +121,18 @@ GadgetTree = R6::R6Class(
     #'   \code{predict_fun}, \code{n_grid}, and \code{pd_engine}.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
-    fit = function(data, target_feature_name, feature_set = NULL, split_feature = NULL, ...) {
+    fit = function(data, target_feature_name, feature_set = NULL, split_feature = NULL, verbose = 0, ...) {
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
       checkmate::assert_subset(target_feature_name, colnames(data), .var.name = "target_feature_name")
       self$split_benchmark = list()
       self$tree_list_cache = NULL
+      if (verbose > 0) {
+        print("Starting gadgetTree$fit; using print")
+        flush.console()
+        message("Starting gadgetTree$fit; using message")
+        # browser()
+      }
 
       # The strategy is responsible for validating and handling its own arguments (via ...)
       result = self$strategy$fit(
@@ -135,6 +141,7 @@ GadgetTree = R6::R6Class(
         target_feature_name = target_feature_name,
         feature_set = feature_set,
         split_feature = split_feature,
+        verbose = verbose,
         ...
       )
 
@@ -160,6 +167,7 @@ GadgetTree = R6::R6Class(
     #' @return (`list()`) \cr
     #'   Nested list (depth -> node -> patchwork).
     plot = function(data, target_feature_name, effect = NULL, depth = NULL, node_id = NULL, features = NULL, ...) {
+      # browser()
       tree_list = self$get_tree_list()
       self$strategy$plot(tree = tree_list, effect = effect, data = data,
         target_feature_name = target_feature_name,
@@ -177,6 +185,7 @@ GadgetTree = R6::R6Class(
         upper = 100L, any.missing = FALSE, .var.name = "label_wrap_width")
       checkmate::assert_numeric(node_spread_x, len = 1L, lower = 0.5, finite = TRUE, .var.name = "node_spread_x")
       checkmate::assert_numeric(node_spread_y, len = 1L, lower = 0.5, finite = TRUE, .var.name = "node_spread_y")
+      # browser()
       plot_tree_structure(self$get_tree_list(),
         label_wrap_width = label_wrap_width,
         node_spread_x = node_spread_x,
@@ -191,6 +200,7 @@ GadgetTree = R6::R6Class(
     #'   Split info: depth, id, split_feature, split_value, int_imp, etc.
     extract_split_info = function(include_timing = FALSE) {
       checkmate::assert_flag(include_timing, .var.name = "include_timing")
+      # browser()
       split_benchmark = if (isTRUE(include_timing)) self$split_benchmark else NULL
       extract_split_info(self$get_tree_list(), split_benchmark = split_benchmark)
     },

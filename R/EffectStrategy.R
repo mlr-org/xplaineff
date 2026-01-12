@@ -35,7 +35,7 @@ EffectStrategy = R6::R6Class(
     }
   ),
   private = list(
-    fit_tree_internal = function(tree, Z, Y, grid, objective_value_root_j, objective_value_root) {
+    fit_tree_internal = function(tree, Z, Y, grid, objective_value_root_j, objective_value_root, verbose) {
       # Create new tree
       tree$root = Node$new(
         id = 1, depth = 1, subset_idx = seq_len(nrow(Z)), grid = grid,
@@ -52,7 +52,8 @@ EffectStrategy = R6::R6Class(
           n_quantiles = tree$n_quantiles,
           impr_par = tree$impr_par,
           depth = 1,
-          max_depth = tree$n_split + 1
+          max_depth = tree$n_split + 1,
+          verbose = verbose
         )
       })[["elapsed"]]
       t_regional

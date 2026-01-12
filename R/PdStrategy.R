@@ -292,7 +292,7 @@ PdStrategy = R6::R6Class(
     #'   The tree, invisibly.
     fit = function(tree, effect = NULL, model = NULL, data, target_feature_name,
       feature_set = NULL, split_feature = NULL, predict_fun = NULL,
-      n_grid = 20L, pd_engine = c("cpp", "r"), ...) {
+      n_grid = 20L, pd_engine = c("cpp", "r"), verbose = 0, ...) {
       checkmate::assert_r6(tree, classes = "GadgetTree", .var.name = "tree")
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
@@ -348,7 +348,7 @@ PdStrategy = R6::R6Class(
       })[["elapsed"]]
 
       t_regional = private$fit_tree_internal(
-        tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split
+        tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split, verbose
       )
       self$fit_timing = list(global = t_global, regional = t_regional)
       invisible(tree)
