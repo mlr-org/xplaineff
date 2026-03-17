@@ -41,11 +41,12 @@ Requires R6, ggplot2, data.table, Rcpp; see [DESCRIPTION](DESCRIPTION) for detai
   - `model` (required): fitted mlr3 learner used to compute ALE.
   - `n_intervals` (optional): number of intervals for ALE grids (default: `10`).
   - `predict_fun` (optional): custom prediction function; if `NULL`, uses the learner’s default.
-  - `order_method` (optional): how to order **categorical split features** when building the tree.  
-    This controls the 1D ordering of factor levels that is used to search over binary splits on categorical variables. Typical choices are:
-    - `"raw"`: use the existing factor level order (default).
-    - `"frequency"`: order levels by their marginal frequencies in the data.
-    - `"effect"`: order levels by their aggregated effect (e.g. ALE value) before searching for a split.
+  - `order_method` (optional): how to order **categorical split-feature levels** before searching over binary splits.  
+    Internally, GADGET builds a pairwise distance matrix between levels (using other features), embeds it into 1D, and uses that 1D order for splitting. Supported methods are:
+    - `"raw"`: keep the original factor level order (no reordering).
+    - `"mds"` (default): multi-dimensional scaling on the level-distance matrix, then order levels by the 1D coordinates.
+    - `"pca"`: PCA on the level-distance matrix, then order levels by the first principal component.
+    - `"random"`: use a random order of levels (mainly for robustness checks or baselines).
 - **PdStrategy-specific**
   - `effect` (required): object of class `FeatureEffects` (e.g. from `iml::FeatureEffects`).
 - **Shared tree arguments (both strategies)**
