@@ -37,9 +37,23 @@ Requires R6, ggplot2, data.table, Rcpp; see [DESCRIPTION](DESCRIPTION) for detai
 
 **Fit arguments**
 
-- **AleStrategy**: `model` (required), `n_intervals = 10`, `predict_fun = NULL`, `order_method = "raw"`, `with_stab = FALSE`
-- **PdStrategy**: `effect` (required)
-- **Both**: `feature_set`, `split_feature` (optional); tree params: `impr_par`, `min_node_size`, `n_quantiles`
+- **AleStrategy-specific**
+  - `model` (required): fitted mlr3 learner used to compute ALE.
+  - `n_intervals` (optional): number of intervals for ALE grids (default: `10`).
+  - `predict_fun` (optional): custom prediction function; if `NULL`, uses the learner’s default.
+  - `order_method` (optional): how to order **categorical split features** when building the tree.  
+    This controls the 1D ordering of factor levels that is used to search over binary splits on categorical variables. Typical choices are:
+    - `"raw"`: use the existing factor level order (default).
+    - `"frequency"`: order levels by their marginal frequencies in the data.
+    - `"effect"`: order levels by their aggregated effect (e.g. ALE value) before searching for a split.
+- **PdStrategy-specific**
+  - `effect` (required): object of class `FeatureEffects` (e.g. from `iml::FeatureEffects`).
+- **Shared tree arguments (both strategies)**
+  - `feature_set` (optional): subset of features used to compute effects and search for splits.
+  - `split_feature` (optional): subset of features allowed as splitting variables.
+  - `impr_par`: minimum required improvement in heterogeneity to accept a split.
+  - `min_node_size`: minimum number of observations in each node.
+  - `n_quantiles`: number of candidate split points per numerical feature.
 
 ## Methodology
 
