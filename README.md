@@ -200,6 +200,67 @@ tree$plot(
 ![ALE Bike depth 2, node 1](figures/ale_bike_depth2_node1.png)
 ![ALE Bike depth 2, node 2](figures/ale_bike_depth2_node2.png)
 
+## More plot options
+
+The `tree$plot()` method is flexible and can be used to drill down into specific depths, nodes, and features.
+It always returns a nested list of `ggplot2` objects indexed by depth and node.
+
+- **Controlling which nodes to plot**
+
+  ```r
+  # Only depth 1 (root)
+  pl = tree$plot(
+    data = bike_data,
+    target_feature_name = "target",
+    features = c("hr", "temp"),
+    depth = 1
+  )
+
+  # A specific node at depth 2 (e.g., right child)
+  pl = tree$plot(
+    data = bike_data,
+    target_feature_name = "target",
+    features = c("hr", "temp"),
+    depth = 2,
+    node_id = 3  # see node IDs in tree$plot_tree_structure()
+  )
+
+  # Inspect or manually print a single ggplot object
+  print(pl[[2]][[1]])  # depth 2, first node
+  ```
+
+- **Selecting features and centering**
+
+  ```r
+  # Only plot effects for "hr", without mean-centering
+  pl = tree$plot(
+    data = bike_data,
+    target_feature_name = "target",
+    features = "hr",
+    mean_center = FALSE
+  )
+  ```
+
+- **Overlaying raw observations**
+
+  If available for your strategy, you can overlay observed \((x, y)\) points on top of the regional curves:
+
+  ```r
+  pl = tree$plot(
+    data = bike_data,
+    target_feature_name = "target",
+    features = c("hr", "temp"),
+    mean_center = TRUE,
+    show_point = TRUE  # add raw data points
+  )
+  ```
+
+In practice, a common workflow is:
+
+1. Use `tree$plot_tree_structure()` and `tree$extract_split_info()` to identify interesting regions.
+2. Call `tree$plot()` with `depth` / `node_id` / `features` to inspect those regions.
+3. Manually inspect or save individual plots with `print(pl[[d]][[k]])`.
+
 ## Documentation
 
 - In R: `?gadget`, `?GadgetTree`, `?AleStrategy`, `?PdStrategy`

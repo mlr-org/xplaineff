@@ -15,7 +15,7 @@
 6           0.33                 temp               0.51                7816195
 7           0.33                 temp               0.51                7816195
   is_final  time
-1    FALSE 0.002
+1    FALSE 0.003
 2    FALSE 0.001
 3    FALSE 0.002
 4     TRUE    NA
