@@ -91,8 +91,6 @@ calculate_ale = function(model, data, feature_set, target_feature_name, n_interv
 #'   Features (excl. target).
 #' @param feature (`character(1)`) \cr
 #'   Feature name.
-#' @param target_feature_name (`character(1)`) \cr
-#'   Target name.
 #' @param n_intervals (`integer(1)`) \cr
 #'   Number of intervals.
 #' @param predict_fun (`function()` or `NULL`) \cr
@@ -162,8 +160,6 @@ ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predic
 #'   Features (excl. target).
 #' @param feature (`character(1)`) \cr
 #'   Feature name.
-#' @param target_feature_name (`character(1)`) \cr
-#'   Target name.
 #' @param predict_fun (`function()` or `NULL`) \cr
 #'   Prediction function.
 #'

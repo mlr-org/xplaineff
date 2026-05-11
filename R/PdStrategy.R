@@ -275,6 +275,8 @@ PdStrategy = R6::R6Class(
       invisible(tree)
     },
 
+    #' @description
+    #' Drops \code{tree_ref}; effect cache is intentionally retained when present.
     clean = function() {
       self$tree_ref = NULL
     }

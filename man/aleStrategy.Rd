@@ -161,7 +161,7 @@ ALE engine: \code{"cpp"} or \code{"r"}; default \code{c("cpp", "r")} resolves to
 \subsection{Method \code{node_transform()}}{
 Subset ALE by node indices; handle single-interval and categorical.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{AleStrategy$node_transform(Y, idx, grid = NULL, split_feature = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{AleStrategy$node_transform(Y, idx, grid = NULL, is_child = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -176,8 +176,8 @@ Row indices in the node.}
 \item{\code{grid}}{(`list()` or `NULL`) \cr
 Ignored for ALE; required by interface.}
 
-\item{\code{split_feature}}{(`character(1)` or `NULL`) \cr
-Feature used for split.}
+\item{\code{is_child}}{(`logical(1)`) \cr
+Whether the current node is a child node.}
 }
 \if{html}{\out{</div>}}
 }

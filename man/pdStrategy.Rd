@@ -59,16 +59,10 @@ Cached PD/ICE effect used when \code{$plot()} omits \code{effect}.}
 \item \href{#method-PdStrategy-find_best_split}{\code{PdStrategy$find_best_split()}}
 \item \href{#method-PdStrategy-plot}{\code{PdStrategy$plot()}}
 \item \href{#method-PdStrategy-fit}{\code{PdStrategy$fit()}}
+\item \href{#method-PdStrategy-clean}{\code{PdStrategy$clean()}}
 \item \href{#method-PdStrategy-clone}{\code{PdStrategy$clone()}}
 }
 }
-\if{html}{\out{
-<details open><summary>Inherited methods</summary>
-<ul>
-<li><span class="pkg-link" data-pkg="gadget" data-topic="EffectStrategy" data-id="clean"><a href='../../gadget/html/EffectStrategy.html#method-EffectStrategy-clean'><code>gadget::EffectStrategy$clean()</code></a></span></li>
-</ul>
-</details>
-}}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-new"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-new}{}}}
@@ -125,7 +119,7 @@ Features for splitting; \code{NULL} = all.}
 \subsection{Method \code{node_transform()}}{
 Subset and mean-center via \code{re_mean_center_ice_cpp}.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PdStrategy$node_transform(Y, idx, grid, split_feature = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PdStrategy$node_transform(Y, idx, grid, is_child = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -140,8 +134,8 @@ Sample indices in the node.}
 \item{\code{grid}}{(`list()`) \cr
 Feature grids; required for PD.}
 
-\item{\code{split_feature}}{(`character(1)` or `NULL`) \cr
-Ignored for PD; required by interface.}
+\item{\code{is_child}}{(`logical(1)`) \cr
+Ignored for PD; kept for API parity with \code{AleStrategy}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -345,6 +339,16 @@ xplaineff-style) or \code{"r"} (\code{data.table::rbindlist}).}
 (`GadgetTree`) \cr
   The tree, invisibly.
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-PdStrategy-clean"></a>}}
+\if{latex}{\out{\hypertarget{method-PdStrategy-clean}{}}}
+\subsection{Method \code{clean()}}{
+Drops \code{tree_ref}; effect cache is intentionally retained when present.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{PdStrategy$clean()}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-clone"></a>}}

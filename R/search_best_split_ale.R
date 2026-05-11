@@ -16,7 +16,7 @@ build_ale_interval_stats = function(effect, features) {
   K = integer(p)
   for (j in seq_len(p)) {
     DT = effect[[features[j]]]
-    data.table::setorder(DT, row_id)  # intentional in-place sort: d_l_mat columns must align with original row indices for ale_sweep_cpp
+    data.table::setorder(DT, row_id)
     S = unique(DT[, list(interval_index, n = int_n, s1 = int_s1, s2 = int_s2)])
     data.table::setorder(S, interval_index)
     stats_list[[j]] = S

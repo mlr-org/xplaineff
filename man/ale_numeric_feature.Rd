@@ -9,7 +9,6 @@ ale_numeric_feature(
   data,
   X,
   feature,
-  target_feature_name,
   n_intervals = 10,
   predict_fun = NULL,
   stacked = NULL,
@@ -29,9 +28,6 @@ Features (excl. target).}
 
 \item{feature}{(`character(1)`) \cr
 Feature name.}
-
-\item{target_feature_name}{(`character(1)`) \cr
-Target name.}
 
 \item{n_intervals}{(`integer(1)`) \cr
 Number of intervals.}

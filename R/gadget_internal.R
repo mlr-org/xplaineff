@@ -33,7 +33,8 @@ extract_numeric_prediction = function(pred, expected_n = NULL) {
     } else if (!is.null(pred$prob)) {
       if (ncol(pred$prob) > 1L) {
         cli::cli_warn(
-          "Multiclass model detected: using first class probability column ({colnames(pred$prob)[1L]}) as prediction. Pass {.arg predict_fun} to override."
+          "Multiclass model detected: using first class probability column ({colnames(pred$prob)[1L]}) as prediction.
+           Pass {.arg predict_fun} to override."
         )
       }
       as.numeric(pred$prob[, 1L])
@@ -57,7 +58,8 @@ extract_numeric_prediction = function(pred, expected_n = NULL) {
   if (!is.null(expected_n)) {
     if (length(out) != expected_n) {
       cli::cli_abort(
-        "Prediction length mismatch: got {length(out)} value{?s} but expected {expected_n} (one per row of {.arg newdata})."
+        "Prediction length mismatch: got {length(out)} value{?s} but 
+        expected {expected_n} (one per row of {.arg newdata})."
       )
     }
   }
@@ -86,7 +88,8 @@ predict_newdata_fast_dispatch = function(model, newdata) {
         stats::predict(model, data = newdata, type = "response"),
         error = function(e2) {
           cli::cli_abort(c(
-            "Prediction failed for both {.code stats::predict(..., newdata =)} and {.code stats::predict(..., data =)}.",
+            "Prediction failed for both {.code stats::predict(..., newdata =)} 
+            and {.code stats::predict(..., data =)}.",
             "i" = paste0("newdata: ", conditionMessage(e1)),
             "i" = paste0("data: ", conditionMessage(e2))
           ))

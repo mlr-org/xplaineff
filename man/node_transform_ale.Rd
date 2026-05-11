@@ -4,16 +4,7 @@
 \alias{node_transform_ale}
 \title{Node Transform ALE}
 \usage{
-node_transform_ale(
-  Y,
-  idx,
-  split_feature = NULL,
-  model = NULL,
-  data = NULL,
-  target_feature_name = NULL,
-  n_intervals = 10,
-  predict_fun = NULL
-)
+node_transform_ale(Y, idx, is_child = FALSE)
 }
 \arguments{
 \item{Y}{(`list()`) \cr
@@ -22,29 +13,16 @@ ALE effect data per feature.}
 \item{idx}{(`integer()`) \cr
 Sample indices in the current node.}
 
-\item{split_feature}{(`character(1)` or `NULL`) \cr
-Feature used for splitting; \code{NULL} = no preprocessing.}
-
-\item{model}{(`any`) \cr
-Fitted model (for categorical recalculation).}
-
-\item{data}{(`data.frame()` or `data.table()`) \cr
-Original data.}
-
-\item{target_feature_name}{(`character(1)`) \cr
-Target variable name.}
-
-\item{n_intervals}{(`integer(1)`) \cr
-Intervals for numeric features.}
-
-\item{predict_fun}{(`function()` or `NULL`) \cr
-Prediction function.}
+\item{is_child}{(`logical(1)`) \cr
+Whether the current node is a child node; \code{FALSE} skips constant-feature zeroing.}
 }
 \value{
 (`list()`) \cr
   Transformed ALE effects per feature.
 }
 \description{
-Applies node-specific transformations to ALE effect data, including subsetting,
-single value handling, and categorical feature recalculation when needed.
+Subsets ALE effect data to the current node's row indices and recomputes
+per-interval statistics. When \code{is_child} is \code{TRUE},
+forces \code{d_l = 0} for any feature whose values are constant in this node
+(single unique value).
 }

@@ -75,19 +75,15 @@ Splits isolate regions where feature effects are more stable, revealing interact
 This section shows how to use GADGET with **PD** and **ALE** on the **Bikeshare** data.  
 We first build a PD-based tree (with effects computed via `iml`), then an ALE-based tree (effects computed internally).
 
-### PD + Bikeshare (requires iml)
-
-For PD/ICE, you can either (A) compute effects with [iml](https://cran.r-project.org/package=iml) and pass them to `PdStrategy`,
-or (B) pass a fitted model and let `gadget` compute PD/ICE internally.
+### PD + Bikeshare
 
 ```r
 library(gadget)
-library(iml)
 library(mlr3)
 library(mlr3learners)
 library(ISLR2)
 
-# 1) Load data and fit a black-box model
+# 1) Load and subsample the Bikeshare data
 data("Bikeshare", package = "ISLR2")
 set.seed(123)
 bike = Bikeshare[sample(seq_len(nrow(Bikeshare)), 1000), ]
@@ -95,23 +91,12 @@ bike$workingday = as.factor(bike$workingday)
 bike_data = bike[, c("hr", "temp", "workingday", "bikers")]
 names(bike_data)[names(bike_data) == "bikers"] = "target"
 
+# 2) Fit a black-box regression model with mlr3
 task = TaskRegr$new(id = "bike", backend = bike_data, target = "target")
 learner = lrn("regr.ranger")
 learner$train(task)
 
-# 2) Compute ICE/PD effects with iml
-predictor = iml::Predictor$new(
-  model = learner,
-  data = bike_data[, c("hr", "temp", "workingday")],
-  y = bike_data$target
-)
-effect = iml::FeatureEffects$new(
-  predictor,
-  method = "ice",
-  grid.size = 20
-)
-
-# 3) Grow a PD-based GadgetTree on the iml effects
+# 3) Grow a PD-based GadgetTree on top of the model
 tree = GadgetTree$new(
   strategy = PdStrategy$new(),
   n_split = 2,
@@ -120,19 +105,22 @@ tree = GadgetTree$new(
 tree$fit(
   data = bike_data,
   target_feature_name = "target",
-  effect = effect
+  model = learner,
+  n_grid = 20L
 )
 
-# 4) Visualize tree structure and regional PD/ICE curves
-tree$plot_tree_structure()  # prints the tree topology (depth, node IDs, split features)
+# 4) Inspect the tree structure, splits, and regional PD/ICE curves
+tree$plot_tree_structure()
 tree$extract_split_info()
 tree$plot(
   data = bike_data,
   target_feature_name = "target",
-  effect = effect,
   features = c("hr", "temp")
 )
 ```
+
+> Pre-computed ICE/PD effects (e.g. from `iml::FeatureEffects`) can be passed via
+> `tree$fit(effect = effect, ...)` instead of `model =`.
 
 **Sample split info (PD + Bikeshare):**
 

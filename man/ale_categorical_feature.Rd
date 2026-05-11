@@ -9,7 +9,6 @@ ale_categorical_feature(
   data,
   X,
   feature,
-  target_feature_name,
   predict_fun = NULL,
   stacked = NULL,
   idx_lower = NULL,
@@ -28,9 +27,6 @@ Features (excl. target).}
 
 \item{feature}{(`character(1)`) \cr
 Feature name.}
-
-\item{target_feature_name}{(`character(1)`) \cr
-Target name.}
 
 \item{predict_fun}{(`function()` or `NULL`) \cr
 Prediction function.}
