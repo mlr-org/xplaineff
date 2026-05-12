@@ -122,3 +122,35 @@ test_that("mean_center_ice returns Y and grid from effect with results", {
   expect_true(is.list(result$Y))
   expect_true(is.list(result$grid))
 })
+
+test_that("prepare_split_data_pd separates effect features from split features", {
+  effect = list(results = list(
+    x1 = data.frame(
+      .id = rep(1:3, each = 2),
+      .type = "ice",
+      .feature = "x1",
+      .borders = rep(c(0, 1), times = 3),
+      .value = seq_len(6)
+    )
+  ))
+  data = data.frame(x1 = 1:3, x2 = 4:6, y = 7:9)
+
+  prepared = gadget:::prepare_split_data_pd(
+    effect = effect,
+    data = data,
+    target_feature_name = "y",
+    feature_set = "x1",
+    split_feature = "x2"
+  )
+  expect_equal(names(prepared$Y), "x1")
+  expect_equal(names(prepared$Z), "x2")
+
+  prepared_all_splits = gadget:::prepare_split_data_pd(
+    effect = effect,
+    data = data,
+    target_feature_name = "y",
+    feature_set = "x1"
+  )
+  expect_equal(names(prepared_all_splits$Y), "x1")
+  expect_equal(names(prepared_all_splits$Z), c("x1", "x2"))
+})
