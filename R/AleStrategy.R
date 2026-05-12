@@ -170,12 +170,19 @@ AleStrategy = R6::R6Class(
       if (is.null(raw) || is.null(raw$left_objective_value_j)) {
         cli::cli_abort("ALE split_info must contain raw_result with left/right objective values.")
       }
-      rows = which(raw$best_split)
+      rows = which(raw$best_split & raw$split_feature == split_info$split_feature)
+      if (length(rows) == 0L) {
+        cli::cli_abort("ALE split_info does not contain objective rows for the selected split.")
+      }
+      left_objective_value_j = raw$left_objective_value_j[rows]
+      right_objective_value_j = raw$right_objective_value_j[rows]
+      names(left_objective_value_j) = raw$feature[rows]
+      names(right_objective_value_j) = raw$feature[rows]
       list(
-        left_objective_value_j = raw$left_objective_value_j[rows],
-        right_objective_value_j = raw$right_objective_value_j[rows],
-        left_objective_value = sum(raw$left_objective_value_j[rows], na.rm = TRUE),
-        right_objective_value = sum(raw$right_objective_value_j[rows], na.rm = TRUE)
+        left_objective_value_j = left_objective_value_j,
+        right_objective_value_j = right_objective_value_j,
+        left_objective_value = sum(left_objective_value_j, na.rm = TRUE),
+        right_objective_value = sum(right_objective_value_j, na.rm = TRUE)
       )
     },
 

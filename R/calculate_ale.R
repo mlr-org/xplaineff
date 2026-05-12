@@ -60,19 +60,19 @@ calculate_ale = function(model, data, feature_set, target_feature_name, n_interv
   } else {
     X = data[, setdiff(colnames(data), target_feature_name), drop = FALSE]
   }
-  X_dt = data.table::as.data.table(X)
-  n_rows = nrow(X_dt)
-  stacked_shared = data.table::rbindlist(list(X_dt, X_dt), use.names = TRUE)
+  X = data.table::as.data.table(X)
+  n_rows = nrow(X)
+  stacked_shared = data.table::rbindlist(list(X, X), use.names = TRUE)
   idx_lower = seq_len(n_rows)
   idx_upper = seq.int(n_rows + 1L, 2L * n_rows)
 
   eff_list = lapply(feature_set, function(feat) {
     if (is.factor(data[[feat]])) {
-      ale_categorical_feature(model = model, data = data, X = X_dt,
+      ale_categorical_feature(model = model, data = data, X = X,
         feature = feat, predict_fun = predict_fun,
         stacked = stacked_shared, idx_lower = idx_lower, idx_upper = idx_upper)
     } else {
-      ale_numeric_feature(model = model, data = data, X = X_dt,
+      ale_numeric_feature(model = model, data = data, X = X,
         feature = feat, n_intervals = n_intervals, predict_fun = predict_fun,
         stacked = stacked_shared, idx_lower = idx_lower, idx_upper = idx_upper)
     }

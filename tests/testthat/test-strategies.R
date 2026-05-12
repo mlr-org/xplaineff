@@ -67,3 +67,30 @@ test_that("AleStrategy heterogeneity returns numeric for ALE-like list", {
   expect_true(!is.na(h))
   expect_true(h >= 0)
 })
+
+test_that("AleStrategy child objectives use the selected split when best splits tie", {
+  strategy = AleStrategy$new()
+  raw = data.frame(
+    split_feature = rep(c("x", "z"), each = 2L),
+    split_point = rep(c(0.5, 1.5), each = 2L),
+    feature = rep(c("f1", "f2"), times = 2L),
+    left_objective_value_j = c(1, 2, 100, 200),
+    right_objective_value_j = c(3, 4, 300, 400),
+    best_split = TRUE
+  )
+  split_info = list(
+    split_feature = "x",
+    split_value = 0.5,
+    raw_result = raw
+  )
+
+  obj = strategy$get_child_objectives(
+    Z = NULL, Y = NULL, split_info = split_info,
+    idx_left = NULL, idx_right = NULL, grid_left = NULL, grid_right = NULL
+  )
+
+  expect_equal(obj$left_objective_value_j, c(f1 = 1, f2 = 2))
+  expect_equal(obj$right_objective_value_j, c(f1 = 3, f2 = 4))
+  expect_equal(obj$left_objective_value, 3)
+  expect_equal(obj$right_objective_value, 7)
+})

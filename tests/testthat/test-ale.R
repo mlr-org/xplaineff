@@ -206,6 +206,19 @@ test_that("calculate_ale returns zero d_l for single-level factor feature", {
   expect_equal(nrow(result$x_cat), n)
 })
 
+test_that("make_predictor normalizes custom prediction output and checks length", {
+  predict_df = function(model, data) data.frame(pred = seq_len(nrow(data)))
+  predictor = gadget:::make_predictor(model = NULL, predict_fun = predict_df)
+  expect_equal(predictor$predict(data.frame(x = 1:3)), c(1, 2, 3))
+
+  predict_bad = function(model, data) 1
+  predictor_bad = gadget:::make_predictor(model = NULL, predict_fun = predict_bad)
+  expect_error(
+    predictor_bad$predict(data.frame(x = 1:3)),
+    regexp = "Prediction length mismatch"
+  )
+})
+
 test_that("cpp_ale_numeric_prepare returns zero_effect for constant feature", {
   skip_ale_cpp_if_unavailable()
   result = gadget:::cpp_ale_numeric_prepare(rep(1.0, 20L), n_intervals = 5L)

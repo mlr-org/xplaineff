@@ -174,5 +174,7 @@ make_predictor = function(model, predict_fun) {
   if (identical(predict_fun, default_predict_fun)) {
     return(list(predict = function(newdata) predict_newdata_fast_dispatch(model, newdata)))
   }
-  list(predict = function(newdata) as.numeric(predict_fun(model, newdata)))
+  list(predict = function(newdata) {
+    extract_numeric_prediction(predict_fun(model, newdata), expected_n = nrow(newdata))
+  })
 }
