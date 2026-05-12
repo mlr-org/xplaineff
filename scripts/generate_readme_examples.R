@@ -3,11 +3,64 @@
 
 options(warn = -1)
 dir.create("figures", showWarnings = FALSE)
+unlink(Sys.glob("figures/ale_bike_depth*_node*.png"))
+unlink(Sys.glob("figures/pd_bike_depth*_node*.png"))
+unlink(Sys.glob("figures/split_info_*_bike.*"))
 
-library(gadget)
+devtools::load_all(".", quiet = TRUE)
 library(mlr3)
 library(mlr3learners)
 library(ISLR2)
+
+format_readme_value = function(x) {
+  if (length(x) == 0L || is.na(x)) {
+    return("NA")
+  }
+  if (is.numeric(x)) {
+    if (isTRUE(abs(x) >= 1000)) {
+      return(format(round(x), big.mark = "", scientific = FALSE, trim = TRUE))
+    }
+    return(format(round(x, 3L), nsmall = 0L, scientific = FALSE, trim = TRUE))
+  }
+  as.character(x)
+}
+
+write_markdown_table = function(x, path) {
+  cols = names(x)
+  rows = vapply(seq_len(nrow(x)), function(i) {
+    values = vapply(cols, function(col) format_readme_value(x[[col]][i]), character(1L))
+    paste0("| ", paste(values, collapse = " | "), " |")
+  }, character(1L))
+  lines = c(
+    paste0("| ", paste(cols, collapse = " | "), " |"),
+    paste0("|", paste(rep("---", length(cols)), collapse = "|"), "|"),
+    rows
+  )
+  writeLines(lines, path)
+}
+
+plot_file_node_id = function(node_name) {
+  as.integer(sub("^Node_", "", node_name))
+}
+
+save_readme_plots = function(plot_list, prefix) {
+  if (!length(plot_list)) {
+    return(invisible(NULL))
+  }
+  for (depth_name in names(plot_list)) {
+    nodes = plot_list[[depth_name]]
+    if (!is.list(nodes) || !length(nodes)) next
+    depth_id = as.integer(sub("^Depth_", "", depth_name))
+    for (node_name in names(nodes)) {
+      node_id = plot_file_node_id(node_name)
+      fname = sprintf("figures/%s_bike_depth%d_node%d.png", prefix, depth_id, node_id)
+      png(fname, width = 800, height = 500)
+      print(nodes[[node_name]])
+      dev.off()
+    }
+  }
+  invisible(NULL)
+}
 
 # ---- ALE + Bike (README example) ----
 cat("\n=== ALE + Bike ===\n")
@@ -40,6 +93,7 @@ print(split_ale_bike)
 sink("figures/split_info_ale_bike.txt")
 print(split_ale_bike)
 sink()
+write_markdown_table(split_ale_bike, "figures/split_info_ale_bike.md")
 
 # save tree structure plot
 png("figures/ale_bike_tree_structure.png", width = 800, height = 500)
@@ -56,29 +110,13 @@ pl_ale_bike_all = tree_ale_bike$plot(
 )
 
 # save per-node plots
-if (length(pl_ale_bike_all) > 0) {
-  for (d in seq_along(pl_ale_bike_all)) {
-    nodes = pl_ale_bike_all[[d]]
-    if (!is.list(nodes) || !length(nodes)) next
-    for (k in seq_along(nodes)) {
-      fname = sprintf("figures/ale_bike_depth%d_node%d.png", d, k)
-      png(fname, width = 800, height = 500)
-      print(nodes[[k]])
-      dev.off()
-    }
-  }
-}
+save_readme_plots(pl_ale_bike_all, "ale")
 
-# ---- PD + Bike (requires iml, README example) ----
+# ---- PD + Bike (README example) ----
 cat("\n=== PD + Bike ===\n")
-library(iml)
-bike_x = bike_data[, c("hr", "temp", "workingday")]
-bike_y = bike_data$target
-predictor_bike = iml::Predictor$new(model = learner, data = bike_x, y = bike_y)
-effect_bike = iml::FeatureEffects$new(predictor_bike, method = "ice", grid.size = 20)
 
 tree_pd_bike = GadgetTree$new(strategy = PdStrategy$new(), n_split = 2, min_node_size = 50)
-tree_pd_bike$fit(data = bike_data, target_feature_name = "target", effect = effect_bike)
+tree_pd_bike$fit(data = bike_data, target_feature_name = "target", model = learner, n_grid = 20L)
 
 split_pd_bike = tree_pd_bike$extract_split_info()
 cat("Split info (PD Bike):\n")
@@ -86,6 +124,7 @@ print(split_pd_bike)
 sink("figures/split_info_pd_bike.txt")
 print(split_pd_bike)
 sink()
+write_markdown_table(split_pd_bike, "figures/split_info_pd_bike.md")
 
 # save tree structure plot
 png("figures/pd_bike_tree_structure.png", width = 800, height = 500)
@@ -96,23 +135,11 @@ dev.off()
 pl_pd_bike_all = tree_pd_bike$plot(
   data = bike_data,
   target_feature_name = "target",
-  effect = effect_bike,
   features = c("hr", "temp"),
   show_plot = FALSE
 )
 
 # save per-node plots
-if (length(pl_pd_bike_all) > 0) {
-  for (d in seq_along(pl_pd_bike_all)) {
-    nodes = pl_pd_bike_all[[d]]
-    if (!is.list(nodes) || !length(nodes)) next
-    for (k in seq_along(nodes)) {
-      fname = sprintf("figures/pd_bike_depth%d_node%d.png", d, k)
-      png(fname, width = 800, height = 500)
-      print(nodes[[k]])
-      dev.off()
-    }
-  }
-}
+save_readme_plots(pl_pd_bike_all, "pd")
 
 cat("\nDone. Outputs in figures/\n")

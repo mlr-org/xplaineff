@@ -224,7 +224,7 @@ create_plots_for_depth = function(tree, prepared_data, data, target_feature_name
         patchwork::plot_annotation(title = title) &
         theme(plot.title = element_text(hjust = 0.5))
       if (show_plot) print(p)
-      plots_at_depth[[paste0("Node_", node_idx)]] = p
+      plots_at_depth[[paste0("Node_", node$id)]] = p
     }
   }
   plots_at_depth

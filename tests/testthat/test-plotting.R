@@ -103,6 +103,41 @@ test_that("plot_regional_pd is callable with valid prepared_data", {
   expect_true(inherits(p[[1]], "gg"))
 })
 
+test_that("create_plots_for_depth names PD plots with node ids", {
+  prepared_data = list(
+    x1 = data.frame(
+      `0` = c(0.1, 0.2, 0.3, 0.4),
+      `1` = c(0.5, 0.6, 0.7, 0.8),
+      node = c(1L, 1L, 2L, 2L),
+      check.names = FALSE
+    )
+  )
+  data = data.frame(x1 = c(0, 1, 0, 1), y = c(1, 2, 3, 4))
+  tree = list(
+    list(list(id = 1L, depth = 1L, parent = NULL, subset_idx = seq_len(4L))),
+    list(
+      list(id = 4L, depth = 2L, parent = NULL, subset_idx = 1:2),
+      list(id = 5L, depth = 2L, parent = NULL, subset_idx = 3:4)
+    )
+  )
+
+  plots = gadget:::create_plots_for_depth(
+    tree = tree,
+    prepared_data = prepared_data,
+    data = data,
+    target_feature_name = "y",
+    depth_idx = 2L,
+    nodes_to_render = 1:2,
+    color_ice = "lightblue",
+    color_pd = "red",
+    show_plot = FALSE,
+    show_point = FALSE,
+    mean_center = TRUE
+  )
+
+  expect_equal(names(plots), c("Node_4", "Node_5"))
+})
+
 test_that("ALE tree plot returns list", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")

@@ -11,7 +11,8 @@ The **gadget** R package implements the GADGET algorithm for interpretable machi
 ## Features
 
 - **Interaction detection**: Identifies feature interactions by recursively splitting on heterogeneity of effects.
-- **ALE and PD support**: `AleStrategy` for ALE (computed internally from model), `PdStrategy` for PD/ICE (via precomputed effects or internal computation from model).
+- **ALE and PD support**: `AleStrategy` for ALE (computed internally from a model), and `PdStrategy`
+  for PD/ICE (via precomputed effects or internal computation from a model).
 - **Visualization**: Tree structure plots and regional effect curves (ALE, PD, ICE).
 - **Extensible design**: R6-based strategy pattern; plug in custom effect strategies.
 - **Performance**: Core calculations in C++ (Rcpp/RcppArmadillo).
@@ -42,8 +43,12 @@ Requires R6, ggplot2, data.table, Rcpp; see [DESCRIPTION](DESCRIPTION) for detai
   - `effect` (reserved): currently not enabled; reserved for future extension.
   - `n_intervals` (optional): number of intervals for ALE grids (default: `10`).
   - `predict_fun` (optional): custom prediction function; if `NULL`, uses the learner’s default.
-  - `order_method` (optional): how to order **categorical split-feature levels** before searching over binary splits.  
-    Internally, GADGET builds a pairwise distance matrix between levels (using other features), embeds it into 1D, and uses that 1D order for splitting. Supported methods are:
+  - `order_method` (optional): how to order **categorical split-feature levels** before searching over binary splits.
+    Internally, GADGET builds a pairwise distance matrix between levels (using other features), embeds it into
+    1D, and searches ordered-prefix partitions.
+    The learned order is only used to define candidate partitions; plots display category sets rather than
+    implying a semantic ordering.
+    Supported methods are:
     - `"raw"` (default): keep the original factor level order (no reordering).
     - `"mds"`: multi-dimensional scaling on the level-distance matrix, then order levels by the 1D coordinates.
     - `"pca"`: PCA on the level-distance matrix, then order levels by the first principal component.
@@ -54,7 +59,7 @@ Requires R6, ggplot2, data.table, Rcpp; see [DESCRIPTION](DESCRIPTION) for detai
   - `n_grid` (optional): number of grid points for numeric PD/ICE computation (default: `20`).
   - `predict_fun` (optional): custom prediction function for internal PD/ICE computation.
 - **Shared tree arguments (both strategies)**
-  - `feature_set` (optional): subset of features used to compute effects and search for splits.
+  - `feature_set` (optional): subset of features used to compute and plot effects.
   - `split_feature` (optional): subset of features allowed as splitting variables.
   - `impr_par`: minimum required improvement in heterogeneity to accept a split.
   - `min_node_size`: minimum number of observations in each node.
@@ -72,8 +77,9 @@ Splits isolate regions where feature effects are more stable, revealing interact
 
 ## Quick Start
 
-This section shows how to use GADGET with **PD** and **ALE** on the **Bikeshare** data.  
-We first build a PD-based tree (with effects computed via `iml`), then an ALE-based tree (effects computed internally).
+This section shows how to use GADGET with **PD** and **ALE** on the **Bikeshare** data.
+We first build a PD-based tree with internally computed effects, then an ALE-based tree with internally computed
+effects.
 
 ### PD + Bikeshare
 
@@ -124,23 +130,23 @@ tree$plot(
 
 **Sample split info (PD + Bikeshare):**
 
-| id | depth | n_obs | node_type | split_feature | split_value | node_objective | int_imp | int_imp_parent | split_feature_parent | split_value_parent | objective_value_parent | is_final | time  |
-|----|-------|-------|-----------|---------------|-------------|----------------|---------|-----------------|----------------------|--------------------|------------------------|----------|-------|
-| 1  | 1     | 1000  | root      | workingday    | 0           | 19724312.3     | 0.36    | NA              | &lt;NA&gt;               | &lt;NA&gt;               | NA                     | FALSE    | 0.002 |
-| 2  | 2     | 316   | left      | temp          | 0.45        | 4795126.7      | 0.21    | 0.36            | workingday           | 0                  | 19724312              | FALSE    | 0.002 |
-| 3  | 2     | 684   | right     | temp          | 0.51        | 7816195.0      | 0.33    | 0.36            | workingday           | 0                  | 19724312              | FALSE    | 0.002 |
-| 4  | 3     | 148   | left      | &lt;NA&gt;        | &lt;NA&gt;        | 287650.3       | NA      | 0.21            | temp                 | 0.45               | 4795127               | TRUE     | NA    |
-| 5  | 3     | 168   | right     | &lt;NA&gt;        | &lt;NA&gt;        | 286534.8       | NA      | 0.21            | temp                 | 0.45               | 4795127               | TRUE     | NA    |
-| 6  | 3     | 345   | left      | &lt;NA&gt;        | &lt;NA&gt;        | 626584.2       | NA      | 0.33            | temp                 | 0.51               | 7816195               | TRUE     | NA    |
-| 7  | 3     | 339   | right     | &lt;NA&gt;        | &lt;NA&gt;        | 747511.4       | NA      | 0.33            | temp                 | 0.51               | 7816195               | TRUE     | NA    |
+| id | depth | n_obs | node_type | split_feature | split_value | split_levels_left | split_levels_right | node_objective | int_imp | int_imp_parent | split_feature_parent | split_value_parent | split_levels_parent | objective_value_parent | is_final | time |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | 1000 | root | workingday | 1 | NA | NA | 18716935 | 0.37 | NA | NA | NA | NA | NA | FALSE | 0.007 |
+| 2 | 2 | 684 | left | temp | 0.51 | NA | NA | 7283101 | 0.32 | 0.37 | workingday | 1 | NA | 18716935 | FALSE | 0.005 |
+| 3 | 2 | 316 | right | temp | 0.45 | NA | NA | 4558235 | 0.21 | 0.37 | workingday | 1 | NA | 18716935 | FALSE | 0.003 |
+| 4 | 3 | 345 | left | NA | NA | NA | NA | 508581 | NA | 0.32 | temp | 0.51 | NA | 7283101 | TRUE | NA |
+| 5 | 3 | 339 | right | NA | NA | NA | NA | 694544 | NA | 0.32 | temp | 0.51 | NA | 7283101 | TRUE | NA |
+| 6 | 3 | 148 | left | NA | NA | NA | NA | 271085 | NA | 0.21 | temp | 0.45 | NA | 4558235 | TRUE | NA |
+| 7 | 3 | 168 | right | NA | NA | NA | NA | 268604 | NA | 0.21 | temp | 0.45 | NA | 4558235 | TRUE | NA |
 
 **Tree structure and regional PD/ICE plots (root and first split):**
 
 ![PD Bike tree structure](figures/pd_bike_tree_structure.png)
 
 ![PD Bike depth 1, node 1](figures/pd_bike_depth1_node1.png)
-![PD Bike depth 2, node 1](figures/pd_bike_depth2_node1.png)
 ![PD Bike depth 2, node 2](figures/pd_bike_depth2_node2.png)
+![PD Bike depth 2, node 3](figures/pd_bike_depth2_node3.png)
 
 ### ALE + Bikeshare
 
@@ -190,28 +196,29 @@ tree$plot(
 
 **Sample split info (ALE + Bikeshare):**
 
-| id | depth | n_obs | node_type | split_feature | split_value | node_objective | int_imp | int_imp_parent | int_imp_hr | int_imp_temp | int_imp_workingday | split_feature_parent | split_value_parent | objective_value_parent | is_final | time  |
-|----|-------|-------|-----------|---------------|-------------|----------------|---------|-----------------|------------|--------------|---------------------|----------------------|--------------------|------------------------|----------|-------|
-| 1  | 1     | 1000  | root      | workingday    | 0           | 2220499.170    | 0.90    | NA              | 0.68       | 0.17         | 1                   | &lt;NA&gt;               | &lt;NA&gt;               | NA                     | FALSE    | 0.006 |
-| 2  | 2     | 316   | left      | temp          | 0.47        | 49879.915      | 0.02    | 0.90            | 0.04       | 0.27         | 0                   | workingday           | 0                  | 2220499.17             | FALSE    | 0.004 |
-| 3  | 2     | 684   | right     | temp          | 0.47        | 167776.262     | 0.07    | 0.90            | 0.21       | 0.55         | 0                   | workingday           | 0                  | 2220499.17             | FALSE    | 0.004 |
-| 4  | 3     | 160   | left      | &lt;NA&gt;        | &lt;NA&gt;        | 2978.705       | NA      | 0.02            | NA         | NA           | NA                  | temp                 | 0.47               | 49879.91               | TRUE     | NA    |
-| 5  | 3     | 156   | right     | &lt;NA&gt;        | &lt;NA&gt;        | 2944.015       | NA      | 0.02            | NA         | NA           | NA                  | temp                 | 0.47               | 49879.91               | TRUE     | NA    |
-| 6  | 3     | 316   | left      | &lt;NA&gt;        | &lt;NA&gt;        | 6558.701       | NA      | 0.07            | NA         | NA           | NA                  | temp                 | 0.47               | 167776.26              | TRUE     | NA    |
-| 7  | 3     | 368   | right     | &lt;NA&gt;        | &lt;NA&gt;        | 16683.457      | NA      | 0.07            | NA         | NA           | NA                  | temp                 | 0.47               | 167776.26              | TRUE     | NA    |
+| id | depth | n_obs | node_type | split_feature | split_value | split_levels_left | split_levels_right | node_objective | int_imp | int_imp_parent | int_imp_hr | int_imp_temp | int_imp_workingday | split_feature_parent | split_value_parent | split_levels_parent | objective_value_parent | is_final | time |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | 1000 | root | workingday | 0 | NA | NA | 2220499 | 0.9 | NA | 0.68 | 0.17 | 1 | NA | NA | NA | NA | FALSE | 0.048 |
+| 2 | 2 | 316 | left | temp | 0.47 | NA | NA | 49880 | 0.02 | 0.9 | 0.04 | 0.27 | 0 | workingday | 0 | {0} | 2220499 | FALSE | 0.042 |
+| 3 | 2 | 684 | right | temp | 0.47 | NA | NA | 167776 | 0.07 | 0.9 | 0.21 | 0.55 | 0 | workingday | 0 | {1} | 2220499 | FALSE | 0.005 |
+| 4 | 3 | 160 | left | NA | NA | NA | NA | 2979 | NA | 0.02 | NA | NA | NA | temp | 0.47 | NA | 49880 | TRUE | NA |
+| 5 | 3 | 156 | right | NA | NA | NA | NA | 2944 | NA | 0.02 | NA | NA | NA | temp | 0.47 | NA | 49880 | TRUE | NA |
+| 6 | 3 | 316 | left | NA | NA | NA | NA | 6559 | NA | 0.07 | NA | NA | NA | temp | 0.47 | NA | 167776 | TRUE | NA |
+| 7 | 3 | 368 | right | NA | NA | NA | NA | 16683 | NA | 0.07 | NA | NA | NA | temp | 0.47 | NA | 167776 | TRUE | NA |
 
 **Tree structure and regional ALE plots (root and first split):**
 
 ![ALE Bike tree structure](figures/ale_bike_tree_structure.png)
 
 ![ALE Bike depth 1, node 1](figures/ale_bike_depth1_node1.png)
-![ALE Bike depth 2, node 1](figures/ale_bike_depth2_node1.png)
 ![ALE Bike depth 2, node 2](figures/ale_bike_depth2_node2.png)
+![ALE Bike depth 2, node 3](figures/ale_bike_depth2_node3.png)
 
 ## More plot options
 
 The `tree$plot()` method is flexible and can be used to drill down into specific depths, nodes, and features.
-It always returns a nested list of `ggplot2` objects indexed by depth and node.
+It always returns a nested list of plot objects named by depth and by the actual tree node id, for example
+`pl$Depth_2$Node_3`.
 
 - **Controlling which nodes to plot**
 
@@ -233,8 +240,8 @@ It always returns a nested list of `ggplot2` objects indexed by depth and node.
     node_id = 3  # see node IDs in tree$plot_tree_structure()
   )
 
-  # Inspect or manually print a single ggplot object
-  print(pl[[2]][[1]])  # depth 2, first node
+  # Inspect or manually print a single plot object
+  print(pl$Depth_2$Node_3)
   ```
 
 - **Selecting features and centering**
@@ -267,7 +274,7 @@ In practice, a common workflow is:
 
 1. Use `tree$plot_tree_structure()` and `tree$extract_split_info()` to identify interesting regions.
 2. Call `tree$plot()` with `depth` / `node_id` / `features` to inspect those regions.
-3. Manually inspect or save individual plots with `print(pl[[d]][[k]])`.
+3. Manually inspect or save individual plots with named entries such as `print(pl$Depth_2$Node_3)`.
 
 ## Documentation
 
