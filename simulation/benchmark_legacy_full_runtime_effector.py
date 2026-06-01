@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """effector efficiency benchmark: Global PDP, Global ALE, Regional PDP, Regional ALE.
 Two model types: RF (sklearn) and toy (analytic DGP).
-Run: python simulation/benchmark_effector.py [--datadir DIR] [--outdir DIR] [--reps N] [--predict-reps N]
+Run: python simulation/benchmark_legacy_full_runtime_effector.py [--datadir DIR] [--outdir DIR] [--reps N] [--predict-reps N]
 Requires: pip install effector numpy pandas scikit-learn
 """
 
@@ -21,14 +21,14 @@ except ImportError:
     sys.stderr.write("effector not installed. Run: pip install effector\n")
     sys.exit(1)
 
-# Defaults match the **small** preset in efficiency_benchmark_plan.md §4.5 / run_benchmark.sh.
+# Defaults match the **small** preset in efficiency_benchmark_plan.md §4.5 / run_global_r_runtime.sh.
 # Override via --N-vec / --D-vec / --fixed-N / --fixed-D (large preset uses larger N, D grids).
 N_VEC = [500, 1000, 5000]
 D_VEC = [5, 10, 20]
 N_GRID_VEC = [10, 20, 50]
 N_INT_VEC = [10, 20, 50]
 
-# Explicit RF configuration for parity with simulation/benchmark_gadget.R.
+# Explicit RF configuration for parity with simulation/benchmark_legacy_full_runtime_gadget.R.
 # Keep this dict and R rf_config synchronized.
 # Notes on non-1:1 mapping:
 # - `min_samples_split` has no exact ranger equivalent (closest control is
@@ -231,8 +231,8 @@ def run_predict_baseline(datadir, outdir, predict_reps):
             })
     if baseline:
         df = pd.DataFrame(baseline)
-        df.to_csv(os.path.join(outdir, "predict_baseline_effector.csv"), index=False)
-        print("Written: predict_baseline_effector.csv", flush=True)
+        df.to_csv(os.path.join(outdir, "legacy_full_predict_baseline_effector.csv"), index=False)
+        print("Written: legacy_full_predict_baseline_effector.csv", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +266,7 @@ def run_sweep(method_name, model_type, datadir, reps, fixed_N, fixed_D):
 
         Dict runners (regional methods) emit one row per key with the key appended to
         the method name, e.g. "regional_pdp_split" and "regional_pdp_total".
-        This mirrors the named-vector expansion in benchmark_gadget.R's run_sweep.
+        This mirrors the named-vector expansion in benchmark_legacy_full_runtime_gadget.R's run_sweep.
         """
         if isinstance(t_raw, dict):
             for nm, t in t_raw.items():
@@ -356,9 +356,9 @@ def run_sweep(method_name, model_type, datadir, reps, fixed_N, fixed_D):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--datadir", default="simulation/data/benchmark")
-    p.add_argument("--outdir", default="simulation/results/benchmark")
-    p.add_argument("--reps", type=int, default=5)
+    p.add_argument("--datadir", default="simulation/data/global_r_runtime")
+    p.add_argument("--outdir", default="simulation/results/legacy_full_runtime")
+    p.add_argument("--reps", type=int, default=20)
     p.add_argument("--predict-reps", type=int, default=20)
     p.add_argument("--fixed-N", type=int, default=1000)
     p.add_argument("--fixed-D", type=int, default=10)
@@ -398,13 +398,13 @@ def main():
     rf_rows = []
     for method_name in METHODS:
         rf_rows.extend(run_sweep(method_name, "rf", args.datadir, args.reps, args.fixed_N, args.fixed_D))
-    write_results(rf_rows, "benchmark_effector_rf.csv")
+    write_results(rf_rows, "legacy_full_runtime_effector_rf.csv")
 
     print("=== Toy model benchmarks ===", flush=True)
     toy_rows = []
     for method_name in METHODS:
         toy_rows.extend(run_sweep(method_name, "toy", args.datadir, args.reps, args.fixed_N, args.fixed_D))
-    write_results(toy_rows, "benchmark_effector_toy.csv")
+    write_results(toy_rows, "legacy_full_runtime_effector_toy.csv")
 
     print("Done.", flush=True)
 

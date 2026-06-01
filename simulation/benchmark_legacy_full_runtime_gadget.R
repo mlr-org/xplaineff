@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # GADGET efficiency benchmark: Global PDP, Global ALE, Regional PDP, Regional ALE.
 # Two model types: RF (ranger) and toy (analytic DGP).
-# Run: Rscript simulation/benchmark_gadget.R [--datadir DIR] [--outdir DIR] [--reps N] [--predict-reps N]
+# Run: Rscript simulation/benchmark_legacy_full_runtime_gadget.R [--datadir DIR] [--outdir DIR] [--reps N] [--predict-reps N]
 #                                         [--fail-fast true|false|1|0|yes|no|...]
 
 if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1) != "Package: gadget") {
@@ -22,7 +22,7 @@ if (requireNamespace("devtools", quietly = TRUE)) {
 library(data.table)
 library(ranger)
 
-# Explicit RF configuration used for parity with simulation/benchmark_effector.py.
+# Explicit RF configuration used for parity with simulation/benchmark_legacy_full_runtime_effector.py.
 # Keep this list and Python RF_CONFIG synchronized.
 # Notes on non-1:1 mapping:
 # - sklearn `min_samples_split` has no exact ranger equivalent (ranger splits are
@@ -44,9 +44,9 @@ rf_config <- list(
 )
 
 args <- commandArgs(trailingOnly = TRUE)
-datadir <- "simulation/data/benchmark"
-outdir <- "simulation/results/benchmark"
-reps <- 5L
+datadir <- "simulation/data/global_r_runtime"
+outdir <- "simulation/results/legacy_full_runtime"
+reps <- 20L
 predict_reps <- 20L
 fixed_N <- 1000L
 fixed_D <- 10L
@@ -96,7 +96,7 @@ if (use_mlr3_rf_for_benchmark) {
   )
 }
 
-# Defaults match the **small** preset in efficiency_benchmark_plan.md §4.5 / run_benchmark.sh.
+# Defaults match the **small** preset in efficiency_benchmark_plan.md §4.5 / run_global_r_runtime.sh.
 # Override via --N-vec / --D-vec / --fixed-N / --fixed-D / --n-grid-vec / --n-int-vec.
 N_vec <- c(500L, 1000L, 5000L)
 D_vec <- c(5L, 10L, 20L)
@@ -274,8 +274,8 @@ run_predict_baseline <- function() {
   }
   if (length(baseline) > 0) {
     df <- do.call(rbind, baseline)
-    write.csv(df, file.path(outdir, "predict_baseline_gadget.csv"), row.names = FALSE)
-    message("Written: predict_baseline_gadget.csv")
+    write.csv(df, file.path(outdir, "legacy_full_predict_baseline_gadget.csv"), row.names = FALSE)
+    message("Written: legacy_full_predict_baseline_gadget.csv")
   }
 }
 
@@ -458,6 +458,6 @@ write_results <- function(res_list, filename) {
   message("Written: ", filename)
 }
 
-write_results(results_rf, "benchmark_gadget_rf.csv")
-write_results(results_toy, "benchmark_gadget_toy.csv")
+write_results(results_rf, "legacy_full_runtime_gadget_rf.csv")
+write_results(results_toy, "legacy_full_runtime_gadget_toy.csv")
 message("Done.")

@@ -51,7 +51,7 @@ def variant_threshold(variant: str) -> float | None:
 def load_csv(datadir: str, N: int, D: int, variant: str, seed: int) -> tuple[pd.DataFrame, np.ndarray]:
     fn = os.path.join(datadir, f"acc_N{N}_D{D}_{variant}_seed{seed}.csv")
     if not os.path.isfile(fn):
-        sys.stderr.write(f"Missing dataset {fn}. Run: Rscript simulation/generate_accuracy_data.R\n")
+        sys.stderr.write(f"Missing dataset {fn}. Run: Rscript simulation/generate_structural_recovery_data.R\n")
         sys.exit(1)
 
     df = pd.read_csv(fn)
@@ -207,8 +207,8 @@ def run_regional_ale(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--datadir", default="simulation/data/accuracy")
-    parser.add_argument("--outdir", default="simulation/results/accuracy")
+    parser.add_argument("--datadir", default="simulation/data/structural_recovery")
+    parser.add_argument("--outdir", default="simulation/results/structural_recovery")
     parser.add_argument("--n-seeds", type=int, default=N_SEEDS)
     parser.add_argument("--N-vec", default=None)
     parser.add_argument("--D-vec", default=None)
@@ -284,7 +284,7 @@ def main() -> None:
                         }
                     )
 
-    outp = os.path.join(args.outdir, "accuracy_effector.csv")
+    outp = os.path.join(args.outdir, "structural_recovery_effector.csv")
     with open(outp, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()

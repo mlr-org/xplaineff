@@ -16,8 +16,8 @@ Sys.setenv(
 )
 
 args = commandArgs(trailingOnly = TRUE)
-indir = "simulation/results/benchmark"
-figdir = "simulation/results/figures"
+indir = "simulation/results/global_r_runtime"
+figdir = "simulation/results/paper_figures"
 fixed_D = 10L
 model_types = c("rf", "toy")
 include_mlr3 = FALSE
@@ -67,18 +67,18 @@ load_csv = function(filename) {
 
 csv_files = list()
 if ("rf" %in% model_types) {
-  csv_files = c(csv_files, list(load_csv("benchmark_global_r_rf.csv")))
+  csv_files = c(csv_files, list(load_csv("global_r_runtime_rf.csv")))
 }
 if ("toy" %in% model_types) {
-  csv_files = c(csv_files, list(load_csv("benchmark_global_r_toy.csv")))
+  csv_files = c(csv_files, list(load_csv("global_r_runtime_toy.csv")))
 }
 if ("mlr3_rf" %in% model_types || isTRUE(include_mlr3)) {
-  csv_files = c(csv_files, list(load_csv("benchmark_global_r_mlr3_rf.csv")))
+  csv_files = c(csv_files, list(load_csv("global_r_runtime_mlr3_rf.csv")))
 }
 dt = rbindlist(csv_files, use.names = TRUE, fill = TRUE)
 
 if (nrow(dt) == 0L) {
-  stop("No benchmark data found. Run simulation/run_benchmark.sh first.")
+  stop("No benchmark data found. Run simulation/run_global_r_runtime.sh first.")
 }
 
 if (!("status" %in% names(dt))) dt[, status := "ok"]
@@ -105,6 +105,8 @@ if (nrow(dt_ok) == 0L) {
 
 summary_dt = dt_ok[, .(
   time_median = stats::median(time_sec),
+  time_q25 = stats::quantile(time_sec, probs = 0.25, names = FALSE, type = 7),
+  time_q75 = stats::quantile(time_sec, probs = 0.75, names = FALSE, type = 7),
   time_min = min(time_sec),
   time_max = max(time_sec),
   time_mean = mean(time_sec),
@@ -135,8 +137,8 @@ plot_runtime = function(data, title, filename) {
   data[, model_label := fifelse(model_type == "rf", "RF model", "Toy model")]
   data[, panel := ifelse(module == "global_r", paste(effect, model_label, sep = " / "), effect)]
   data[, time_median_plot := pmax(time_median, .Machine$double.eps)]
-  data[, time_min_plot := pmax(time_min, .Machine$double.eps)]
-  data[, time_max_plot := pmax(time_max, .Machine$double.eps)]
+  data[, time_q25_plot := pmax(time_q25, .Machine$double.eps)]
+  data[, time_q75_plot := pmax(time_q75, .Machine$double.eps)]
 
   labels = unique(data$label)
   colors = palette_values[labels]
@@ -149,7 +151,7 @@ plot_runtime = function(data, title, filename) {
     data,
     aes(x = N, y = time_median_plot, color = label, fill = label, group = label)
   ) +
-    geom_ribbon(aes(ymin = time_min_plot, ymax = time_max_plot), alpha = 0.16, colour = NA) +
+    geom_ribbon(aes(ymin = time_q25_plot, ymax = time_q75_plot), alpha = 0.16, colour = NA) +
     geom_line(linewidth = 0.8) +
     geom_point(size = 1.8) +
     facet_wrap(~ panel, scales = "free_y", ncol = 2L) +

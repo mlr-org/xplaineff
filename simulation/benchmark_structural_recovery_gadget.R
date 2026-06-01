@@ -19,8 +19,8 @@ suppressPackageStartupMessages({
 })
 
 args = commandArgs(trailingOnly = TRUE)
-outdir = "simulation/results/accuracy"
-datadir = "simulation/data/accuracy"
+outdir = "simulation/results/structural_recovery"
+datadir = "simulation/data/structural_recovery"
 n_seeds = 30L
 N_vec = c(200L, 500L, 1000L, 5000L)
 D_vec = c(5L, 10L, 20L)
@@ -78,7 +78,7 @@ variant_threshold = function(variant) {
 load_accuracy_csv = function(datadir, N, D, variant, seed) {
   fn = file.path(datadir, sprintf("acc_N%d_D%d_%s_seed%d.csv", N, D, variant, seed))
   if (!file.exists(fn)) {
-    stop("Missing dataset ", fn, ". Run: Rscript simulation/generate_accuracy_data.R", call. = FALSE)
+    stop("Missing dataset ", fn, ". Run: Rscript simulation/generate_structural_recovery_data.R", call. = FALSE)
   }
   dat = as.data.frame(data.table::fread(fn))
   if (variant == "cat" && !is.factor(dat$x3)) {
@@ -268,6 +268,6 @@ for (variant in variants) {
 }
 
 out = rbindlist(rows, fill = TRUE)
-fout = file.path(outdir, "accuracy_gadget.csv")
+fout = file.path(outdir, "structural_recovery_gadget.csv")
 fwrite(out, fout)
 message("Written: ", fout)

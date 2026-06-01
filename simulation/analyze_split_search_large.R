@@ -1,5 +1,5 @@
 library(data.table)
-dt = fread("simulation/results/benchmark_large/summary.csv")
+dt = fread("simulation/results/split_search_runtime_large/summary.csv")
 global = dt[grepl("^global", method)]
 global[, pkg := fcase(
   package == "effector", "effector",

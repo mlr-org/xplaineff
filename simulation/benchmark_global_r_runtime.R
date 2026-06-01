@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Global PDP/ALE benchmark against R packages.
 # Run from package root:
-# Rscript simulation/benchmark_global_r.R --datadir simulation/data/benchmark --outdir simulation/results/benchmark
+# Rscript simulation/benchmark_global_r_runtime.R --datadir simulation/data/global_r_runtime --outdir simulation/results/global_r_runtime
 
 Sys.setenv(
   OMP_NUM_THREADS = Sys.getenv("OMP_NUM_THREADS", "1"),
@@ -54,10 +54,10 @@ library(data.table)
 setDTthreads(1L)
 
 args = commandArgs(trailingOnly = TRUE)
-datadir = "simulation/data/benchmark"
-outdir = "simulation/results/benchmark"
-reps = 3L
-predict_reps = 10L
+datadir = "simulation/data/global_r_runtime"
+outdir = "simulation/results/global_r_runtime"
+reps = 20L
+predict_reps = 20L
 N_vec = c(500L, 1000L, 2500L, 5000L)
 D = 10L
 n_grid = 20L
@@ -438,8 +438,8 @@ run_predict_baseline = function() {
   }
   if (length(rows)) {
     out = do.call(rbind, rows)
-    write.csv(out, file.path(outdir, "predict_baseline_r.csv"), row.names = FALSE)
-    message("Written: predict_baseline_r.csv")
+    write.csv(out, file.path(outdir, "global_r_predict_baseline.csv"), row.names = FALSE)
+    message("Written: global_r_predict_baseline.csv")
   }
 }
 
@@ -447,18 +447,18 @@ if ("rf" %in% model_types) {
   message("=== RF prediction baseline ===")
   run_predict_baseline()
   rf_rows = run_model("rf")
-  write.csv(do.call(rbind, rf_rows), file.path(outdir, "benchmark_global_r_rf.csv"), row.names = FALSE)
-  message("Written: benchmark_global_r_rf.csv")
+  write.csv(do.call(rbind, rf_rows), file.path(outdir, "global_r_runtime_rf.csv"), row.names = FALSE)
+  message("Written: global_r_runtime_rf.csv")
 }
 
 if ("toy" %in% model_types) {
   toy_rows = run_model("toy")
-  write.csv(do.call(rbind, toy_rows), file.path(outdir, "benchmark_global_r_toy.csv"), row.names = FALSE)
-  message("Written: benchmark_global_r_toy.csv")
+  write.csv(do.call(rbind, toy_rows), file.path(outdir, "global_r_runtime_toy.csv"), row.names = FALSE)
+  message("Written: global_r_runtime_toy.csv")
 }
 
 if ("mlr3_rf" %in% model_types) {
   mlr3_rows = run_model("mlr3_rf")
-  write.csv(do.call(rbind, mlr3_rows), file.path(outdir, "benchmark_global_r_mlr3_rf.csv"), row.names = FALSE)
-  message("Written: benchmark_global_r_mlr3_rf.csv")
+  write.csv(do.call(rbind, mlr3_rows), file.path(outdir, "global_r_runtime_mlr3_rf.csv"), row.names = FALSE)
+  message("Written: global_r_runtime_mlr3_rf.csv")
 }

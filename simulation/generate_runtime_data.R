@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
 # Generate shared benchmark data.
 # X ~ Uniform(-1,1), y from balanced DGP with x3 as moderator.
-# Run: Rscript simulation/generate_benchmark_data.R [--outdir DIR] [--seed N] [--N-vec "..."] [--D-vec "..."]
-# Defaults match the **small** preset; `run_benchmark.sh large` passes larger N, D vectors and
-# `--outdir simulation/data/benchmark_large` so outputs do not overwrite a small run.
+# Run: Rscript simulation/generate_runtime_data.R [--outdir DIR] [--seed N] [--N-vec "..."] [--D-vec "..."]
+# Defaults match the current global R runtime benchmark.
+# Pass `--outdir simulation/data/split_search_runtime_large` with larger grids to recreate the archived large runtime data.
 
 args <- commandArgs(trailingOnly = TRUE)
-outdir <- "simulation/data/benchmark"
+outdir <- "simulation/data/global_r_runtime"
 seed <- 21L
 i <- 1
 while (i <= length(args)) {

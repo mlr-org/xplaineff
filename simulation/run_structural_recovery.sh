@@ -5,9 +5,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 all_args=("$@")
-datadir="simulation/data/accuracy"
-outdir="simulation/results/accuracy"
-figdir="simulation/results/figures"
+datadir="simulation/data/structural_recovery"
+outdir="simulation/results/structural_recovery"
+figdir="simulation/results/paper_figures"
 paper_figdir="paper/figures"
 
 while [[ $# -gt 0 ]]; do
@@ -39,27 +39,27 @@ mkdir -p "$MPLCONFIGDIR"
 
 echo "1. Generating shared accuracy datasets..."
 if [[ ${#all_args[@]} -gt 0 ]]; then
-  Rscript simulation/generate_accuracy_data.R "${all_args[@]}"
+  Rscript simulation/generate_structural_recovery_data.R "${all_args[@]}"
 else
-  Rscript simulation/generate_accuracy_data.R
+  Rscript simulation/generate_structural_recovery_data.R
 fi
 
 echo "2. GADGET accuracy..."
 if [[ ${#all_args[@]} -gt 0 ]]; then
-  Rscript simulation/benchmark_accuracy_gadget.R "${all_args[@]}"
+  Rscript simulation/benchmark_structural_recovery_gadget.R "${all_args[@]}"
 else
-  Rscript simulation/benchmark_accuracy_gadget.R
+  Rscript simulation/benchmark_structural_recovery_gadget.R
 fi
 
 echo "3. effector accuracy..."
 if [[ ${#all_args[@]} -gt 0 ]]; then
-  python3 -u simulation/benchmark_accuracy_effector.py "${all_args[@]}"
+  python3 -u simulation/benchmark_structural_recovery_effector.py "${all_args[@]}"
 else
-  python3 -u simulation/benchmark_accuracy_effector.py
+  python3 -u simulation/benchmark_structural_recovery_effector.py
 fi
 
 echo "4. Summarize and refresh paper figures..."
-Rscript simulation/summarize_accuracy.R \
+Rscript simulation/summarize_structural_recovery.R \
   --indir "$outdir" \
   --figdir "$figdir" \
   --paper-figdir "$paper_figdir"

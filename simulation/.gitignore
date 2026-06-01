@@ -17,5 +17,8 @@ results/**/*.csv
 results/**/*.log
 results/**/*.txt
 results/*.txt
+results/*probe*/
+results/*smoke*/
+results/benchmark_check_*/
 
 .DS_Store

@@ -2,8 +2,8 @@
 # Aggregate the structural recovery benchmark and write summary figures.
 
 args = commandArgs(trailingOnly = TRUE)
-indir = "simulation/results/accuracy"
-figdir = "simulation/results/figures"
+indir = "simulation/results/structural_recovery"
+figdir = "simulation/results/paper_figures"
 paper_figdir = "paper/figures"
 
 i = 1L
@@ -44,8 +44,8 @@ save_plot = function(filename, plot_obj, width, height) {
   }
 }
 
-gadget_res = fread(file.path(indir, "accuracy_gadget.csv"))
-effector_res = fread(file.path(indir, "accuracy_effector.csv"))
+gadget_res = fread(file.path(indir, "structural_recovery_gadget.csv"))
+effector_res = fread(file.path(indir, "structural_recovery_effector.csv"))
 dt = rbind(gadget_res, effector_res, fill = TRUE)
 
 dt[, split_feat_correct := as.logical(split_feat_correct)]
@@ -64,7 +64,7 @@ agg = dt[, .(
   n_rep = .N
 ), by = .(method, variant, N, D)]
 
-summary_path = file.path(indir, "accuracy_summary.csv")
+summary_path = file.path(indir, "structural_recovery_summary.csv")
 fwrite(agg, summary_path)
 message("Written: ", summary_path)
 

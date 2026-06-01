@@ -3,7 +3,7 @@
 # Run from the package root.
 
 args = commandArgs(trailingOnly = TRUE)
-outdir = "simulation/data/accuracy"
+outdir = "simulation/data/structural_recovery"
 n_seeds = 30L
 N_vec = c(200L, 500L, 1000L, 5000L)
 D_vec = c(5L, 10L, 20L)
