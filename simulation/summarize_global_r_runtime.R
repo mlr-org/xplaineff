@@ -133,12 +133,26 @@ palette_values = c(
 plot_runtime = function(data, title, filename) {
   if (nrow(data) == 0L) return(invisible(NULL))
   data = copy(data)
+  data[, label := fifelse(
+    package == "gadget" & impl == "r",
+    "gadget-r",
+    package
+  )]
   data[, effect := fifelse(grepl("pdp", method), "PDP", "ALE")]
   data[, model_label := fifelse(model_type == "rf", "RF model", "Toy model")]
   data[, panel := ifelse(module == "global_r", paste(effect, model_label, sep = " / "), effect)]
-  data[, time_median_plot := pmax(time_median, .Machine$double.eps)]
-  data[, time_q25_plot := pmax(time_q25, .Machine$double.eps)]
-  data[, time_q75_plot := pmax(time_q75, .Machine$double.eps)]
+  data[, panel := factor(panel, levels = c(
+    "ALE / RF model",
+    "ALE / Toy model",
+    "PDP / RF model",
+    "PDP / Toy model"
+  ))]
+  data[, N_factor := factor(N, levels = sort(unique(N)))]
+  data[, time_sec_plot := pmax(time_sec, .Machine$double.eps)]
+
+  median_dt = data[, .(
+    time_median_plot = pmax(stats::median(time_sec), .Machine$double.eps)
+  ), by = .(label, panel, N_factor)]
 
   labels = unique(data$label)
   colors = palette_values[labels]
@@ -149,30 +163,43 @@ plot_runtime = function(data, title, filename) {
 
   p = ggplot(
     data,
-    aes(x = N, y = time_median_plot, color = label, fill = label, group = label)
+    aes(x = N_factor, y = time_sec_plot, color = label, fill = label, group = interaction(N_factor, label))
   ) +
-    geom_ribbon(aes(ymin = time_q25_plot, ymax = time_q75_plot), alpha = 0.16, colour = NA) +
-    geom_line(linewidth = 0.8) +
-    geom_point(size = 1.8) +
+    geom_boxplot(
+      position = position_dodge2(width = 0.78, preserve = "single"),
+      width = 0.62,
+      outlier.size = 0.8,
+      outlier.alpha = 0.55,
+      linewidth = 0.35,
+      alpha = 0.72
+    ) +
+    geom_line(
+      data = median_dt,
+      aes(x = N_factor, y = time_median_plot, color = label, group = label),
+      position = position_dodge(width = 0.78),
+      linewidth = 0.45,
+      alpha = 0.75,
+      inherit.aes = FALSE
+    ) +
     facet_wrap(~ panel, scales = "free_y", ncol = 2L) +
-    scale_x_log10(labels = comma, breaks = sort(unique(data$N))) +
-    scale_y_log10(labels = label_number(accuracy = 0.001, trim = TRUE)) +
+    scale_y_log10(labels = label_number(accuracy = 0.01, trim = TRUE)) +
     scale_color_manual(values = colors, breaks = labels, drop = FALSE) +
-    scale_fill_manual(values = alpha(colors, 0.25), breaks = labels, drop = FALSE, guide = "none") +
-    labs(title = title, x = "Sample size N", y = "Median runtime (s, log scale)", color = NULL) +
-    theme_bw(base_size = 10) +
+    scale_fill_manual(values = colors, breaks = labels, drop = FALSE) +
+    labs(x = "N", y = "Wall-clock time (s, log scale)", color = NULL, fill = NULL) +
+    theme_minimal(base_size = 12) +
     theme(
       legend.position = "bottom",
       panel.grid.minor = element_blank(),
-      plot.title = element_text(face = "bold", hjust = 0.5)
+      strip.text = element_text(face = "bold"),
+      axis.text.x = element_text(angle = 0, hjust = 0.5)
     )
 
-  ggsave(file.path(figdir, filename), p, width = 8.5, height = 7, dpi = 180)
+  ggsave(file.path(figdir, filename), p, width = 10, height = 7, dpi = 300)
   message("Written: ", file.path(figdir, filename))
 }
 
 plot_runtime(
-  summary_dt[module == "global_r" & D == fixed_D],
+  dt_ok[module == "global_r" & D == fixed_D],
   "Global feature-effect computation in R",
   "global_r_methods.png"
 )
