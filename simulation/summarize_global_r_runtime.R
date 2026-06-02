@@ -145,12 +145,16 @@ plot_runtime = function(data, title, filename) {
     "PDP / Toy model"
   ))]
   data[, sweep_label := fcase(
-    sub_experiment == "vs_N", "Vary N",
-    sub_experiment == "vs_D", "Vary D",
-    sub_experiment == "vs_res", "Vary resolution",
+    sub_experiment == "vs_N", "Sample size N",
+    sub_experiment == "vs_D", "Feature dimension D",
+    sub_experiment == "vs_res", "PDP grid / ALE intervals",
     default = sub_experiment
   )]
-  data[, sweep_label := factor(sweep_label, levels = c("Vary N", "Vary D", "Vary resolution"))]
+  data[, sweep_label := factor(sweep_label, levels = c(
+    "Sample size N",
+    "Feature dimension D",
+    "PDP grid / ALE intervals"
+  ))]
   data[, x_value := fcase(
     sub_experiment == "vs_N", as.numeric(N),
     sub_experiment == "vs_D", as.numeric(D),
@@ -180,7 +184,7 @@ plot_runtime = function(data, title, filename) {
     scale_y_log10(labels = label_number(accuracy = 0.001, trim = TRUE)) +
     scale_color_manual(values = colors, breaks = labels, drop = FALSE) +
     scale_fill_manual(values = alpha(colors, 0.25), breaks = labels, drop = FALSE, guide = "none") +
-    labs(title = title, x = "Sweep variable value", y = "Median runtime (s, log scale)", color = NULL) +
+    labs(title = title, x = "Value of varied parameter", y = "Median runtime (s, log scale)", color = NULL) +
     theme_bw(base_size = 10) +
     theme(
       legend.position = "bottom",

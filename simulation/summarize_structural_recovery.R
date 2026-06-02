@@ -31,9 +31,15 @@ library(data.table)
 library(ggplot2)
 
 variant_labels = c(
-  num_0 = "Num-0",
-  num_04 = "Num-0.4",
-  cat = "Cat"
+  num_0 = "Numeric, no distractor",
+  num_04 = "Numeric, weak distractor",
+  cat = "Categorical moderator"
+)
+method_labels = c(
+  gadget_pdp = "gadget PDP",
+  gadget_ale = "gadget ALE",
+  effector_rpdp = "effector RegionalPDP",
+  effector_rale = "effector RegionalALE"
 )
 method_levels = c("gadget_pdp", "gadget_ale", "effector_rpdp", "effector_rale")
 
@@ -52,7 +58,9 @@ dt[, split_feat_correct := as.logical(split_feat_correct)]
 dt[, split_pt_error := as.numeric(split_pt_error)]
 dt[, node_acc := as.numeric(node_acc)]
 dt[, method := factor(method, levels = method_levels)]
+dt[, method_label := factor(method_labels[as.character(method)], levels = unname(method_labels))]
 dt[, variant_label := factor(variant_labels[variant], levels = unname(variant_labels))]
+dt[, d_label := factor(sprintf("D = %s", D), levels = sprintf("D = %s", sort(unique(D))))]
 
 agg = dt[, .(
   split_feat_hit_mean = mean(split_feat_correct, na.rm = TRUE),
@@ -72,16 +80,16 @@ if (nrow(dt) == 0L) {
   quit(save = "no")
 }
 
-p_hit = ggplot(dt, aes(x = N, y = as.integer(split_feat_correct), color = method)) +
+p_hit = ggplot(dt, aes(x = N, y = as.integer(split_feat_correct), color = method_label)) +
   geom_jitter(height = 0.04, width = 0, alpha = 0.15, size = 0.6) +
   stat_summary(fun = mean, geom = "line", aes(group = interaction(method, variant)), linewidth = 0.8) +
-  facet_grid(variant_label ~ D, labeller = label_both) +
+  facet_grid(variant_label ~ d_label) +
   scale_x_log10() +
   coord_cartesian(ylim = c(0, 1)) +
   labs(
-    title = "Oracle moderator recovery for the x2 regional effect",
-    subtitle = "A hit means that the first split feature is x3",
-    x = "N",
+    title = expression(paste("Oracle moderator recovery for the regional ", x[2], " effect")),
+    subtitle = expression(paste("A hit means that the root split feature is ", x[3])),
+    x = "Sample size N",
     y = "Hit rate",
     color = "Method"
   ) +
@@ -92,17 +100,17 @@ save_plot("accuracy_hit_rate.png", p_hit, width = 9, height = 7)
 
 dt_num = dt[variant %in% c("num_0", "num_04") & is.finite(split_pt_error)]
 if (nrow(dt_num) > 0L) {
-  p_mae = ggplot(dt_num, aes(x = N, y = split_pt_error, color = method)) +
+  p_mae = ggplot(dt_num, aes(x = N, y = split_pt_error, color = method_label)) +
     geom_point(alpha = 0.12, size = 0.5) +
     stat_summary(fun = median, geom = "line", aes(group = interaction(method, variant)), linewidth = 0.8) +
-    facet_grid(variant_label ~ D, labeller = label_both) +
+    facet_grid(variant_label ~ d_label) +
     scale_x_log10() +
     scale_y_log10() +
     labs(
-      title = "Root split-point error on the numeric x3 variants",
-      subtitle = "Absolute error relative to the oracle x3 threshold",
-      x = "N",
-      y = "|split_hat - split*|",
+      title = expression(paste("Root split-point error on the numeric ", x[3], " variants")),
+      subtitle = expression(paste("Absolute error relative to the oracle ", x[3], " threshold")),
+      x = "Sample size N",
+      y = "Absolute split-point error",
       color = "Method"
     ) +
     theme_bw() +
@@ -111,16 +119,16 @@ if (nrow(dt_num) > 0L) {
   save_plot("accuracy_split_point_mae.png", p_mae, width = 9, height = 6)
 }
 
-p_acc = ggplot(dt[is.finite(node_acc)], aes(x = N, y = node_acc, color = method)) +
+p_acc = ggplot(dt[is.finite(node_acc)], aes(x = N, y = node_acc, color = method_label)) +
   geom_point(alpha = 0.1, size = 0.5) +
   stat_summary(fun = mean, geom = "line", aes(group = interaction(method, variant)), linewidth = 0.8) +
-  facet_grid(variant_label ~ D, labeller = label_both) +
+  facet_grid(variant_label ~ d_label) +
   scale_x_log10() +
   coord_cartesian(ylim = c(0, 1)) +
   labs(
-    title = "Agreement with the oracle x3 partition",
+    title = expression(paste("Agreement with the oracle ", x[3], " partition")),
     subtitle = "Best label alignment of the selected root split",
-    x = "N",
+    x = "Sample size N",
     y = "Node assignment accuracy",
     color = "Method"
   ) +
