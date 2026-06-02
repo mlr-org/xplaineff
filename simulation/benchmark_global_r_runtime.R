@@ -59,9 +59,13 @@ outdir = "simulation/results/global_r_runtime"
 reps = 20L
 predict_reps = 20L
 N_vec = c(500L, 1000L, 2500L, 5000L)
-D = 10L
-n_grid = 20L
-n_intervals = 20L
+D_vec = c(5L, 10L, 20L)
+fixed_N = 1000L
+fixed_D = 10L
+default_n_grid = 20L
+default_n_intervals = 20L
+n_grid_vec = c(10L, 20L, 50L)
+n_intervals_vec = c(10L, 20L, 50L)
 fail_fast = FALSE
 model_types = c("rf", "toy")
 
@@ -80,11 +84,23 @@ while (i <= length(args)) {
   } else if (args[i] == "--N-vec" && i < length(args)) {
     N_vec = parse_int_vec(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--D" && i < length(args)) {
-    D = as.integer(args[i + 1L]); i = i + 2L
+    fixed_D = as.integer(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--D-vec" && i < length(args)) {
+    D_vec = parse_int_vec(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--fixed-N" && i < length(args)) {
+    fixed_N = as.integer(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--fixed-D" && i < length(args)) {
+    fixed_D = as.integer(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--n-grid" && i < length(args)) {
-    n_grid = as.integer(args[i + 1L]); i = i + 2L
+    default_n_grid = as.integer(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--n-intervals" && i < length(args)) {
-    n_intervals = as.integer(args[i + 1L]); i = i + 2L
+    default_n_intervals = as.integer(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--n-grid-vec" && i < length(args)) {
+    n_grid_vec = parse_int_vec(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--n-intervals-vec" && i < length(args)) {
+    n_intervals_vec = parse_int_vec(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--n-int-vec" && i < length(args)) {
+    n_intervals_vec = parse_int_vec(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--fail-fast" && i < length(args)) {
     fail_fast = parse_flag(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--models" && i < length(args)) {
@@ -214,7 +230,7 @@ make_dalex_explainer = function(model, X, y, pred_fun) {
   )
 }
 
-run_gadget_pdp = function(dat, model, pred_fun, engine) {
+run_gadget_pdp = function(dat, model, pred_fun, engine, n_grid) {
   gadget:::calculate_pd(
     model = model,
     data = dat,
@@ -226,7 +242,7 @@ run_gadget_pdp = function(dat, model, pred_fun, engine) {
   )
 }
 
-run_gadget_ale = function(dat, model, pred_fun, engine) {
+run_gadget_ale = function(dat, model, pred_fun, engine, n_intervals) {
   features = setdiff(colnames(dat), "y")
   if (identical(engine, "cpp")) {
     gadget:::calculate_ale_fast(
@@ -249,7 +265,7 @@ run_gadget_ale = function(dat, model, pred_fun, engine) {
   }
 }
 
-run_pdp = function(dat, model, pred_fun) {
+run_pdp = function(dat, model, pred_fun, n_grid) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
   features = colnames(X)
   for (feat in features) {
@@ -269,20 +285,20 @@ run_pdp = function(dat, model, pred_fun) {
   }
 }
 
-run_iml_pdp = function(dat, model, pred_fun) {
+run_iml_pdp = function(dat, model, pred_fun, n_grid) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
   predictor = make_iml_predictor(model, X, dat$y, pred_fun)
   for (feat in colnames(X)) {
     iml::FeatureEffect$new(
       predictor = predictor,
       feature = feat,
-      method = "pdp+ice",
+      method = "ice",
       grid.size = n_grid
     )
   }
 }
 
-run_iml_ale = function(dat, model, pred_fun) {
+run_iml_ale = function(dat, model, pred_fun, n_intervals) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
   predictor = make_iml_predictor(model, X, dat$y, pred_fun)
   for (feat in colnames(X)) {
@@ -295,7 +311,7 @@ run_iml_ale = function(dat, model, pred_fun) {
   }
 }
 
-run_ingredients_pdp = function(dat, model, pred_fun) {
+run_ingredients_pdp = function(dat, model, pred_fun, n_grid) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
   explainer = make_dalex_explainer(model, X, dat$y, pred_fun)
   ingredients::partial_dependence(
@@ -308,7 +324,7 @@ run_ingredients_pdp = function(dat, model, pred_fun) {
   )
 }
 
-run_ingredients_ale = function(dat, model, pred_fun) {
+run_ingredients_ale = function(dat, model, pred_fun, n_intervals) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
   explainer = make_dalex_explainer(model, X, dat$y, pred_fun)
   ingredients::accumulated_dependence(
@@ -324,38 +340,66 @@ run_ingredients_ale = function(dat, model, pred_fun) {
 method_specs = list(
   list(package = "gadget", impl = "r", method = "global_pdp", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
-    runner = function(dat, model, pred_fun) run_gadget_pdp(dat, model, pred_fun, "r")),
+    runner = function(dat, model, pred_fun, cell) run_gadget_pdp(dat, model, pred_fun, "r", cell$n_grid)),
   list(package = "gadget", impl = "r", method = "global_ale", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
-    runner = function(dat, model, pred_fun) run_gadget_ale(dat, model, pred_fun, "r")),
+    runner = function(dat, model, pred_fun, cell) run_gadget_ale(dat, model, pred_fun, "r", cell$n_intervals)),
   list(package = "pdp", impl = "default", method = "global_pdp", requires = "pdp",
     model_types = c("rf", "toy"),
-    runner = run_pdp),
-  list(package = "iml", impl = "pdp+ice", method = "global_pdp", requires = "iml",
+    runner = function(dat, model, pred_fun, cell) run_pdp(dat, model, pred_fun, cell$n_grid)),
+  list(package = "iml", impl = "ice", method = "global_pdp", requires = "iml",
     model_types = c("rf", "toy"),
-    runner = run_iml_pdp),
+    runner = function(dat, model, pred_fun, cell) run_iml_pdp(dat, model, pred_fun, cell$n_grid)),
   list(package = "iml", impl = "ale", method = "global_ale", requires = "iml",
     model_types = c("rf", "toy"),
-    runner = run_iml_ale),
+    runner = function(dat, model, pred_fun, cell) run_iml_ale(dat, model, pred_fun, cell$n_intervals)),
   list(package = "DALEX/ingredients", impl = "partial_dependence", method = "global_pdp",
     model_types = c("rf", "toy"),
-    requires = c("DALEX", "ingredients"), runner = run_ingredients_pdp),
+    requires = c("DALEX", "ingredients"),
+    runner = function(dat, model, pred_fun, cell) run_ingredients_pdp(dat, model, pred_fun, cell$n_grid)),
   list(package = "DALEX/ingredients", impl = "accumulated_dependence", method = "global_ale",
     model_types = c("rf", "toy"),
-    requires = c("DALEX", "ingredients"), runner = run_ingredients_ale)
+    requires = c("DALEX", "ingredients"),
+    runner = function(dat, model, pred_fun, cell) run_ingredients_ale(dat, model, pred_fun, cell$n_intervals))
 )
 
-record_row = function(rows, spec, model_type, N, time_sec, repetition, status = "ok", error_message = NA_character_) {
+make_cells = function(spec) {
+  is_pdp = grepl("pdp", spec$method)
+  res_vec = if (is_pdp) n_grid_vec else n_intervals_vec
+  make_cell = function(sub_experiment, N, D, res) {
+    data.frame(
+      sub_experiment = sub_experiment,
+      N = as.integer(N),
+      D = as.integer(D),
+      n_grid = if (is_pdp) as.integer(res) else NA_integer_,
+      n_intervals = if (!is_pdp) as.integer(res) else NA_integer_,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  rbind(
+    do.call(rbind, lapply(N_vec, function(N) make_cell("vs_N", N, fixed_D,
+      if (is_pdp) default_n_grid else default_n_intervals))),
+    do.call(rbind, lapply(D_vec, function(D) make_cell("vs_D", fixed_N, D,
+      if (is_pdp) default_n_grid else default_n_intervals))),
+    do.call(rbind, lapply(res_vec, function(res) make_cell("vs_res", fixed_N, fixed_D, res)))
+  )
+}
+
+record_row = function(
+  rows, spec, model_type, cell, time_sec, repetition, status = "ok", error_message = NA_character_
+) {
   rows[[length(rows) + 1L]] = data.frame(
     module = "global_r",
     package = spec$package,
     impl = spec$impl,
     method = spec$method,
     model_type = model_type,
-    N = N,
-    D = D,
-    n_grid = if (grepl("pdp", spec$method)) n_grid else NA_integer_,
-    n_intervals = if (grepl("ale", spec$method)) n_intervals else NA_integer_,
+    sub_experiment = cell$sub_experiment,
+    N = cell$N,
+    D = cell$D,
+    n_grid = cell$n_grid,
+    n_intervals = cell$n_intervals,
     repetition = repetition,
     time_sec = time_sec,
     status = status,
@@ -365,29 +409,41 @@ record_row = function(rows, spec, model_type, N, time_sec, repetition, status = 
   rows
 }
 
-time_spec = function(spec, dat, model, pred_fun) {
+time_spec = function(spec, dat, model, pred_fun, cell) {
   missing = spec$requires[!vapply(spec$requires, requireNamespace, logical(1L), quietly = TRUE)]
   if (length(missing)) {
     stop(sprintf("missing package(s): %s", paste(missing, collapse = ", ")), call. = FALSE)
   }
   gc(FALSE)
-  system.time(spec$runner(dat, model, pred_fun))[["elapsed"]]
+  system.time(spec$runner(dat, model, pred_fun, cell))[["elapsed"]]
 }
 
 run_model = function(model_type) {
   rows = list()
-  for (N in N_vec) {
-    dat = load_data(N, D)
-    if (is.null(dat)) next
-    message(sprintf("=== global R %s: N=%d, D=%d ===", model_type, N, D))
-    model = fit_model(dat, model_type)
-    pred_fun = predict_for_model(model_type)
+  model_cache = list()
+  pred_fun = predict_for_model(model_type)
 
-    for (spec in method_specs) {
-      if (!(model_type %in% spec$model_types)) next
-      message(sprintf("  %s / %s / %s", spec$package, spec$impl, spec$method))
+  get_model = function(dat, N, D) {
+    key = sprintf("%s_N%d_D%d", model_type, N, D)
+    if (!key %in% names(model_cache)) {
+      model_cache[[key]] <<- fit_model(dat, model_type)
+    }
+    model_cache[[key]]
+  }
+
+  for (spec in method_specs) {
+    if (!(model_type %in% spec$model_types)) next
+    message(sprintf("=== global R %s: %s / %s / %s ===", model_type, spec$package, spec$impl, spec$method))
+    cells = make_cells(spec)
+    for (i in seq_len(nrow(cells))) {
+      cell = cells[i, ]
+      dat = load_data(cell$N, cell$D)
+      if (is.null(dat)) next
+      model = get_model(dat, cell$N, cell$D)
+      res_label = if (grepl("pdp", spec$method)) cell$n_grid else cell$n_intervals
+      message(sprintf("  %s: N=%d D=%d res=%d", cell$sub_experiment, cell$N, cell$D, res_label))
       tryCatch(
-        time_spec(spec, dat, model, pred_fun),
+        time_spec(spec, dat, model, pred_fun, cell),
         error = function(e) {
           if (isTRUE(fail_fast)) stop(e)
           message("    warmup skipped/failed: ", conditionMessage(e))
@@ -396,7 +452,7 @@ run_model = function(model_type) {
       )
       for (r in seq_len(reps)) {
         out = tryCatch(
-          list(ok = TRUE, time = time_spec(spec, dat, model, pred_fun), error = NA_character_),
+          list(ok = TRUE, time = time_spec(spec, dat, model, pred_fun, cell), error = NA_character_),
           error = function(e) {
             if (isTRUE(fail_fast)) stop(e)
             list(ok = FALSE, time = NA_real_, error = conditionMessage(e))
@@ -406,7 +462,7 @@ run_model = function(model_type) {
           rows = rows,
           spec = spec,
           model_type = model_type,
-          N = N,
+          cell = cell,
           time_sec = out$time,
           repetition = r,
           status = if (out$ok) "ok" else "error",
@@ -420,8 +476,13 @@ run_model = function(model_type) {
 
 run_predict_baseline = function() {
   rows = list()
-  for (N in N_vec) {
-    dat = load_data(N, D)
+  baseline_cells = unique(rbind(
+    data.frame(N = N_vec, D = fixed_D),
+    data.frame(N = fixed_N, D = D_vec)
+  ))
+  for (i in seq_len(nrow(baseline_cells))) {
+    cell = baseline_cells[i, ]
+    dat = load_data(cell$N, cell$D)
     if (is.null(dat)) next
     model = fit_rf(dat)
     X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
@@ -429,8 +490,8 @@ run_predict_baseline = function() {
     rows[[length(rows) + 1L]] = data.frame(
       package = "r",
       model_type = "rf",
-      N = N,
-      D = D,
+      N = cell$N,
+      D = cell$D,
       predict_time_mean = mean(times),
       predict_time_sd = stats::sd(times),
       n_rep = predict_reps

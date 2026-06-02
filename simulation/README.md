@@ -10,7 +10,8 @@ The data and CSV results are regenerable and are ignored by git; the publication
   `results/paper_figures/global_r_methods.png`.
   In publication mode, the figure is also synced to `../paper/figures/global_r_methods.png`.
   The publication mode uses 20 timed repetitions after one untimed warm-up.
-  Runtime box plots show the timed repetitions; boxes show the interquartile range and center bars show medians.
+  It runs three sweeps: sample size `N`, feature dimension `D`, and PDP/ALE resolution.
+  Runtime trend plots show median timings; shaded ribbons show the interquartile range across repetitions.
 - `run_structural_recovery.sh` runs the structural-recovery benchmark.
   It writes raw CSV files to `results/structural_recovery/` and the accuracy figures to `results/paper_figures/`.
   This benchmark uses 30 random seeds rather than repeated timings.
