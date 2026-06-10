@@ -130,7 +130,9 @@ palette_values = c(
   "gadget-r" = "#1f77b4",
   "pdp" = "#ff7f0e",
   "iml" = "#2ca02c",
-  "DALEX/ingredients" = "#9467bd"
+  "DALEX/ingredients" = "#9467bd",
+  "ale" = "#d62728",
+  "effectplots" = "#8c564b"
 )
 
 plot_runtime = function(data, title, filename) {
@@ -166,6 +168,25 @@ plot_runtime = function(data, title, filename) {
   data[, time_q25_plot := pmax(time_q25, .Machine$double.eps)]
   data[, time_q75_plot := pmax(time_q75, .Machine$double.eps)]
 
+  # Compute relative speedup vs gadget-r baseline
+  gadget_baseline = data[label == "gadget-r", .(
+    panel, sub_experiment, N, D, n_grid, n_intervals,
+    gadget_median = time_median,
+    gadget_q25 = time_q25,
+    gadget_q75 = time_q75
+  )]
+  data = merge(
+    data, gadget_baseline,
+    by = c("panel", "sub_experiment", "N", "D", "n_grid", "n_intervals"),
+    all.x = TRUE
+  )
+  data[, ratio_median := time_median_plot / gadget_median]
+  data[, ratio_q25 := time_q25_plot / gadget_q75]
+  data[, ratio_q75 := time_q75_plot / gadget_q25]
+  data[, ratio_median := pmax(ratio_median, .Machine$double.eps)]
+  data[, ratio_q25 := pmax(ratio_q25, .Machine$double.eps)]
+  data[, ratio_q75 := pmax(ratio_q75, .Machine$double.eps)]
+
   labels = unique(data$label)
   colors = palette_values[labels]
   missing_colors = is.na(colors)
@@ -175,26 +196,29 @@ plot_runtime = function(data, title, filename) {
 
   p = ggplot(
     data,
-    aes(x = x_value, y = time_median_plot, color = label, fill = label, group = label)
+    aes(x = x_value, y = ratio_median, color = label, fill = label, group = label)
   ) +
-    geom_ribbon(aes(ymin = time_q25_plot, ymax = time_q75_plot), alpha = 0.16, colour = NA) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", linewidth = 0.5) +
+    geom_ribbon(aes(ymin = ratio_q25, ymax = ratio_q75), alpha = 0.16, colour = NA) +
     geom_line(linewidth = 0.8) +
     geom_point(size = 1.8) +
     facet_grid(panel ~ sweep_label, scales = "free") +
     scale_x_log10(labels = comma, breaks = sort(unique(data$x_value))) +
-    scale_y_log10(labels = label_number(accuracy = 0.001, trim = TRUE)) +
+    scale_y_log10(labels = label_number(accuracy = 0.1, trim = TRUE)) +
     scale_color_manual(values = colors, breaks = labels, drop = FALSE) +
     scale_fill_manual(values = alpha(colors, 0.25), breaks = labels, drop = FALSE, guide = "none") +
-    labs(title = title, x = "Value of varied parameter", y = "Median runtime (s, log scale)", color = NULL) +
+    labs(title = title, x = "Value of varied parameter",
+         y = "Runtime relative to gadget-r (log scale)", color = NULL) +
     theme_bw(base_size = 10) +
     theme(
       legend.position = "bottom",
       panel.grid.minor = element_blank(),
+      panel.spacing.y = unit(1.5, "lines"),
       plot.title = element_text(face = "bold", hjust = 0.5),
       strip.text = element_text(face = "bold")
     )
 
-  ggsave(file.path(figdir, filename), p, width = 11, height = 9, dpi = 220)
+  ggsave(file.path(figdir, filename), p, width = 11, height = 12, dpi = 220)
   message("Written: ", file.path(figdir, filename))
 }
 

@@ -61,6 +61,21 @@
         "flawfinder (project)"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "latexmk (RJwrapper)",
+      "type": "shell",
+      "options": {
+        "cwd": "${workspaceFolder}/paper"
+      },
+      "command": "latexmk",
+      "args": [
+        "-pdf",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "RJwrapper.tex"
+      ],
+      "problemMatcher": []
     }
   ]
 }

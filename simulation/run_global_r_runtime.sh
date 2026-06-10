@@ -22,6 +22,8 @@ export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-1}"
 export DATATABLE_NUM_THREADS="${DATATABLE_NUM_THREADS:-1}"
 export RCPP_PARALLEL_NUM_THREADS="${RCPP_PARALLEL_NUM_THREADS:-1}"
 export GADGET_BENCH_LOAD_ALL="${GADGET_BENCH_LOAD_ALL:-true}"
+CORES="${CORES:-1}"
+PARALLEL_SUB="${PARALLEL_SUB:-false}"
 
 if [ "$MODE" = "smoke" ]; then
   N_VEC="500"
@@ -77,20 +79,73 @@ Rscript simulation/generate_runtime_data.R \
   --D-vec "${DATA_D_VEC}"
 
 echo "2. Running global R package benchmark..."
-Rscript simulation/benchmark_global_r_runtime.R \
-  --datadir "${DATADIR}" \
-  --outdir "${OUTDIR}" \
-  --reps "${REPS}" \
-  --predict-reps "${PREDICT_REPS}" \
-  --N-vec "${N_VEC}" \
-  --D-vec "${D_VEC}" \
-  --fixed-N "${FIXED_N}" \
-  --fixed-D "${FIXED_D}" \
-  --n-grid "${N_GRID}" \
-  --n-intervals "${N_INTERVALS}" \
-  --n-grid-vec "${N_GRID_VEC}" \
-  --n-intervals-vec "${N_INTERVALS_VEC}" \
-  --models "${MODELS}"
+if [ "$PARALLEL_SUB" = "true" ]; then
+  echo "    parallel mode: 3 sub_experiments concurrently, K=1 each"
+  PIDS=""
+  for SUB in vs_N vs_D vs_res; do
+    SKIP_BL="true"
+    if [ "$SUB" = "vs_N" ]; then SKIP_BL="false"; fi
+    LOG="${OUTDIR}/_run_${SUB}.log"
+    mkdir -p "${OUTDIR}"
+    Rscript simulation/benchmark_global_r_runtime.R \
+      --datadir "${DATADIR}" \
+      --outdir "${OUTDIR}" \
+      --reps "${REPS}" \
+      --predict-reps "${PREDICT_REPS}" \
+      --N-vec "${N_VEC}" \
+      --D-vec "${D_VEC}" \
+      --fixed-N "${FIXED_N}" \
+      --fixed-D "${FIXED_D}" \
+      --n-grid "${N_GRID}" \
+      --n-intervals "${N_INTERVALS}" \
+      --n-grid-vec "${N_GRID_VEC}" \
+      --n-intervals-vec "${N_INTERVALS_VEC}" \
+      --models "${MODELS}" \
+      --cores 1 \
+      --sub-experiments "${SUB}" \
+      --skip-predict-baseline "${SKIP_BL}" \
+      --output-suffix "${SUB}" \
+      > "${LOG}" 2>&1 &
+    PIDS="$PIDS $!"
+  done
+  wait $PIDS
+  echo "    merging per-sub_experiment CSVs..."
+  Rscript -e '
+    args <- commandArgs(trailingOnly = TRUE)
+    outdir <- args[1]
+    models <- strsplit(args[2], ",", fixed = TRUE)[[1]]
+    subs <- c("vs_N", "vs_D", "vs_res")
+    for (m in models) {
+      parts <- list()
+      for (s in subs) {
+        p <- file.path(outdir, sprintf("global_r_runtime_%s_%s.csv", m, s))
+        if (file.exists(p)) parts[[s]] <- read.csv(p)
+      }
+      if (length(parts)) {
+        merged <- do.call(rbind, parts)
+        write.csv(merged, file.path(outdir, sprintf("global_r_runtime_%s.csv", m)), row.names = FALSE)
+        for (s in names(parts)) file.remove(file.path(outdir, sprintf("global_r_runtime_%s_%s.csv", m, s)))
+        cat(sprintf("Merged: global_r_runtime_%s.csv (%d rows)\n", m, nrow(merged)))
+      }
+    }
+  ' "${OUTDIR}" "${MODELS}"
+else
+  Rscript simulation/benchmark_global_r_runtime.R \
+    --datadir "${DATADIR}" \
+    --outdir "${OUTDIR}" \
+    --reps "${REPS}" \
+    --predict-reps "${PREDICT_REPS}" \
+    --N-vec "${N_VEC}" \
+    --D-vec "${D_VEC}" \
+    --fixed-N "${FIXED_N}" \
+    --fixed-D "${FIXED_D}" \
+    --n-grid "${N_GRID}" \
+    --n-intervals "${N_INTERVALS}" \
+    --n-grid-vec "${N_GRID_VEC}" \
+    --n-intervals-vec "${N_INTERVALS_VEC}" \
+    --models "${MODELS}" \
+    --cores "${CORES}"
+fi
 
 echo "3. Summarizing and plotting..."
 Rscript simulation/summarize_global_r_runtime.R \

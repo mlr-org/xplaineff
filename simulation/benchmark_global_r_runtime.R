@@ -69,6 +69,9 @@ n_intervals_vec = c(10L, 20L, 50L)
 fail_fast = FALSE
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res")
+cores = 1L
+skip_predict_baseline = FALSE
+output_suffix = ""
 
 parse_int_vec = function(x) as.integer(strsplit(x, ",", fixed = TRUE)[[1L]])
 parse_chr_vec = function(x) trimws(strsplit(x, ",", fixed = TRUE)[[1L]])
@@ -113,6 +116,12 @@ while (i <= length(args)) {
     sub_experiments = parse_chr_vec(args[i + 1L])
     sub_experiments = sub_experiments[nzchar(sub_experiments)]
     i = i + 2L
+  } else if (args[i] == "--cores" && i < length(args)) {
+    cores = max(1L, as.integer(args[i + 1L])); i = i + 2L
+  } else if (args[i] == "--skip-predict-baseline" && i < length(args)) {
+    skip_predict_baseline = parse_flag(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--output-suffix" && i < length(args)) {
+    output_suffix = trimws(as.character(args[i + 1L])); i = i + 2L
   } else {
     i = i + 1L
   }
@@ -188,7 +197,7 @@ fit_mlr3_rf = function(dat) {
 }
 
 rf_pred_fun = function(model, newdata) {
-  as.numeric(predict(model, data = newdata)$predictions)
+  as.numeric(predict(model, data = newdata, num.threads = 1L)$predictions)
 }
 
 predict_for_model = function(model_type) {
@@ -246,6 +255,42 @@ run_gadget_pdp = function(dat, model, pred_fun, engine, n_grid) {
     n_grid = n_grid,
     pd_engine = engine
   )
+}
+
+run_gadget_pdp_ice_only = function(dat, model, pred_fun, engine, n_grid) {
+  features = setdiff(colnames(dat), "y")
+  x_features_dt = data.table::as.data.table(dat[, features, drop = FALSE])
+  x_cols_list = as.list(x_features_dt)
+  n_obs = nrow(x_features_dt)
+
+  grids = stats::setNames(
+    nm = features,
+    lapply(features, function(feat) gadget:::pd_feature_grid(x_features_dt[[feat]], n_grid = n_grid))
+  )
+
+  # Pre-allocate cache for R engine
+  max_g_r = max(lengths(grids))
+  stacked_pd_cache = NULL
+  if (identical(engine, "r")) {
+    stacked_pd_cache = list(
+      stacked = data.table::as.data.table(lapply(x_features_dt, rep, times = max_g_r)),
+      max_g = max_g_r,
+      n_obs = n_obs
+    )
+  }
+
+  # Compute ICE matrix only, no packing
+  for (feat in features) {
+    grid = grids[[feat]]
+    feat_index = match(feat, names(x_features_dt))
+    ice_matrix = gadget:::compute_ice(
+      model = model, data = x_features_dt, feature = feat, grid = grid,
+      predict_fun = pred_fun, pd_engine = engine,
+      base_data_dt = x_features_dt, cols_list = x_cols_list, feature_index = feat_index,
+      stacked_pd_cache = stacked_pd_cache
+    )
+    # ice_matrix is N x length(grid), stop here without pd_pack_ice_result
+  }
 }
 
 run_gadget_ale = function(dat, model, pred_fun, engine, n_intervals) {
@@ -343,10 +388,60 @@ run_ingredients_ale = function(dat, model, pred_fun, n_intervals) {
   )
 }
 
+run_ale_pkg_ale = function(dat, model, pred_fun, n_intervals) {
+  X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
+  features = colnames(X)
+  ale_pred = function(object, newdata, type) pred_fun(object, newdata)
+  for (feat in features) {
+    ale::ALE(
+      model = model,
+      x_cols = feat,
+      data = dat,
+      y_col = "y",
+      pred_fun = ale_pred,
+      parallel = 0,
+      boot_it = 0L,
+      max_num_bins = n_intervals,
+      sample_size = nrow(X),
+      output_stats = FALSE,
+      silent = TRUE
+    )
+  }
+}
+
+run_effectplots_pdp = function(dat, model, pred_fun, n_grid) {
+  X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
+  for (feat in colnames(X)) {
+    effectplots::partial_dependence(
+      object = model,
+      v = feat,
+      data = X,
+      pred_fun = function(object, newdata, ...) pred_fun(object, newdata),
+      breaks = n_grid,
+      pd_n = nrow(X)
+    )
+  }
+}
+
+run_effectplots_ale = function(dat, model, pred_fun, n_intervals) {
+  X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
+  for (feat in colnames(X)) {
+    effectplots::ale(
+      object = model,
+      v = feat,
+      data = X,
+      pred_fun = function(object, newdata, ...) pred_fun(object, newdata),
+      breaks = n_intervals,
+      ale_n = nrow(X),
+      ale_bin_size = nrow(X)
+    )
+  }
+}
+
 method_specs = list(
   list(package = "gadget", impl = "r", method = "global_pdp", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
-    runner = function(dat, model, pred_fun, cell) run_gadget_pdp(dat, model, pred_fun, "r", cell$n_grid)),
+    runner = function(dat, model, pred_fun, cell) run_gadget_pdp_ice_only(dat, model, pred_fun, "r", cell$n_grid)),
   list(package = "gadget", impl = "r", method = "global_ale", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
     runner = function(dat, model, pred_fun, cell) run_gadget_ale(dat, model, pred_fun, "r", cell$n_intervals)),
@@ -366,7 +461,16 @@ method_specs = list(
   list(package = "DALEX/ingredients", impl = "accumulated_dependence", method = "global_ale",
     model_types = c("rf", "toy"),
     requires = c("DALEX", "ingredients"),
-    runner = function(dat, model, pred_fun, cell) run_ingredients_ale(dat, model, pred_fun, cell$n_intervals))
+    runner = function(dat, model, pred_fun, cell) run_ingredients_ale(dat, model, pred_fun, cell$n_intervals)),
+  list(package = "ale", impl = "point_estimate", method = "global_ale", requires = "ale",
+    model_types = c("rf", "toy"),
+    runner = function(dat, model, pred_fun, cell) run_ale_pkg_ale(dat, model, pred_fun, cell$n_intervals)),
+  list(package = "effectplots", impl = "default", method = "global_pdp", requires = "effectplots",
+    model_types = c("rf", "toy"),
+    runner = function(dat, model, pred_fun, cell) run_effectplots_pdp(dat, model, pred_fun, cell$n_grid)),
+  list(package = "effectplots", impl = "default", method = "global_ale", requires = "effectplots",
+    model_types = c("rf", "toy"),
+    runner = function(dat, model, pred_fun, cell) run_effectplots_ale(dat, model, pred_fun, cell$n_intervals))
 )
 
 make_cells = function(spec) {
@@ -431,59 +535,107 @@ time_spec = function(spec, dat, model, pred_fun, cell) {
 }
 
 run_model = function(model_type) {
-  rows = list()
-  model_cache = list()
   pred_fun = predict_for_model(model_type)
 
-  get_model = function(dat, N, D) {
-    key = sprintf("%s_N%d_D%d", model_type, N, D)
-    if (!key %in% names(model_cache)) {
-      model_cache[[key]] <<- fit_model(dat, model_type)
-    }
-    model_cache[[key]]
+  applicable_specs = Filter(function(spec) model_type %in% spec$model_types, method_specs)
+  if (!length(applicable_specs)) return(list())
+
+  data_keys = unique(do.call(rbind, lapply(applicable_specs, function(spec) {
+    cells = make_cells(spec)
+    cells[, c("N", "D"), drop = FALSE]
+  })))
+  data_cache = list()
+  model_cache = list()
+  for (i in seq_len(nrow(data_keys))) {
+    N = data_keys$N[i]; D = data_keys$D[i]
+    key = sprintf("N%d_D%d", N, D)
+    dat = load_data(N, D)
+    if (is.null(dat)) next
+    data_cache[[key]] = dat
+    model_cache[[key]] = fit_model(dat, model_type)
   }
 
-  for (spec in method_specs) {
-    if (!(model_type %in% spec$model_types)) next
-    message(sprintf("=== global R %s: %s / %s / %s ===", model_type, spec$package, spec$impl, spec$method))
+  work_items = list()
+  for (spec_idx in seq_along(applicable_specs)) {
+    spec = applicable_specs[[spec_idx]]
     cells = make_cells(spec)
     for (i in seq_len(nrow(cells))) {
-      cell = cells[i, ]
-      dat = load_data(cell$N, cell$D)
-      if (is.null(dat)) next
-      model = get_model(dat, cell$N, cell$D)
-      res_label = if (grepl("pdp", spec$method)) cell$n_grid else cell$n_intervals
-      message(sprintf("  %s: N=%d D=%d res=%d", cell$sub_experiment, cell$N, cell$D, res_label))
-      tryCatch(
-        time_spec(spec, dat, model, pred_fun, cell),
-        error = function(e) {
-          if (isTRUE(fail_fast)) stop(e)
-          message("    warmup skipped/failed: ", conditionMessage(e))
-          invisible(NA_real_)
-        }
+      cell = cells[i, , drop = FALSE]
+      key = sprintf("N%d_D%d", cell$N, cell$D)
+      if (!key %in% names(data_cache)) next
+      work_items[[length(work_items) + 1L]] = list(
+        spec_idx = spec_idx, spec = spec, cell = cell, data_key = key
       )
-      for (r in seq_len(reps)) {
-        out = tryCatch(
-          list(ok = TRUE, time = time_spec(spec, dat, model, pred_fun, cell), error = NA_character_),
-          error = function(e) {
-            if (isTRUE(fail_fast)) stop(e)
-            list(ok = FALSE, time = NA_real_, error = conditionMessage(e))
-          }
-        )
-        rows = record_row(
-          rows = rows,
-          spec = spec,
-          model_type = model_type,
-          cell = cell,
-          time_sec = out$time,
-          repetition = r,
-          status = if (out$ok) "ok" else "error",
-          error_message = out$error
-        )
-      }
     }
   }
-  rows
+
+  run_one_cell = function(item) {
+    spec = item$spec
+    cell = item$cell
+    dat = data_cache[[item$data_key]]
+    model = model_cache[[item$data_key]]
+    res_label = if (grepl("pdp", spec$method)) cell$n_grid else cell$n_intervals
+    log_msg = sprintf(
+      "[%s] %s/%s/%s %s N=%d D=%d res=%d",
+      model_type, spec$package, spec$impl, spec$method,
+      cell$sub_experiment, cell$N, cell$D, res_label
+    )
+    message(log_msg, " | start")
+    tryCatch(
+      time_spec(spec, dat, model, pred_fun, cell),
+      error = function(e) {
+        if (isTRUE(fail_fast)) stop(e)
+        message(log_msg, " | warmup skipped/failed: ", conditionMessage(e))
+        invisible(NA_real_)
+      }
+    )
+    rep_rows = list()
+    for (r in seq_len(reps)) {
+      out = tryCatch(
+        list(ok = TRUE, time = time_spec(spec, dat, model, pred_fun, cell), error = NA_character_),
+        error = function(e) {
+          if (isTRUE(fail_fast)) stop(e)
+          list(ok = FALSE, time = NA_real_, error = conditionMessage(e))
+        }
+      )
+      rep_rows = record_row(
+        rows = rep_rows,
+        spec = spec,
+        model_type = model_type,
+        cell = cell,
+        time_sec = out$time,
+        repetition = r,
+        status = if (out$ok) "ok" else "error",
+        error_message = out$error
+      )
+    }
+    message(log_msg, " | done")
+    rep_rows
+  }
+
+  if (cores > 1L) {
+    if (.Platform$OS.type != "unix") {
+      stop("--cores > 1 requires a unix-like OS for parallel::mclapply")
+    }
+    if (!requireNamespace("parallel", quietly = TRUE)) {
+      stop("Install the parallel package (base) for --cores > 1")
+    }
+    if (requireNamespace("collapse", quietly = TRUE)) {
+      try(collapse::set_collapse(nthreads = 1L), silent = TRUE)
+    }
+    message(sprintf("=== running %d work items on %d cores (mclapply) ===", length(work_items), cores))
+    nested = parallel::mclapply(
+      work_items, run_one_cell,
+      mc.cores = cores,
+      mc.preschedule = FALSE,
+      mc.silent = FALSE
+    )
+  } else {
+    message(sprintf("=== running %d work items serially ===", length(work_items)))
+    nested = lapply(work_items, run_one_cell)
+  }
+
+  unlist(nested, recursive = FALSE)
 }
 
 run_predict_baseline = function() {
@@ -516,22 +668,31 @@ run_predict_baseline = function() {
   }
 }
 
+out_filename = function(stem) {
+  if (nzchar(output_suffix)) sprintf("%s_%s.csv", stem, output_suffix) else sprintf("%s.csv", stem)
+}
+
 if ("rf" %in% model_types) {
-  message("=== RF prediction baseline ===")
-  run_predict_baseline()
+  if (!skip_predict_baseline) {
+    message("=== RF prediction baseline ===")
+    run_predict_baseline()
+  }
   rf_rows = run_model("rf")
-  write.csv(do.call(rbind, rf_rows), file.path(outdir, "global_r_runtime_rf.csv"), row.names = FALSE)
-  message("Written: global_r_runtime_rf.csv")
+  fn = out_filename("global_r_runtime_rf")
+  write.csv(do.call(rbind, rf_rows), file.path(outdir, fn), row.names = FALSE)
+  message("Written: ", fn)
 }
 
 if ("toy" %in% model_types) {
   toy_rows = run_model("toy")
-  write.csv(do.call(rbind, toy_rows), file.path(outdir, "global_r_runtime_toy.csv"), row.names = FALSE)
-  message("Written: global_r_runtime_toy.csv")
+  fn = out_filename("global_r_runtime_toy")
+  write.csv(do.call(rbind, toy_rows), file.path(outdir, fn), row.names = FALSE)
+  message("Written: ", fn)
 }
 
 if ("mlr3_rf" %in% model_types) {
   mlr3_rows = run_model("mlr3_rf")
-  write.csv(do.call(rbind, mlr3_rows), file.path(outdir, "global_r_runtime_mlr3_rf.csv"), row.names = FALSE)
-  message("Written: global_r_runtime_mlr3_rf.csv")
+  fn = out_filename("global_r_runtime_mlr3_rf")
+  write.csv(do.call(rbind, mlr3_rows), file.path(outdir, fn), row.names = FALSE)
+  message("Written: ", fn)
 }
