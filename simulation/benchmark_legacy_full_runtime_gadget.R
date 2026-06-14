@@ -96,7 +96,7 @@ if (use_mlr3_rf_for_benchmark) {
   )
 }
 
-# Defaults match the **small** preset in efficiency_benchmark_plan.md §4.5 / run_global_r_runtime.sh.
+# Defaults match the archived small preset from the legacy full-runtime benchmark.
 # Override via --N-vec / --D-vec / --fixed-N / --fixed-D / --n-grid-vec / --n-int-vec.
 N_vec <- c(500L, 1000L, 5000L)
 D_vec <- c(5L, 10L, 20L)

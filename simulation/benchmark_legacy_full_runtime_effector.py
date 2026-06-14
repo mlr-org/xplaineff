@@ -21,7 +21,7 @@ except ImportError:
     sys.stderr.write("effector not installed. Run: pip install effector\n")
     sys.exit(1)
 
-# Defaults match the **small** preset in efficiency_benchmark_plan.md §4.5 / run_global_r_runtime.sh.
+# Defaults match the archived small preset from the legacy full-runtime benchmark.
 # Override via --N-vec / --D-vec / --fixed-N / --fixed-D (large preset uses larger N, D grids).
 N_VEC = [500, 1000, 5000]
 D_VEC = [5, 10, 20]

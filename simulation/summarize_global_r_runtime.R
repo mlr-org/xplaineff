@@ -18,9 +18,10 @@ Sys.setenv(
 args = commandArgs(trailingOnly = TRUE)
 indir = "simulation/results/global_r_runtime"
 figdir = "simulation/results/paper_figures"
-fixed_D = 10L
+fixed_D = 20L
 model_types = c("rf", "toy")
 include_mlr3 = FALSE
+plot_gadget_cpp = FALSE
 
 parse_model_vec = function(x) {
   x = strsplit(x, ",", fixed = TRUE)[[1L]]
@@ -46,6 +47,8 @@ while (i <= length(args)) {
     model_types = parse_model_vec(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--include-mlr3" && i < length(args)) {
     include_mlr3 = parse_flag(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--plot-gadget-cpp" && i < length(args)) {
+    plot_gadget_cpp = parse_flag(args[i + 1L]); i = i + 2L
   } else {
     i = i + 1L
   }
@@ -98,7 +101,7 @@ dt[, n_intervals := as.integer(fifelse(
 ))]
 dt[, time_sec := as.numeric(time_sec)]
 dt[package == "ingredients", package := "DALEX/ingredients"]
-dt = dt[module == "global_r" & !(package == "gadget" & impl == "cpp")]
+dt = dt[module == "global_r"]
 dt = dt[!(sub_experiment == "vs_N" & N == 500L)]
 
 dt_ok = dt[status == "ok" & is.finite(time_sec)]
@@ -120,7 +123,7 @@ summary_dt = dt_ok[, .(
 summary_dt[, label := fifelse(
   package == "gadget" & impl == "r",
   "gadget-r",
-  package
+  fifelse(package == "gadget" & impl == "cpp", "gadget-cpp", package)
 )]
 
 write.csv(summary_dt, file.path(indir, "summary.csv"), row.names = FALSE)
@@ -128,11 +131,30 @@ message("Written: ", file.path(indir, "summary.csv"))
 
 palette_values = c(
   "gadget-r" = "#1f77b4",
+  "gadget-cpp" = "#17becf",
   "pdp" = "#ff7f0e",
   "iml" = "#2ca02c",
   "DALEX/ingredients" = "#9467bd",
   "ale" = "#d62728",
   "effectplots" = "#8c564b"
+)
+shape_values = c(
+  "gadget-r" = 16,
+  "gadget-cpp" = 4,
+  "pdp" = 17,
+  "iml" = 15,
+  "DALEX/ingredients" = 18,
+  "ale" = 8,
+  "effectplots" = 7
+)
+x_offset_values = c(
+  "gadget-r" = 0.952,
+  "gadget-cpp" = 0.968,
+  "pdp" = 0.984,
+  "iml" = 1.000,
+  "DALEX/ingredients" = 1.016,
+  "ale" = 1.032,
+  "effectplots" = 1.048
 )
 
 plot_runtime = function(data, title, filename) {
@@ -148,15 +170,15 @@ plot_runtime = function(data, title, filename) {
     "PDP / Toy model"
   ))]
   data[, sweep_label := fcase(
-    sub_experiment == "vs_N", "Sample size N\nD = 10, resolution = 20",
-    sub_experiment == "vs_D", "Feature dimension D\nN = 1,000, resolution = 20",
-    sub_experiment == "vs_res", "PDP grid / ALE intervals\nN = 1,000, D = 10",
+    sub_experiment == "vs_N", "Sample size N\nD = 20, resolution = 20",
+    sub_experiment == "vs_D", "Feature dimension D\nN = 10,000, resolution = 20",
+    sub_experiment == "vs_res", "PDP grid / ALE intervals\nN = 10,000, D = 20",
     default = sub_experiment
   )]
   data[, sweep_label := factor(sweep_label, levels = c(
-    "Sample size N\nD = 10, resolution = 20",
-    "Feature dimension D\nN = 1,000, resolution = 20",
-    "PDP grid / ALE intervals\nN = 1,000, D = 10"
+    "Sample size N\nD = 20, resolution = 20",
+    "Feature dimension D\nN = 10,000, resolution = 20",
+    "PDP grid / ALE intervals\nN = 10,000, D = 20"
   ))]
   data[, x_value := fcase(
     sub_experiment == "vs_N", as.numeric(N),
@@ -164,28 +186,11 @@ plot_runtime = function(data, title, filename) {
     grepl("pdp", method), as.numeric(n_grid),
     default = as.numeric(n_intervals)
   )]
+  # Use a small multiplicative x dodge on the log-scaled sweep axes so near-overlapping curves separate visually.
+  data[, x_display := x_value * x_offset_values[label]]
   data[, time_median_plot := pmax(time_median, .Machine$double.eps)]
   data[, time_q25_plot := pmax(time_q25, .Machine$double.eps)]
   data[, time_q75_plot := pmax(time_q75, .Machine$double.eps)]
-
-  # Compute relative speedup vs gadget-r baseline
-  gadget_baseline = data[label == "gadget-r", .(
-    panel, sub_experiment, N, D, n_grid, n_intervals,
-    gadget_median = time_median,
-    gadget_q25 = time_q25,
-    gadget_q75 = time_q75
-  )]
-  data = merge(
-    data, gadget_baseline,
-    by = c("panel", "sub_experiment", "N", "D", "n_grid", "n_intervals"),
-    all.x = TRUE
-  )
-  data[, ratio_median := time_median_plot / gadget_median]
-  data[, ratio_q25 := time_q25_plot / gadget_q75]
-  data[, ratio_q75 := time_q75_plot / gadget_q25]
-  data[, ratio_median := pmax(ratio_median, .Machine$double.eps)]
-  data[, ratio_q25 := pmax(ratio_q25, .Machine$double.eps)]
-  data[, ratio_q75 := pmax(ratio_q75, .Machine$double.eps)]
 
   labels = unique(data$label)
   colors = palette_values[labels]
@@ -196,19 +201,19 @@ plot_runtime = function(data, title, filename) {
 
   p = ggplot(
     data,
-    aes(x = x_value, y = ratio_median, color = label, fill = label, group = label)
+    aes(x = x_display, y = time_median_plot, color = label, fill = label, group = label)
   ) +
-    geom_hline(yintercept = 1, linetype = "dashed", color = "grey40", linewidth = 0.5) +
-    geom_ribbon(aes(ymin = ratio_q25, ymax = ratio_q75), alpha = 0.16, colour = NA) +
+    geom_ribbon(aes(ymin = time_q25_plot, ymax = time_q75_plot), alpha = 0.16, colour = NA) +
     geom_line(linewidth = 0.8) +
-    geom_point(size = 1.8) +
+    geom_point(aes(shape = label), size = 2.1, stroke = 0.2) +
     facet_grid(panel ~ sweep_label, scales = "free") +
     scale_x_log10(labels = comma, breaks = sort(unique(data$x_value))) +
     scale_y_log10(labels = label_number(accuracy = 0.1, trim = TRUE)) +
     scale_color_manual(values = colors, breaks = labels, drop = FALSE) +
     scale_fill_manual(values = alpha(colors, 0.25), breaks = labels, drop = FALSE, guide = "none") +
+    scale_shape_manual(values = shape_values[labels], breaks = labels, drop = FALSE, guide = "none") +
     labs(title = title, x = "Value of varied parameter",
-         y = "Runtime relative to gadget-r (log scale)", color = NULL) +
+         y = "Median runtime (seconds, log scale)", color = NULL) +
     theme_bw(base_size = 10) +
     theme(
       legend.position = "bottom",
@@ -223,7 +228,7 @@ plot_runtime = function(data, title, filename) {
 }
 
 plot_runtime(
-  summary_dt[module == "global_r"],
+  summary_dt[module == "global_r" & (isTRUE(plot_gadget_cpp) | label != "gadget-cpp")],
   "Global feature-effect computation in R",
   "global_r_methods.png"
 )
