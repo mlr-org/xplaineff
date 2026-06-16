@@ -44,7 +44,8 @@ For each pair of levels, a distance is computed from all other features
 (all columns in \code{data} except \code{feature} and \code{target_feature_name}):
 \itemize{
   \item Numeric: sum over features of max absolute difference of ECDFs (KS-style).
-  \item Categorical: sum over features of L1 distance of conditional level distributions.
+  \item Categorical: sum over features of half-\eqn{L_1} (total variation) distance between
+    conditional level distributions, matching the convention used in the \pkg{ale} package.
 }
 The \eqn{K \times K} distance matrix is embedded in 1D via \code{order_method};
 that 1D order defines the new level order. Single-level factors or no other

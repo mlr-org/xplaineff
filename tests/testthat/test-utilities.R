@@ -94,6 +94,31 @@ test_that("order_categorical_levels returns factor with ordered levels", {
   expect_equal(length(levels(result_mds)), nlevels(x_cat))
 })
 
+test_that("order_categorical_levels uses half-L1 for categorical auxiliary features", {
+  make_level = function(level, numeric_ones, categorical_v) {
+    data.frame(
+      cat = rep(level, 10L),
+      x_num = c(rep(1, numeric_ones), rep(0, 10L - numeric_ones)),
+      x_cat = factor(c(rep("v", categorical_v), rep("u", 10L - categorical_v)), levels = c("u", "v")),
+      y = 0,
+      stringsAsFactors = FALSE
+    )
+  }
+  data = data.frame(
+    rbind(
+      make_level("a", numeric_ones = 0L, categorical_v = 0L),
+      make_level("b", numeric_ones = 1L, categorical_v = 2L),
+      make_level("c", numeric_ones = 2L, categorical_v = 1L)
+    )
+  )
+  data$cat = factor(data$cat, levels = c("a", "b", "c"))
+  x_cat = droplevels(data$cat)
+  ord = gadget:::order_categorical_levels(
+    x_cat, data, feature = "cat", target_feature_name = "y", order_method = "mds"
+  )
+  expect_equal(levels(ord)[2L], "b")
+})
+
 test_that("ALE categorical split helpers use ordered-prefix semantics", {
   x = factor(c("a", "a", "b", "b", "c", "c"), levels = c("a", "b", "c"), ordered = TRUE)
   mask = gadget:::ordered_categorical_left_mask(x, "b")

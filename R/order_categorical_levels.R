@@ -25,7 +25,8 @@
 #' (all columns in \code{data} except \code{feature} and \code{target_feature_name}):
 #' \itemize{
 #'   \item Numeric: sum over features of max absolute difference of ECDFs (KS-style).
-#'   \item Categorical: sum over features of L1 distance of conditional level distributions.
+#'   \item Categorical: sum over features of half-\eqn{L_1} (total variation) distance between
+#'     conditional level distributions, matching the convention used in the \pkg{ale} package.
 #' }
 #' The \eqn{K \times K} distance matrix is embedded in 1D via \code{order_method};
 #' that 1D order defines the new level order. Single-level factors or no other
@@ -70,11 +71,13 @@ order_categorical_levels = function(x_cat, data, feature, target_feature_name, o
       diffs = abs(ecdf_mat[, pairs$from] - ecdf_mat[, pairs$to])
       total_dists = total_dists + apply(diffs, 2, max)
     } else {
-      # Categorical / discrete other feature: compare conditional distributions via L1 distance
+      # Categorical / discrete other feature: compare conditional distributions via half-L1 (total variation) distance.
+      # Half-L1 matches the convention used by the ale package (idxs_kolmogorov_smirnov in ALEPlot_compatibility.R)
+      # and ensures values stay in [0, 1], comparable to the KS-distance contribution from numeric other features.
       tbl = table(x_cat, val)
       prob_mat = tbl / ifelse(rowSums(tbl) == 0, 1, rowSums(tbl))
       diffs = abs(prob_mat[pairs$from, ] - prob_mat[pairs$to, ])
-      total_dists = total_dists + rowSums(diffs)
+      total_dists = total_dists + rowSums(diffs) / 2
     }
   }
   # Construct K x K distance matrix
