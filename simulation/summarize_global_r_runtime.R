@@ -16,8 +16,11 @@ Sys.setenv(
 )
 
 args = commandArgs(trailingOnly = TRUE)
-indir = "simulation/results/global_r_runtime"
-figdir = "simulation/results/paper_figures"
+run_id = format(Sys.time(), "%Y%m%d_%H%M%S")
+run_root = file.path("simulation/results/runtime_runs", run_id)
+indir = file.path(run_root, "global_r_runtime")
+figdir = file.path(run_root, "paper_figures")
+paper_figdir = ""
 fixed_D = 20L
 model_types = c("rf", "toy")
 include_mlr3 = FALSE
@@ -41,6 +44,8 @@ while (i <= length(args)) {
     indir = args[i + 1L]; i = i + 2L
   } else if (args[i] == "--figdir" && i < length(args)) {
     figdir = args[i + 1L]; i = i + 2L
+  } else if (args[i] == "--paper-figdir" && i < length(args)) {
+    paper_figdir = args[i + 1L]; i = i + 2L
   } else if (args[i] == "--fixed-D" && i < length(args)) {
     fixed_D = as.integer(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--models" && i < length(args)) {
@@ -55,6 +60,9 @@ while (i <= length(args)) {
 }
 
 dir.create(figdir, showWarnings = FALSE, recursive = TRUE)
+if (nzchar(paper_figdir)) {
+  dir.create(paper_figdir, showWarnings = FALSE, recursive = TRUE)
+}
 
 library(data.table)
 library(ggplot2)
@@ -70,10 +78,10 @@ load_csv = function(filename) {
 
 csv_files = list()
 if ("rf" %in% model_types) {
-  csv_files = c(csv_files, list(load_csv("global_r_runtime_rf.csv")))
+  csv_files = c(csv_files, list(load_csv("global_r_runtime_rf.csv")), list(load_csv("global_r_runtime_rf_vs_D.csv")))
 }
 if ("toy" %in% model_types) {
-  csv_files = c(csv_files, list(load_csv("global_r_runtime_toy.csv")))
+  csv_files = c(csv_files, list(load_csv("global_r_runtime_toy.csv")), list(load_csv("global_r_runtime_toy_vs_D.csv")))
 }
 if ("mlr3_rf" %in% model_types || isTRUE(include_mlr3)) {
   csv_files = c(csv_files, list(load_csv("global_r_runtime_mlr3_rf.csv")))
@@ -157,6 +165,17 @@ x_offset_values = c(
   "effectplots" = 1.048
 )
 
+save_plot = function(plot_obj, filename, width, height, dpi = 220) {
+  out = file.path(figdir, filename)
+  ggsave(out, plot_obj, width = width, height = height, dpi = dpi)
+  message("Written: ", out)
+  if (nzchar(paper_figdir)) {
+    paper_out = file.path(paper_figdir, filename)
+    ggsave(paper_out, plot_obj, width = width, height = height, dpi = dpi)
+    message("Synced: ", paper_out)
+  }
+}
+
 plot_runtime = function(data, title, filename) {
   if (nrow(data) == 0L) return(invisible(NULL))
   data = copy(data)
@@ -170,15 +189,15 @@ plot_runtime = function(data, title, filename) {
     "PDP / Toy model"
   ))]
   data[, sweep_label := fcase(
-    sub_experiment == "vs_N", "Sample size N\nD = 20, resolution = 20",
-    sub_experiment == "vs_D", "Feature dimension D\nN = 10,000, resolution = 20",
-    sub_experiment == "vs_res", "PDP grid / ALE intervals\nN = 10,000, D = 20",
+    sub_experiment == "vs_N", "Sample size n\np = 20, resolution = 20",
+    sub_experiment == "vs_D", "Feature dimension p\nn = 10,000, resolution = 20",
+    sub_experiment == "vs_res", "PDP grid / ALE intervals\nn = 10,000, p = 20",
     default = sub_experiment
   )]
   data[, sweep_label := factor(sweep_label, levels = c(
-    "Sample size N\nD = 20, resolution = 20",
-    "Feature dimension D\nN = 10,000, resolution = 20",
-    "PDP grid / ALE intervals\nN = 10,000, D = 20"
+    "Sample size n\np = 20, resolution = 20",
+    "Feature dimension p\nn = 10,000, resolution = 20",
+    "PDP grid / ALE intervals\nn = 10,000, p = 20"
   ))]
   data[, x_value := fcase(
     sub_experiment == "vs_N", as.numeric(N),
@@ -223,8 +242,7 @@ plot_runtime = function(data, title, filename) {
       strip.text = element_text(face = "bold")
     )
 
-  ggsave(file.path(figdir, filename), p, width = 11, height = 12, dpi = 220)
-  message("Written: ", file.path(figdir, filename))
+  save_plot(p, filename, width = 11, height = 12)
 }
 
 plot_runtime(

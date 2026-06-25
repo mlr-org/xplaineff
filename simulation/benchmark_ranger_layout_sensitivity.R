@@ -30,8 +30,10 @@ library(data.table)
 setDTthreads(1L)
 
 args = commandArgs(trailingOnly = TRUE)
+run_id = format(Sys.time(), "%Y%m%d_%H%M%S")
+run_root = file.path("simulation/results/runtime_runs", run_id)
 datadir = "simulation/data/global_r_runtime"
-outdir = "simulation/results/ranger_layout_sensitivity"
+outdir = file.path(run_root, "ranger_layout_sensitivity")
 cells_arg = "10000:20:20,10000:20:50"
 features_arg = "x1,x5"
 reps = 30L

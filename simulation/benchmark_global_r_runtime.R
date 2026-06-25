@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Global PDP/ALE benchmark against R packages.
 # Run from package root:
-# Rscript simulation/benchmark_global_r_runtime.R --datadir simulation/data/global_r_runtime --outdir simulation/results/global_r_runtime
+# Rscript simulation/benchmark_global_r_runtime.R --datadir simulation/data/global_r_runtime --outdir <run-dir>
 
 Sys.setenv(
   OMP_NUM_THREADS = Sys.getenv("OMP_NUM_THREADS", "1"),
@@ -54,10 +54,12 @@ library(data.table)
 setDTthreads(1L)
 
 args = commandArgs(trailingOnly = TRUE)
+run_id = format(Sys.time(), "%Y%m%d_%H%M%S")
+run_root = file.path("simulation/results/runtime_runs", run_id)
 datadir = "simulation/data/global_r_runtime"
-outdir = "simulation/results/global_r_runtime"
-reps = 30L
-N_vec = c(5000L, 10000L, 25000L, 50000L)
+outdir = file.path(run_root, "global_r_runtime")
+reps = 20L
+N_vec = c(1000L, 5000L, 10000L, 20000L)
 D_vec = c(10L, 20L, 50L, 100L)
 fixed_N = 10000L
 fixed_D = 20L
@@ -66,10 +68,13 @@ default_n_intervals = 20L
 n_grid_vec = c(10L, 20L, 50L)
 n_intervals_vec = c(10L, 20L, 50L)
 fail_fast = FALSE
+use_checkpoints = TRUE
+resume_checkpoints = TRUE
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res")
 cores = 1L
 output_suffix = ""
+checkpoint_dir = ""
 
 parse_int_vec = function(x) as.integer(strsplit(x, ",", fixed = TRUE)[[1L]])
 parse_chr_vec = function(x) trimws(strsplit(x, ",", fixed = TRUE)[[1L]])
@@ -104,6 +109,10 @@ while (i <= length(args)) {
     n_intervals_vec = parse_int_vec(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--fail-fast" && i < length(args)) {
     fail_fast = parse_flag(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--use-checkpoints" && i < length(args)) {
+    use_checkpoints = parse_flag(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--resume-checkpoints" && i < length(args)) {
+    resume_checkpoints = parse_flag(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--models" && i < length(args)) {
     model_types = strsplit(args[i + 1L], ",", fixed = TRUE)[[1L]]
     model_types = trimws(model_types[nzchar(model_types)])
@@ -116,12 +125,21 @@ while (i <= length(args)) {
     cores = max(1L, as.integer(args[i + 1L])); i = i + 2L
   } else if (args[i] == "--output-suffix" && i < length(args)) {
     output_suffix = trimws(as.character(args[i + 1L])); i = i + 2L
+  } else if (args[i] == "--checkpoint-dir" && i < length(args)) {
+    checkpoint_dir = trimws(as.character(args[i + 1L])); i = i + 2L
   } else {
     i = i + 1L
   }
 }
 
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+if (!nzchar(checkpoint_dir)) {
+  checkpoint_dir = file.path(outdir, "_checkpoints", if (nzchar(output_suffix)) output_suffix else "all")
+}
+if (isTRUE(use_checkpoints)) {
+  dir.create(checkpoint_dir, showWarnings = FALSE, recursive = TRUE)
+  message("Using checkpoint directory: ", checkpoint_dir)
+}
 
 load_data = function(N, D) {
   path = file.path(datadir, sprintf("benchmark_N%d_D%d_seed21.csv", N, D))
@@ -493,6 +511,51 @@ record_row = function(
   rows
 }
 
+rows_from_frame = function(x) {
+  x = as.data.frame(x)
+  if (!nrow(x)) return(list())
+  lapply(seq_len(nrow(x)), function(i) x[i, , drop = FALSE])
+}
+
+sanitize_checkpoint_part = function(x) {
+  gsub("_+", "_", gsub("[^A-Za-z0-9.-]+", "_", as.character(x)))
+}
+
+checkpoint_path = function(model_type, spec, cell) {
+  res_part = if (grepl("pdp", spec$method)) {
+    sprintf("grid%d", cell$n_grid)
+  } else {
+    sprintf("intervals%d", cell$n_intervals)
+  }
+  parts = c(
+    model_type, cell$sub_experiment, spec$package, spec$impl, spec$method,
+    sprintf("N%d", cell$N), sprintf("D%d", cell$D), res_part, sprintf("reps%d", reps)
+  )
+  file.path(checkpoint_dir, paste0(paste(sanitize_checkpoint_part(parts), collapse = "__"), ".csv"))
+}
+
+read_checkpoint_rows = function(path) {
+  if (!isTRUE(use_checkpoints) || !isTRUE(resume_checkpoints) || !file.exists(path)) return(list())
+  rows = tryCatch(as.data.frame(fread(path)), error = function(e) NULL)
+  if (is.null(rows) || !nrow(rows) || !"repetition" %in% names(rows)) return(list())
+  rows = rows[rows$repetition %in% seq_len(reps), , drop = FALSE]
+  rows = rows[order(rows$repetition), , drop = FALSE]
+  rows = rows[!duplicated(rows$repetition), , drop = FALSE]
+  rows_from_frame(rows)
+}
+
+write_checkpoint_rows = function(rows, path) {
+  if (!isTRUE(use_checkpoints) || !length(rows)) return(invisible(FALSE))
+  dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
+  tmp = sprintf("%s.tmp.%d", path, Sys.getpid())
+  write.csv(do.call(rbind, rows), tmp, row.names = FALSE)
+  if (!file.rename(tmp, path)) {
+    if (file.exists(tmp)) file.remove(tmp)
+    stop(sprintf("failed to write checkpoint: %s", path), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 time_spec = function(spec, dat, model, pred_fun, cell) {
   missing = spec$requires[!vapply(spec$requires, requireNamespace, logical(1L), quietly = TRUE)]
   if (length(missing)) {
@@ -548,17 +611,32 @@ run_model = function(model_type) {
       model_type, spec$package, spec$impl, spec$method,
       cell$sub_experiment, cell$N, cell$D, res_label
     )
+    cp_path = checkpoint_path(model_type, spec, cell)
+    rep_rows = read_checkpoint_rows(cp_path)
+    completed_reps = if (length(rep_rows)) {
+      as.integer(vapply(rep_rows, function(x) x$repetition[[1L]], integer(1L)))
+    } else {
+      integer()
+    }
+    if (length(completed_reps) >= reps) {
+      message(log_msg, " | checkpoint")
+      message(log_msg, " | done")
+      return(rep_rows)
+    }
     message(log_msg, " | start")
-    tryCatch(
-      time_spec(spec, dat, model, pred_fun, cell),
-      error = function(e) {
-        if (isTRUE(fail_fast)) stop(e)
-        message(log_msg, " | warmup skipped/failed: ", conditionMessage(e))
-        invisible(NA_real_)
-      }
-    )
-    rep_rows = list()
-    for (r in seq_len(reps)) {
+    if (length(completed_reps)) {
+      message(log_msg, sprintf(" | resuming checkpoint (%d/%d reps)", length(completed_reps), reps))
+    } else {
+      tryCatch(
+        time_spec(spec, dat, model, pred_fun, cell),
+        error = function(e) {
+          if (isTRUE(fail_fast)) stop(e)
+          message(log_msg, " | warmup skipped/failed: ", conditionMessage(e))
+          invisible(NA_real_)
+        }
+      )
+    }
+    for (r in setdiff(seq_len(reps), completed_reps)) {
       out = tryCatch(
         list(ok = TRUE, time = time_spec(spec, dat, model, pred_fun, cell), error = NA_character_),
         error = function(e) {
@@ -576,6 +654,7 @@ run_model = function(model_type) {
         status = if (out$ok) "ok" else "error",
         error_message = out$error
       )
+      write_checkpoint_rows(rep_rows, cp_path)
     }
     message(log_msg, " | done")
     rep_rows

@@ -15,8 +15,12 @@ Sys.setenv(
 )
 
 args = commandArgs(trailingOnly = TRUE)
-indir = "simulation/results/regional_runtime"
-figdir = "simulation/results/paper_figures"
+run_id = format(Sys.time(), "%Y%m%d_%H%M%S")
+run_root = file.path("simulation/results/runtime_runs", run_id)
+indir = file.path(run_root, "regional_runtime")
+figdir = file.path(run_root, "paper_figures")
+paper_figdir = ""
+paper_filenames = "regional_split_methods_linear.png"
 
 i = 1L
 while (i <= length(args)) {
@@ -24,12 +28,21 @@ while (i <= length(args)) {
     indir = args[i + 1L]; i = i + 2L
   } else if (args[i] == "--figdir" && i < length(args)) {
     figdir = args[i + 1L]; i = i + 2L
+  } else if (args[i] == "--paper-figdir" && i < length(args)) {
+    paper_figdir = args[i + 1L]; i = i + 2L
+  } else if (args[i] == "--paper-filenames" && i < length(args)) {
+    paper_filenames = trimws(strsplit(args[i + 1L], ",", fixed = TRUE)[[1L]])
+    paper_filenames = paper_filenames[nzchar(paper_filenames)]
+    i = i + 2L
   } else {
     i = i + 1L
   }
 }
 
 dir.create(figdir, showWarnings = FALSE, recursive = TRUE)
+if (nzchar(paper_figdir)) {
+  dir.create(paper_figdir, showWarnings = FALSE, recursive = TRUE)
+}
 
 library(data.table)
 library(ggplot2)
@@ -94,8 +107,25 @@ x_offset_values = c(
   "effector" = 1.015
 )
 
-plot_metric = function(data, metric, filename, title) {
+format_axis_number = function(x) {
+  format(x, trim = TRUE, digits = 3L, scientific = FALSE, big.mark = ",")
+}
+
+save_plot = function(plot_obj, filename, width, height, dpi = 220) {
+  out = file.path(figdir, filename)
+  ggsave(out, plot_obj, width = width, height = height, dpi = dpi)
+  message("Written: ", out)
+  if (nzchar(paper_figdir) && filename %in% paper_filenames) {
+    paper_out = file.path(paper_figdir, filename)
+    ggsave(paper_out, plot_obj, width = width, height = height, dpi = dpi)
+    message("Synced: ", paper_out)
+  }
+}
+
+plot_metric = function(data, metric, filename, title, facet_layout = "grid", x_scale = "log10") {
   if (!nrow(data)) return(invisible(NULL))
+  facet_layout = match.arg(facet_layout, c("grid", "wrap"))
+  x_scale = match.arg(x_scale, c("log10", "continuous"))
   data = copy(data)
   median_col = sprintf("%s_median", metric)
   q25_col = sprintf("%s_q25", metric)
@@ -111,18 +141,32 @@ plot_metric = function(data, metric, filename, title) {
     "ALE / RF model",
     "ALE / Toy model"
   ))]
+  data[, sweep_short := fcase(
+    sub_experiment == "vs_N", "vs n",
+    sub_experiment == "vs_D", "vs p",
+    sub_experiment == "vs_res", "vs resolution",
+    sub_experiment == "vs_split", "vs splits",
+    default = sub_experiment
+  )]
+  data[, fixed_desc := fcase(
+    sub_experiment == "vs_N", "p = 20, resolution = 20, splits = 2",
+    sub_experiment == "vs_D", "n = 10,000, resolution = 20, splits = 2",
+    sub_experiment == "vs_res", "n = 10,000, p = 20, splits = 2",
+    sub_experiment == "vs_split", "n = 10,000, p = 20, resolution = 20",
+    default = sub_experiment
+  )]
   data[, sweep_label := fcase(
-    sub_experiment == "vs_N", "Sample size N\nD = 20, resolution = 20, splits = 2",
-    sub_experiment == "vs_D", "Feature dimension D\nN = 10,000, resolution = 20, splits = 2",
-    sub_experiment == "vs_res", "Resolution\nN = 10,000, D = 20, splits = 2",
-    sub_experiment == "vs_split", "Number of splits\nN = 10,000, D = 20, resolution = 20",
+    sub_experiment == "vs_N", "Sample size n\np = 20, resolution = 20, splits = 2",
+    sub_experiment == "vs_D", "Feature dimension p\nn = 10,000, resolution = 20, splits = 2",
+    sub_experiment == "vs_res", "Resolution\nn = 10,000, p = 20, splits = 2",
+    sub_experiment == "vs_split", "Number of splits\nn = 10,000, p = 20, resolution = 20",
     default = sub_experiment
   )]
   data[, sweep_label := factor(sweep_label, levels = c(
-    "Sample size N\nD = 20, resolution = 20, splits = 2",
-    "Feature dimension D\nN = 10,000, resolution = 20, splits = 2",
-    "Resolution\nN = 10,000, D = 20, splits = 2",
-    "Number of splits\nN = 10,000, D = 20, resolution = 20"
+    "Sample size n\np = 20, resolution = 20, splits = 2",
+    "Feature dimension p\nn = 10,000, resolution = 20, splits = 2",
+    "Resolution\nn = 10,000, p = 20, splits = 2",
+    "Number of splits\nn = 10,000, p = 20, resolution = 20"
   ))]
   data[, x_value := fcase(
     sub_experiment == "vs_N", as.numeric(N),
@@ -136,20 +180,49 @@ plot_metric = function(data, metric, filename, title) {
   data[, time_q25_plot := pmax(time_q25, .Machine$double.eps)]
   data[, time_q75_plot := pmax(time_q75, .Machine$double.eps)]
 
+  panel_levels = levels(data$panel)
+  sweep_levels = c(
+    "vs n\np = 20, resolution = 20, splits = 2",
+    "vs p\nn = 10,000, resolution = 20, splits = 2",
+    "vs resolution\nn = 10,000, p = 20, splits = 2",
+    "vs splits\nn = 10,000, p = 20, resolution = 20"
+  )
+  panel_title_levels = unlist(lapply(panel_levels, function(row) paste(row, sweep_levels, sep = " - ")))
+  data[, panel_title := factor(paste(panel, paste(sweep_short, fixed_desc, sep = "\n"), sep = " - "),
+    levels = panel_title_levels)]
+
   p = ggplot(
     data,
     aes(x = x_display, y = time_median_plot, color = label, fill = label, group = label)
   ) +
     geom_ribbon(aes(ymin = time_q25_plot, ymax = time_q75_plot), alpha = 0.16, colour = NA) +
     geom_line(linewidth = 0.8) +
-    geom_point(aes(shape = label), size = 2.0, stroke = 0.2) +
-    facet_grid(panel ~ sweep_label, scales = "free") +
-    scale_x_log10(labels = comma, breaks = sort(unique(data$x_value))) +
-    scale_y_log10(labels = label_number(accuracy = 0.1, trim = TRUE)) +
+    geom_point(aes(shape = label), size = 2.0, stroke = 0.2)
+
+  if (facet_layout == "wrap") {
+    p = p +
+      facet_wrap(~ panel_title, ncol = 4L, scales = "free")
+  } else {
+    p = p +
+      facet_grid(panel ~ sweep_label, scales = "free")
+  }
+
+  if (x_scale == "continuous") {
+    p = p +
+      scale_x_continuous(labels = comma, breaks = sort(unique(data$x_value)))
+  } else {
+    p = p +
+      scale_x_log10(labels = comma, breaks = sort(unique(data$x_value)))
+  }
+
+  p = p +
+    scale_y_continuous(labels = format_axis_number) +
     scale_color_manual(values = palette_values, breaks = names(palette_values), drop = FALSE) +
-    scale_fill_manual(values = alpha(palette_values, 0.25), breaks = names(palette_values), drop = FALSE, guide = "none") +
+    scale_fill_manual(
+      values = alpha(palette_values, 0.25), breaks = names(palette_values), drop = FALSE, guide = "none"
+    ) +
     scale_shape_manual(values = shape_values, breaks = names(shape_values), drop = FALSE, guide = "none") +
-    labs(title = title, x = "Value of varied parameter", y = "Median runtime (seconds, log scale)", color = NULL) +
+    labs(title = title, x = "Value of varied parameter", y = "Median runtime (seconds)", color = NULL) +
     theme_bw(base_size = 10) +
     theme(
       legend.position = "bottom",
@@ -159,11 +232,11 @@ plot_metric = function(data, metric, filename, title) {
       strip.text = element_text(face = "bold", lineheight = 0.95)
     )
 
-  ggsave(file.path(figdir, filename), p, width = 13, height = 12, dpi = 220)
-  message("Written: ", file.path(figdir, filename))
+  save_plot(p, filename, width = 13, height = 12)
 }
 
-plot_metric(summary_dt, "split", "regional_split_methods.png", "Regional split-search runtime")
+plot_metric(summary_dt, "split", "regional_split_methods_linear.png", "Regional split-search runtime",
+  facet_layout = "wrap", x_scale = "log10")
 plot_metric(summary_dt, "total", "regional_total_methods.png", "Regional total runtime")
 
 message("Done.")

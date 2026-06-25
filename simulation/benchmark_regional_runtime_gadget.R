@@ -53,8 +53,10 @@ library(data.table)
 setDTthreads(1L)
 
 args = commandArgs(trailingOnly = TRUE)
+run_id = format(Sys.time(), "%Y%m%d_%H%M%S")
+run_root = file.path("simulation/results/runtime_runs", run_id)
 datadir = "simulation/data/global_r_runtime"
-outdir = "simulation/results/regional_runtime"
+outdir = file.path(run_root, "regional_runtime")
 reps = 30L
 N_vec = c(5000L, 10000L, 25000L, 50000L)
 D_vec = c(10L, 20L, 50L, 100L)

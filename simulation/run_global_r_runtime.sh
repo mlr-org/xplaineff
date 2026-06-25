@@ -8,6 +8,8 @@ set -e
 cd "$(dirname "$0")/.."
 
 MODE="${1:-publication}"
+RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
+RUN_ROOT="${RUN_ROOT:-simulation/results/runtime_runs/${RUN_ID}}"
 
 # Keep every benchmark single-threaded and avoid Intel/OpenMP shared-memory failures in sandboxed shells.
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
@@ -42,11 +44,11 @@ if [ "$MODE" = "smoke" ]; then
   N_GRID_VEC="10"
   N_INTERVALS_VEC="10"
   REPS=1
-  OUTDIR="simulation/results/global_r_runtime_smoke"
-  FIGDIR="simulation/results/paper_figures_smoke"
+  OUTDIR="${GLOBAL_OUTDIR:-${RUN_ROOT}/global_r_runtime_smoke}"
+  FIGDIR="${GLOBAL_FIGDIR:-${RUN_ROOT}/paper_figures_smoke}"
   MODELS="${BENCHMARK_MODELS:-toy}"
 else
-  N_VEC="5000,10000,25000,50000"
+  N_VEC="1000,5000,10000,20000"
   D_VEC="10,20,50,100"
   FIXED_N="10000"
   FIXED_D="20"
@@ -54,14 +56,19 @@ else
   N_INTERVALS=20
   N_GRID_VEC="10,20,50"
   N_INTERVALS_VEC="10,20,50"
-  REPS=30
-  OUTDIR="simulation/results/global_r_runtime"
-  FIGDIR="simulation/results/paper_figures"
+  REPS=20
+  OUTDIR="${GLOBAL_OUTDIR:-${RUN_ROOT}/global_r_runtime}"
+  FIGDIR="${GLOBAL_FIGDIR:-${RUN_ROOT}/paper_figures}"
   MODELS="${BENCHMARK_MODELS:-rf,toy}"
 fi
 
 DATADIR="simulation/data/global_r_runtime"
 PAPER_FIGDIR="paper/figures"
+SYNC_PAPER_FIGURES="${SYNC_PAPER_FIGURES:-true}"
+SUMMARY_PAPER_FIGDIR=""
+if [ "$MODE" = "publication" ] && [ "$SYNC_PAPER_FIGURES" = "true" ]; then
+  SUMMARY_PAPER_FIGDIR="${PAPER_FIGDIR}"
+fi
 INCLUDE_MLR3=false
 case ",${MODELS}," in
   *",mlr3_rf,"*) INCLUDE_MLR3=true ;;
@@ -178,15 +185,10 @@ echo "3. Summarizing and plotting..."
 Rscript simulation/summarize_global_r_runtime.R \
   --indir "${OUTDIR}" \
   --figdir "${FIGDIR}" \
+  --paper-figdir "${SUMMARY_PAPER_FIGDIR}" \
   --fixed-D "${FIXED_D}" \
   --models "${MODELS}" \
   --include-mlr3 "${INCLUDE_MLR3}"
-
-if [ "$MODE" = "publication" ] && [ -f "${FIGDIR}/global_r_methods.png" ]; then
-  mkdir -p "${PAPER_FIGDIR}"
-  cp "${FIGDIR}/global_r_methods.png" "${PAPER_FIGDIR}/global_r_methods.png"
-  echo "Synced global runtime figure to ${PAPER_FIGDIR}/global_r_methods.png"
-fi
 
 echo "Done. Global raw CSVs and summary.csv in ${OUTDIR}/; global figure in ${FIGDIR}/"
 echo "Use simulation/run_runtime_benchmark.sh for the coordinated global, regional, and diagnostic workflow."

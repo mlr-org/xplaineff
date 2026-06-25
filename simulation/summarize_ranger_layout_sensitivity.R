@@ -2,7 +2,9 @@
 # Summarize ranger layout-sensitivity diagnostic timings.
 
 args = commandArgs(trailingOnly = TRUE)
-indir = "simulation/results/ranger_layout_sensitivity"
+run_id = format(Sys.time(), "%Y%m%d_%H%M%S")
+run_root = file.path("simulation/results/runtime_runs", run_id)
+indir = file.path(run_root, "ranger_layout_sensitivity")
 
 i = 1L
 while (i <= length(args)) {

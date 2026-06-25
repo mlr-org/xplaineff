@@ -45,7 +45,7 @@ method_order_labels = c(
   "gadget_ale|random" = "ALE (random)",
   "gadget_ale|mds" = "ALE (mds)",
   "gadget_ale|pca" = "ALE (pca)",
-  "gadget_ale|oracle_partition" = "ALE (oracle: exhaustive partition, upper bound)"
+  "gadget_ale|oracle_partition" = "ALE (exhaustive search)"
 )
 method_order_levels = names(method_order_labels)
 
@@ -89,19 +89,22 @@ mean_or_na = function(x) {
 }
 
 aggregate_sweep = function(d, xvar) {
-  d[, .(
-    exact = mean_or_na(exact_recovery),
-    ari = mean_or_na(ari),
-    node_acc = mean_or_na(node_acc),
-    int_imp = mean_or_na(int_imp),
-    order_correct = mean_or_na(order_correct),
-    elapsed_sec = mean_or_na(elapsed_sec),
-    n_ok = sum(status == "ok", na.rm = TRUE),
-    n_no_split = sum(status == "no_split", na.rm = TRUE),
-    n_fit_fail = sum(status == "fit_fail", na.rm = TRUE),
-    n_fail = sum(!is.na(status) & status != "ok"),
-    n_rep = .N
-  ), by = c("mo", "mo_label", xvar)]
+  agg_cols = list(
+    exact = quote(mean_or_na(exact_recovery)),
+    ari = quote(mean_or_na(ari)),
+    node_acc = quote(mean_or_na(node_acc)),
+    int_imp = quote(mean_or_na(int_imp)),
+    order_correct = quote(mean_or_na(order_correct)),
+    n_ok = quote(sum(status == "ok", na.rm = TRUE)),
+    n_no_split = quote(sum(status == "no_split", na.rm = TRUE)),
+    n_fit_fail = quote(sum(status == "fit_fail", na.rm = TRUE)),
+    n_fail = quote(sum(!is.na(status) & status != "ok")),
+    n_rep = quote(.N)
+  )
+  if ("elapsed_sec" %in% names(d)) {
+    agg_cols$elapsed_sec = quote(mean_or_na(elapsed_sec))
+  }
+  d[, eval(as.call(c(quote(list), agg_cols))), by = c("mo", "mo_label", xvar)]
 }
 
 # Per-cell paired t-test of {ari, node_acc, exact_recovery, int_imp} for each
@@ -222,29 +225,29 @@ if ("leakage" %in% sweeps && !is.null(d_leakage)) {
   p = sweep_plot(d_leakage, "leakage",
     "Leakage strength (0 = none, 1 = deterministic)",
     "Level-grouping recovery vs covariate leakage",
-    subtitle_fixed = expression(paste("Sweeping ", lambda, "; fixed K = 6, N = 2000, D = 10, ",
+    subtitle_fixed = expression(paste("Sweeping ", lambda, "; fixed M = 6, n = 2000, p = 10, ",
                                       beta[max], " = 4")))
   save_plot("leakage", p, width = 10, height = 5.5)
 }
 if ("K" %in% sweeps && !is.null(d_K)) {
-  p = sweep_plot(d_K, "K", "Number of levels K",
+  p = sweep_plot(d_K, "K", "Number of levels M",
     "Level-grouping recovery vs cardinality",
-    subtitle_fixed = expression(paste("Sweeping K; fixed N = 2000, D = 10, ", lambda, " = 0.1, ",
+    subtitle_fixed = expression(paste("Sweeping M; fixed n = 2000, p = 10, ", lambda, " = 0.1, ",
                                       beta[max], " = 4")))
   save_plot("K", p, width = 10, height = 5.5)
 }
 if ("N" %in% sweeps && !is.null(d_N)) {
-  p = sweep_plot(d_N, "N", "Sample size N",
+  p = sweep_plot(d_N, "N", "Sample size n",
     "Level-grouping recovery vs sample size",
-    subtitle_fixed = expression(paste("Sweeping N; fixed K = 6, D = 10, ", lambda, " = 0.1, ",
+    subtitle_fixed = expression(paste("Sweeping n; fixed M = 6, p = 10, ", lambda, " = 0.1, ",
                                       beta[max], " = 4")),
     logx = TRUE)
   save_plot("N", p, width = 10, height = 5.5)
 }
 if ("D" %in% sweeps && !is.null(d_D)) {
-  p = sweep_plot(d_D, "D", "Number of features D",
+  p = sweep_plot(d_D, "D", "Number of features p",
     "Level-grouping recovery vs noise features",
-    subtitle_fixed = expression(paste("Sweeping D; fixed K = 6, N = 2000, ", lambda, " = 0.1, ",
+    subtitle_fixed = expression(paste("Sweeping p; fixed M = 6, n = 2000, ", lambda, " = 0.1, ",
                                       beta[max], " = 4")),
     logx = TRUE)
   save_plot("D", p, width = 10, height = 5.5)
@@ -253,14 +256,14 @@ if ("slope_mag" %in% sweeps && !is.null(d_slope_mag)) {
   p = sweep_plot(d_slope_mag, "slope_mag",
     expression(paste("Response-side slope magnitude ", beta[max])),
     "Level-grouping recovery vs response-side SNR",
-    subtitle_fixed = expression(paste("Sweeping ", beta[max], "; fixed K = 6, N = 2000, D = 10, ",
+    subtitle_fixed = expression(paste("Sweeping ", beta[max], "; fixed M = 6, n = 2000, p = 10, ",
                                       lambda, " = 0.1")))
   save_plot("slope_mag", p, width = 10, height = 5.5)
 }
 if ("group_frac" %in% sweeps && !is.null(d_group_frac)) {
   p = sweep_plot(d_group_frac, "group_frac", "Signal-level fraction",
     "Level-grouping recovery vs signal-group size",
-    subtitle_fixed = expression(paste("Sweeping signal fraction; fixed K = 6, N = 2000, D = 10, ",
+    subtitle_fixed = expression(paste("Sweeping signal fraction; fixed M = 6, n = 2000, p = 10, ",
                                       lambda, " = 0.1, ", beta[max], " = 4")))
   save_plot("group_frac", p, width = 10, height = 5.5)
 }

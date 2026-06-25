@@ -20,5 +20,6 @@ results/*.txt
 results/*probe*/
 results/*smoke*/
 results/benchmark_check_*/
+results/runtime_runs/
 
 .DS_Store

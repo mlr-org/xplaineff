@@ -9,6 +9,7 @@ import csv
 import os
 import sys
 import time
+from datetime import datetime
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OMP_THREAD_LIMIT", "1")
@@ -260,9 +261,11 @@ def run_model(args, model_type):
 
 
 def main():
+    run_id = os.environ.get("RUN_ID") or datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_root = os.environ.get("RUN_ROOT") or os.path.join("simulation", "results", "runtime_runs", run_id)
     parser = argparse.ArgumentParser()
     parser.add_argument("--datadir", default="simulation/data/global_r_runtime")
-    parser.add_argument("--outdir", default="simulation/results/regional_runtime")
+    parser.add_argument("--outdir", default=os.path.join(run_root, "regional_runtime"))
     parser.add_argument("--reps", type=int, default=30)
     parser.add_argument("--N-vec", default="5000,10000,25000,50000")
     parser.add_argument("--D-vec", default="10,20,50,100")
