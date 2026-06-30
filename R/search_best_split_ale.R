@@ -16,9 +16,10 @@ build_ale_interval_stats = function(effect, features) {
   K = integer(p)
   for (j in seq_len(p)) {
     DT = effect[[features[j]]]
-    data.table::setorder(DT, row_id)
-    S = unique(DT[, list(interval_index, n = int_n, s1 = int_s1, s2 = int_s2)])
-    data.table::setorder(S, interval_index)
+    data.table::setorderv(DT, "row_id")
+    S = unique(DT[, c("interval_index", "int_n", "int_s1", "int_s2"), with = FALSE])
+    data.table::setnames(S, c("int_n", "int_s1", "int_s2"), c("n", "s1", "s2"))
+    data.table::setorderv(S, "interval_index")
     stats_list[[j]] = S
     row_pos_list[[j]] = match(DT$interval_index, S$interval_index)
     d_l_list[[j]] = DT$d_l

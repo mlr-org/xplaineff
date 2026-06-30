@@ -37,8 +37,8 @@ cpp_ale_categorical_prepare <- function(levels_id, n_levels) {
     .Call(`_gadget_cpp_ale_categorical_prepare`, levels_id, n_levels)
 }
 
-ale_sweep_cpp <- function(ord_idx, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, is_cand, min_node_size, split_feat_j, use_stabilizer, z_sorted, n_obs) {
-    .Call(`_gadget_ale_sweep_cpp`, ord_idx, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, is_cand, min_node_size, split_feat_j, use_stabilizer, z_sorted, n_obs)
+ale_sweep_cpp <- function(ord_idx, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, is_cand, min_node_size, split_feat_j, z_sorted, n_obs) {
+    .Call(`_gadget_ale_sweep_cpp`, ord_idx, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, is_cand, min_node_size, split_feat_j, z_sorted, n_obs)
 }
 
 calculate_ale_heterogeneity_single_cpp <- function(d_l, interval_index) {

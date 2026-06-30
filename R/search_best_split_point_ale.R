@@ -114,7 +114,6 @@ search_best_split_point_ale = function(
     is_cand = is_cand_t,
     min_node_size = min_node_size,
     split_feat_j = split_feat_j_arg,
-    use_stabilizer = FALSE,
     z_sorted = z_sorted_num,
     n_obs = n_obs
   )

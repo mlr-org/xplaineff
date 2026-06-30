@@ -53,7 +53,10 @@ plot_regional_ale = function(curves, color_ale = "lightcoral", target_feature_na
       n_x = length(unique(mean_dt$x_grid[valid]))
       has_line = n_x >= 2L
 
-      p_ale = ggplot2::ggplot(mean_dt, ggplot2::aes(x = x_grid, y = d_l, color = series)) +
+      p_ale = ggplot2::ggplot(
+        mean_dt,
+        ggplot2::aes(x = get("x_grid"), y = get("d_l"), color = get("series"))
+      ) +
         ggplot2::theme_bw() +
         ggplot2::xlab(feat) +
         ggplot2::ylab(target_feature_name)
@@ -68,7 +71,7 @@ plot_regional_ale = function(curves, color_ale = "lightcoral", target_feature_na
         p_ale = p_ale +
           ggplot2::geom_point(
             data = obs_df,
-            ggplot2::aes(x = x, y = y),
+            ggplot2::aes(x = get("x"), y = get("y")),
             inherit.aes = FALSE,
             alpha = 0.3, size = 0.8, color = "black"
           )
@@ -85,7 +88,10 @@ plot_regional_ale = function(curves, color_ale = "lightcoral", target_feature_na
       n_x = length(unique(mean_dt$level[valid]))
       has_line = n_x >= 2L
 
-      p_ale = ggplot2::ggplot(mean_dt, ggplot2::aes(x = level, y = d_l, group = 1, color = series)) +
+      p_ale = ggplot2::ggplot(
+        mean_dt,
+        ggplot2::aes(x = get("level"), y = get("d_l"), group = 1, color = get("series"))
+      ) +
         ggplot2::theme_bw() +
         ggplot2::xlab(feat) +
         ggplot2::ylab(target_feature_name)
@@ -100,7 +106,7 @@ plot_regional_ale = function(curves, color_ale = "lightcoral", target_feature_na
         p_ale = p_ale +
           ggplot2::geom_point(
             data = obs_df,
-            ggplot2::aes(x = level, y = y),
+            ggplot2::aes(x = get("level"), y = get("y")),
             inherit.aes = FALSE,
             alpha = 0.3, size = 1.0, color = "black",
             position = ggplot2::position_jitter(width = 0.12, height = 0)

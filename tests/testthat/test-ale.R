@@ -206,6 +206,92 @@ test_that("calculate_ale returns zero d_l for single-level factor feature", {
   expect_equal(nrow(result$x_cat), n)
 })
 
+test_that("calculate_ale preserves fractional interval bounds for integer features", {
+  data = data.frame(x = 1L:4L, y = 0)
+  predict_fun = function(model, data) as.numeric(data$x)
+
+  expect_warning({
+    result_r = gadget:::calculate_ale(
+      model = NULL, data = data, feature_set = "x", target_feature_name = "y",
+      n_intervals = 2L, predict_fun = predict_fun
+    )
+  },
+    NA
+  )
+  expect_warning({
+    result_cpp = gadget:::calculate_ale_fast(
+      model = NULL, data = data, feature_set = "x", target_feature_name = "y",
+      n_intervals = 2L, predict_fun = predict_fun
+    )
+  },
+    NA
+  )
+
+  expect_equal(result_r$x$d_l, rep(1.5, 4L))
+  expect_equal(result_cpp$x$d_l, rep(1.5, 4L))
+})
+
+test_that("calculate_ale detaches custom predictions before restoring scratch data", {
+  data = data.frame(x = as.numeric(1:4), y = 0)
+  predict_fun = function(model, data) data$x
+
+  result_r = gadget:::calculate_ale(
+    model = NULL, data = data, feature_set = "x", target_feature_name = "y",
+    n_intervals = 2L, predict_fun = predict_fun
+  )
+  result_cpp = gadget:::calculate_ale_fast(
+    model = NULL, data = data, feature_set = "x", target_feature_name = "y",
+    n_intervals = 2L, predict_fun = predict_fun
+  )
+
+  expect_equal(result_r$x$d_l, rep(1.5, 4L))
+  expect_equal(result_cpp$x$d_l, rep(1.5, 4L))
+})
+
+test_that("AleStrategy accepts a bare prediction function as model", {
+  skip_ale_cpp_if_unavailable()
+  data = data.frame(x = as.numeric(1:4), y = 0)
+  model = function(data) data$x
+
+  result = gadget:::prepare_split_data_ale(
+    model = model,
+    data = data,
+    target_feature_name = "y",
+    n_intervals = 2L,
+    feature_set = "x",
+    split_feature = "x",
+    ale_engine = "cpp"
+  )
+
+  expect_equal(result$Y$x$d_l, rep(1.5, 4L))
+})
+
+test_that("calculate_ale restores shared scratch data between features", {
+  skip_ale_cpp_if_unavailable()
+  data = data.frame(
+    x_num = as.numeric(1:6),
+    x_cat = factor(rep(c("a", "b"), 3L)),
+    x_unused = rep(0L:1L, 3L),
+    y = 0
+  )
+  predict_fun = function(model, data) {
+    data$x_num + ifelse(data$x_cat == "b", 2, 0)
+  }
+  features = c("x_num", "x_cat", "x_unused")
+
+  result_r = gadget:::calculate_ale(
+    model = NULL, data = data, feature_set = features, target_feature_name = "y",
+    n_intervals = 2L, predict_fun = predict_fun
+  )
+  result_cpp = gadget:::calculate_ale_fast(
+    model = NULL, data = data, feature_set = features, target_feature_name = "y",
+    n_intervals = 2L, predict_fun = predict_fun
+  )
+
+  expect_equal(result_r$x_unused$d_l, rep(0, nrow(data)))
+  expect_equal(result_cpp$x_unused$d_l, rep(0, nrow(data)))
+})
+
 test_that("make_predictor normalizes custom prediction output and checks length", {
   predict_df = function(model, data) data.frame(pred = seq_len(nrow(data)))
   predictor = gadget:::make_predictor(model = NULL, predict_fun = predict_df)
@@ -238,7 +324,7 @@ test_that("ale_sweep_cpp returns valid split for simple one-feature case", {
     tot_n = c(3.0, 3.0), tot_s1 = c(3.0, -3.0), tot_s2 = c(3.0, 3.0),
     r_risks = c(0.0, 0.0),
     is_cand = rep(TRUE, 6), min_node_size = 2L,
-    split_feat_j = 0L, use_stabilizer = FALSE,
+    split_feat_j = 0L,
     z_sorted = as.numeric(1:6), n_obs = n
   )
   expect_true(is.list(result))
@@ -247,7 +333,7 @@ test_that("ale_sweep_cpp returns valid split for simple one-feature case", {
   expect_true(is.finite(result$best_risks_sum))
 })
 
-test_that("search_best_split_point_ale keeps self feature signal in fast path", {
+test_that("search_best_split_point_ale keeps corrected self feature signal", {
   skip_ale_cpp_if_unavailable()
   dt = data.table::data.table(
     row_id = 1:8,
@@ -387,29 +473,9 @@ test_that("ale_sweep_cpp returns Inf when no candidate splits", {
     tot_n = c(3.0, 3.0), tot_s1 = c(3.0, -3.0), tot_s2 = c(3.0, 3.0),
     r_risks = c(0.0, 0.0),
     is_cand = rep(FALSE, 6), min_node_size = 2L,
-    split_feat_j = 0L, use_stabilizer = FALSE,
+    split_feat_j = 0L,
     z_sorted = as.numeric(1:6), n_obs = n
   )
   expect_true(is.na(result$best_t))
   expect_true(is.infinite(result$best_risks_sum) && result$best_risks_sum > 0)
-})
-
-test_that("AleStrategy rejects the retired with_stab argument", {
-  tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 0L, min_node_size = 2L)
-  data = data.frame(
-    x1 = c(-1, 0, 1, 2),
-    x2 = c(0, 1, 0, 1),
-    y = c(0, 0, 0, 0)
-  )
-
-  expect_error(
-    tree$fit(
-      data = data,
-      target_feature_name = "y",
-      model = list(),
-      predict_fun = function(model, newdata) rep(0, nrow(newdata)),
-      with_stab = FALSE
-    ),
-    "with_stab.*retired"
-  )
 })

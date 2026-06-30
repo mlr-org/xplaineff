@@ -90,18 +90,19 @@ plot_regional_pd = function(prepared_data, origin_data, target_feature_name, nod
     noline = length(unique(plot_data$grid[!is.na(plot_data$value)])) < 2
 
     # nolint start: object_usage_linter. (.data, type from ggplot2/rlang NSE)
-    p = ggplot(plot_data, aes(x = .data[["grid"]], y = .data[["value"]],
-        group = .data[["id"]], color = .data[["type"]]))
+    p = ggplot(plot_data, aes(x = get("grid"), y = get("value"),
+        group = get("id"), color = get("type")))
+    pdp_data = plot_data[plot_data$type == "PDP", , drop = FALSE]
     if (!noline) {
       p = p + geom_line(alpha = 0.9, linewidth = 0.5, linetype = "dotted", na.rm = TRUE)
-      p = p + geom_line(data = subset(plot_data, type == "PDP"), linewidth = 0.8)
+      p = p + geom_line(data = pdp_data, linewidth = 0.8)
     } else {
       p = p + geom_point(size = 1, shape = 4, na.rm = TRUE)
-      p = p + geom_point(data = subset(plot_data, type == "PDP"), size = 3, shape = 4, na.rm = TRUE)
+      p = p + geom_point(data = pdp_data, size = 3, shape = 4, na.rm = TRUE)
     }
     if (feat %in% colnames(origin_data_subset)) {
       p = p + geom_point(data = origin_data_subset,
-        aes(x = .data[[feat]], y = .data[[target_feature_name]]),
+        aes(x = get(feat), y = get(target_feature_name)),
         alpha = if (show_point) 0.3 else 0, size = 0.8, inherit.aes = FALSE)
     }
     # nolint end

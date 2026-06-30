@@ -6,7 +6,7 @@ Authors@R: c(
     person(
       "Zizheng", "Zhang",
       email = "zhangzizheng@stat.uni-muenchen.de",
-      role = "cre"
+      role = c("aut", "cre")
     )
   )
 Description: Implements the GADGET (General Additive Decomposition based on Global
@@ -17,7 +17,7 @@ Description: Implements the GADGET (General Additive Decomposition based on Glob
     both ALE and PD strategies, works with 'mlr3' learners, accepts 'iml'-style
     PD/ICE outputs for PD trees, and provides visualization of the interaction
     tree and regional effect plots.
-License: MIT
+License: MIT + file LICENSE
 Depends: R (>= 4.3.0)
 URL: https://github.com/mlr-org/gadget
 BugReports: https://github.com/mlr-org/gadget/issues
@@ -80,8 +80,6 @@ Collate:
     'prepare_split_data_ale.R'
     'prepare_split_data_pd.R'
     'prepare_split_data_utils.R'
-    're_mean_center_ice.R'
     'search_best_split_ale.R'
     'search_best_split_point_ale.R'
-    'search_best_split_point_ale_with.R'
     'track_split_condition.R'

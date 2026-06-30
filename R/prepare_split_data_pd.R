@@ -20,6 +20,10 @@
 #' @keywords internal
 prepare_split_data_pd = function(effect, data, target_feature_name = NULL, feature_set = NULL,
   split_feature = NULL) {
+  if (is.null(feature_set)) {
+    effect_results = effect$results
+    feature_set = if (inherits(effect_results, "data.frame")) colnames(effect_results)[1L] else names(effect_results)
+  }
   common = prepare_split_data_common(data, target_feature_name, feature_set, split_feature)
   wide_mean_center = mean_center_ice(effect = effect, feature_set = common$feature_set)
   list(Z = common$Z, Y = wide_mean_center$Y, grid = wide_mean_center$grid)

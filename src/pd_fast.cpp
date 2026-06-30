@@ -69,9 +69,8 @@ static SEXP make_pdp_feature_col_mx(SEXP col, SEXP grid, R_xlen_t n, R_xlen_t m,
   }
 
   SEXP out;
-  // Integer storage in `data`: PD grid from R is usually double (quantiles). The old path used
-  // INTEGER(grid) only, which does not match REAL grids and would force lossy coercion. When grid
-  // is double, promote the stacked focal column to REAL so each grid value is exact for predict().
+  // Integer storage in `data`: PD grids from R are often double-valued quantiles.
+  // Promote the stacked focal column to REAL so each grid value is exact for predict().
   if (TYPEOF(col) == INTSXP) {
     if (TYPEOF(grid) == REALSXP) {
       out = PROTECT(Rf_allocVector(REALSXP, nm));

@@ -104,12 +104,14 @@ ale_numeric = function(data, X, stacked, idx_lower, idx_upper, feature, n_interv
     return(ale_zero(feat_val = x_num))
   }
 
-  original = X[[feature]]
+  original = data.table::copy(stacked[[feature]])
+  if (is.integer(original)) {
+    data.table::set(stacked, j = feature, value = as.numeric(original))
+  }
   data.table::set(stacked, i = idx_lower, j = feature, value = prep$x_left)
   data.table::set(stacked, i = idx_upper, j = feature, value = prep$x_right)
-  preds_all = predictor$predict(stacked)
-  data.table::set(stacked, i = idx_lower, j = feature, value = original)
-  data.table::set(stacked, i = idx_upper, j = feature, value = original)
+  preds_all = predictor$predict(stacked) + 0
+  data.table::set(stacked, j = feature, value = original)
 
   data.table::as.data.table(cpp_ale_numeric_effect_table(
     feat_val = as.numeric(x_num),
@@ -131,27 +133,26 @@ ale_categorical = function(data, X, stacked, idx_lower, idx_upper, feature, pred
   levels_id = as.integer(x_cat)
   levels_orig = levels(x_cat)
   prep = cpp_ale_categorical_prepare(levels_id = levels_id, n_levels = k)
-  original = X[[feature]]
+  original = data.table::copy(stacked[[feature]])
   data.table::set(stacked, i = idx_lower, j = feature,
     value = factor(levels_orig[prep$right_id], levels = levels_orig))
   data.table::set(stacked, i = idx_upper, j = feature,
     value = factor(levels_orig[prep$left_id], levels = levels_orig))
-  preds_all = predictor$predict(stacked)
-  data.table::set(stacked, i = idx_lower, j = feature, value = original)
-  data.table::set(stacked, i = idx_upper, j = feature, value = original)
+  preds_all = predictor$predict(stacked) + 0
+  data.table::set(stacked, j = feature, value = original)
 
-  data.table::as.data.table(cpp_ale_categorical_effect_table(
+  out = data.table::as.data.table(cpp_ale_categorical_effect_table(
     feat_val = levels_id,
     x_left = prep$left_id,
     x_right = prep$right_id,
     interval_index = levels_id,
     y_hat_plus = preds_all[idx_lower],
     y_hat_neg = preds_all[idx_upper]
-  ))[, `:=`(
-    feat_val = factor(levels_orig[feat_val], levels = levels_orig),
-    x_left = factor(levels_orig[x_left], levels = levels_orig),
-    x_right = factor(levels_orig[x_right], levels = levels_orig)
-  )]
+  ))
+  out$feat_val = factor(levels_orig[out$feat_val], levels = levels_orig)
+  out$x_left = factor(levels_orig[out$x_left], levels = levels_orig)
+  out$x_right = factor(levels_orig[out$x_right], levels = levels_orig)
+  out
 }
 
 ale_zero = function(feat_val, interval_index = 1L) {
@@ -172,7 +173,7 @@ ale_zero = function(feat_val, interval_index = 1L) {
 
 make_predictor = function(model, predict_fun) {
   if (identical(predict_fun, default_predict_fun)) {
-    return(list(predict = function(newdata) predict_newdata_fast_dispatch(model, newdata)))
+    return(list(predict = function(newdata) default_predict_fun(model, newdata)))
   }
   list(predict = function(newdata) {
     extract_numeric_prediction(predict_fun(model, newdata), expected_n = nrow(newdata))

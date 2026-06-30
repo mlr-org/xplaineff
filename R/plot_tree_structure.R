@@ -61,7 +61,7 @@ plot_tree_structure = function(tree, label_wrap_width = 34L, node_spread_x = 1.5
 
   gg +
     ggraph::geom_node_label(
-      aes(label = label, fill = factor(depth)),
+      aes(label = get("label"), fill = factor(get("depth"))),
       size = 3.5,
       label.padding = unit(0.25, "lines"),
       # label.size = 0.3,

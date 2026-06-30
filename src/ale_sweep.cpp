@@ -7,26 +7,18 @@
  * row at a time from the right child to the left. At each position, we compute
  * the total heterogeneity (sum of SSE over intervals and features) and track
  * the best split. Uses sufficient statistics (n, s1, s2 per interval) for O(1)
- * incremental updates. Replaces the R-level for-loop in search_best_split_point_ale
- * and search_best_split_point_ale_with.
+ * incremental updates.
  */
 
 #include <Rcpp.h>
-#include <set>
-#include <map>
+#include <algorithm>
 #include <cmath>
 
 // [[Rcpp::depends(Rcpp)]]
 using namespace Rcpp;
 
-/* Minimum observations per child side required to run the boundary stabilizer.
- * With n = 20 the window is ~2 rows (10%), leaving ~18 "far" observations for
- * variance estimation -- the practical lower bound for a meaningful stabilizer. */
-static const int kMinSideForStab = 20;
-/* Fast-path self-bias correction:
- * appendix-style expected self gain inside a crossed interval is about one
- * within-interval variance unit, so subtract one sample-variance unit from
- * the raw self gain before using it as a split bonus. */
+/* Expected raw self gain inside a crossed interval is one within-interval
+ * variance unit under the null. The split score subtracts one estimated unit. */
 static const double kSelfBiasLambda = 1.0;
 
 // -----------------------------------------------------------------------------
@@ -48,122 +40,13 @@ inline double sample_var_from_stats(double n, double s1, double s2) {
 }
 
 // -----------------------------------------------------------------------------
-// adjust_side_cpp
-// Purpose:
-//   Boundary stabilizer for numeric split feature. Near the split boundary,
-//   few samples in edge intervals can inflate heterogeneity. This function
-//   identifies a "near" window (last w rows for left child, first w for right),
-//   compares d_l variance of near vs "far" intervals. If near is much larger,
-//   replaces near d_l with draws from N(mean_far, sd_far) and recomputes SSE.
-//   Replicates adjust_side_for_feature logic from R (aleStrategy).
-// Inputs:
-//   node_d_l: d_l values for the split feature, ordered as in sweep
-//   node_int: interval index per row
-//   original_risk: raw SSE for this side; returned if stabilizer does not apply
-//   is_left, t, n_obs: describe side (left=t rows, right=n_obs-t rows)
-// Notes:
-//   NA/NaN in node_d_l are skipped. Uses R::rnorm for stochastic replacement;
-//   reproducibility depends on R's RNG state.
-// -----------------------------------------------------------------------------
-double adjust_side_cpp(
-    const NumericVector& node_d_l,
-    const IntegerVector& node_int,
-    double original_risk,
-    bool is_left,
-    int t,
-    int n_obs
-) {
-  int idx_start = is_left ? 0 : t;
-  int idx_end   = is_left ? t - 1 : n_obs - 1;
-  int n_side = idx_end - idx_start + 1;
-  if (n_side <= kMinSideForStab) return original_risk;
-
-  /* Window size: 10% of side or min 10. */
-  int w = std::max(static_cast<int>(0.1 * n_side + 0.5), 10);
-  if (w > n_side) w = n_side;
-
-  /* Near = boundary window: last w rows for left child, first w for right. */
-  IntegerVector window_indices(w);
-  if (is_left) {
-    for (int i = 0; i < w; ++i) window_indices[i] = n_side - w + i;
-  } else {
-    for (int i = 0; i < w; ++i) window_indices[i] = i;
-  }
-
-  /* Intervals present in the boundary window = "near". */
-  std::set<int> target_intervals;
-  for (int i = 0; i < w; ++i) {
-    target_intervals.insert(node_int[window_indices[i]]);
-  }
-
-  /* Near/Far split; skip NA/NaN in node_d_l. */
-  std::vector<double> vals_near, vals_far;
-  for (int i = 0; i < n_side; ++i) {
-    double v = node_d_l[i];
-    if (NumericVector::is_na(v)) continue;
-    if (target_intervals.count(node_int[i]))
-      vals_near.push_back(v);
-    else
-      vals_far.push_back(v);
-  }
-  int n_near = vals_near.size();
-  int n_far = vals_far.size();
-  if (n_near < 2 || n_far < 2) return original_risk;
-
-  /* Mean and SD of far intervals (used for replacement distribution). */
-  double sum_far = 0.0, sum2_far = 0.0;
-  for (double v : vals_far) {
-    sum_far += v;
-    sum2_far += v * v;
-  }
-  double mean_far = sum_far / n_far;
-  double var_far = (sum2_far - sum_far * sum_far / n_far) / std::max(n_far - 1, 1);
-  double sd_far = (var_far > 0) ? std::sqrt(var_far) : 0.0;
-
-  /* SD of near intervals (compared to far for stabilizer condition). */
-  double sum_near = 0.0, sum2_near = 0.0;
-  for (double v : vals_near) {
-    sum_near += v;
-    sum2_near += v * v;
-  }
-  double var_near = (sum2_near - sum_near * sum_near / n_near) / std::max(n_near - 1, 1);
-  double sd_near = (var_near > 0) ? std::sqrt(var_near) : 0.0;
-
-  /* Only stabilize when near has much higher variance than far. */
-  if (R_IsNA(sd_near) || R_IsNA(sd_far) || sd_far <= 0 || sd_near <= 2.0 * sd_far)
-    return original_risk;
-
-  /* Replace near d_l with draws from N(mean_far, sd_far); recompute SSE per interval. */
-  std::map<int, double> s1_map, s2_map, n_map;
-  for (int i = 0; i < n_side; ++i) {
-    double v = node_d_l[i];
-    if (NumericVector::is_na(v)) continue;
-    int k = node_int[i];
-    if (target_intervals.count(k))
-      v = R::rnorm(mean_far, sd_far);
-    s1_map[k] += v;
-    s2_map[k] += v * v;
-    n_map[k] += 1.0;
-  }
-  double sse = 0.0;
-  for (auto& it : n_map) {
-    int k = it.first;
-    double nk = n_map[k];
-    if (nk <= 1.0) continue;
-    double s1 = s1_map[k], s2 = s2_map[k];
-    sse += s2 - (s1 * s1) / nk;
-  }
-  return sse;
-}
-
-// -----------------------------------------------------------------------------
 // ale_sweep_cpp
 // Purpose:
 //   Find best split position t by sweeping rows (ordered by split feature) from
 //   right to left. At each t, left child = rows 1..t, right = t+1..n_obs. Uses
 //   sufficient statistics (n, s1, s2 per interval) for O(1) risk updates when
-//   moving a row. For numeric split feature with self-ALE, optionally applies
-//   boundary stabilizer to reduce boundary noise.
+//   moving a row. For self-ALE splits, applies the appendix bias-corrected
+//   objective to the split feature's own risk.
 // Inputs:
 //   ord_idx: 1-based row indices in sorted order (by z); length n_obs
 //   d_l_mat: p x N, d_l_mat(j,i) = local effect for feature j, sample i
@@ -174,7 +57,6 @@ double adjust_side_cpp(
 //   is_cand: length n_obs-1, TRUE where split position is a candidate (e.g. z changes)
 //   min_node_size: minimum observations per child
 //   split_feat_j: 1-based ALE feature index for split var, or 0 if no self-ALE
-//   use_stabilizer: use boundary stabilizer (numeric + has_self_ale only)
 //   z_sorted: z values in ord order; for categorical, all 0
 //   n_obs: number of observations in node
 // Output:
@@ -194,7 +76,6 @@ List ale_sweep_cpp(
     LogicalVector is_cand,
     int min_node_size,
     int split_feat_j,
-    bool use_stabilizer,
     NumericVector z_sorted,
     int n_obs
 ) {
@@ -220,9 +101,7 @@ List ale_sweep_cpp(
 
   const double self_root_risk = has_self_ale ? r_risks[j0] : 0.0;
 
-  /* Precompute interval_idx (always needed for fast self-bias correction)
-   * and d_l (needed only for the boundary stabilizer) in sweep order. */
-  NumericVector d_l_j_sorted(n_obs);
+  /* Precompute interval indices in sweep order for self-bias correction. */
   IntegerVector interval_idx_sorted(n_obs);
   const int N = d_l_mat.ncol();
   if (has_self_ale && z_sorted.size() >= (R_xlen_t)n_obs) {
@@ -230,9 +109,6 @@ List ale_sweep_cpp(
       int row = ord_idx[i] - 1;
       if (row < 0 || row >= N) stop("ord_idx contains invalid row index");
       interval_idx_sorted[i] = interval_idx_mat(j0, row);
-      if (use_stabilizer) {
-        d_l_j_sorted[i] = d_l_mat(j0, row);
-      }
     }
   }
   /* Sweep: at each t, move row ord_idx[t-1] from right to left. */
@@ -287,18 +163,10 @@ List ale_sweep_cpp(
     /* Left/right constant? (all same z value) -> drop self risk. */
     bool l_const = (z_sorted.size() > 0 && std::abs(z_sorted[0] - z_sorted[t - 1]) < 1e-15);
     bool r_const = (z_sorted.size() >= (R_xlen_t)n_obs && std::abs(z_sorted[t] - z_sorted[n_obs - 1]) < 1e-15);
-    bool do_stab = use_stabilizer && has_self_ale && !l_const && !r_const && t > kMinSideForStab && (n_obs - t) > kMinSideForStab;
 
-    /* Compute total objective.
-     * Fast path: start from the old reduced objective (drop self-risk), then
-     * add back only a bias-corrected self bonus. This preserves the O(n) sweep,
-     * fixes the old "all candidates tie at 0" bug, and avoids the naive full
-     * objective's tendency to over-reward splits on the same feature.
-     *
-     * Stabilized path: keep the existing semantics, using the boundary-adjusted
-     * self-risk when the stabilizer is active. */
+    /* Self-ALE splits are ranked by other-feature child risk minus the
+     * bias-corrected self gain. */
     double total = R_PosInf;
-    double adj_left = 0.0, adj_right = 0.0;
 
     if (!has_self_ale) {
       total = risks_sum;
@@ -307,46 +175,24 @@ List ale_sweep_cpp(
       double drop = 0.0;
       if (l_const) drop += left_risks[j0];
       if (r_const) drop += right_risks[j0];
-      if (!use_stabilizer) {
-        double other_risks = risks_sum - self_risk;
-        double self_risk_effective = self_risk - drop;
-        double delta_raw = self_root_risk - self_risk_effective;
-        double self_bias = 0.0;
-        bool cut_self_interval =
-          !l_const && !r_const &&
-          z_sorted.size() >= (R_xlen_t)n_obs &&
-          interval_idx_sorted[t - 1] == interval_idx_sorted[t];
-        if (cut_self_interval) {
-          int m_self = offsets[j0] + interval_idx_sorted[t - 1] - 1;
-          if (m_self >= 0 && m_self < M) {
-            self_bias = kSelfBiasLambda * sample_var_from_stats(
-              tot_n[m_self], tot_s1[m_self], tot_s2[m_self]
-            );
-          }
+      double other_risks = risks_sum - self_risk;
+      double self_risk_effective = self_risk - drop;
+      double delta_raw = self_root_risk - self_risk_effective;
+      double self_bias = 0.0;
+      bool cut_self_interval =
+        !l_const && !r_const &&
+        z_sorted.size() >= (R_xlen_t)n_obs &&
+        interval_idx_sorted[t - 1] == interval_idx_sorted[t];
+      if (cut_self_interval) {
+        int m_self = offsets[j0] + interval_idx_sorted[t - 1] - 1;
+        if (m_self >= 0 && m_self < M) {
+          self_bias = kSelfBiasLambda * sample_var_from_stats(
+            tot_n[m_self], tot_s1[m_self], tot_s2[m_self]
+          );
         }
-        double delta_corr = std::max(0.0, delta_raw - self_bias);
-        total = other_risks - delta_corr;
-      } else if (!do_stab) {
-        total = risks_sum - drop;
-      } else {
-        NumericVector node_d_l_left(t);
-        IntegerVector node_int_left(t);
-        for (int i = 0; i < t; ++i) {
-          node_d_l_left[i] = d_l_j_sorted[i];
-          node_int_left[i] = interval_idx_sorted[i];
-        }
-        NumericVector node_d_l_right(n_obs - t);
-        IntegerVector node_int_right(n_obs - t);
-        for (int i = 0; i < n_obs - t; ++i) {
-          node_d_l_right[i] = d_l_j_sorted[t + i];
-          node_int_right[i] = interval_idx_sorted[t + i];
-        }
-        adj_left = adjust_side_cpp(node_d_l_left, node_int_left,
-            left_risks[j0], true, t, t);
-        adj_right = adjust_side_cpp(node_d_l_right, node_int_right,
-            right_risks[j0], false, 0, n_obs - t);
-        total = risks_sum - self_risk + adj_left + adj_right;
       }
+      double delta_corr = std::max(0.0, delta_raw - self_bias);
+      total = other_risks - delta_corr;
     }
 
     if (!R_FINITE(total) || total >= best_risks_sum) continue;
@@ -359,16 +205,8 @@ List ale_sweep_cpp(
 
     /* For self-ALE feature: store adjusted risks (or 0 if dropped). */
     if (has_self_ale) {
-      if (!use_stabilizer) {
-        if (l_const) best_left_risks[j0] = 0.0;
-        if (r_const) best_right_risks[j0] = 0.0;
-      } else if (!do_stab) {
-        if (l_const) best_left_risks[j0] = 0.0;
-        if (r_const) best_right_risks[j0] = 0.0;
-      } else {
-        best_left_risks[j0] = adj_left;
-        best_right_risks[j0] = adj_right;
-      }
+      if (l_const) best_left_risks[j0] = 0.0;
+      if (r_const) best_right_risks[j0] = 0.0;
     }
   }
 

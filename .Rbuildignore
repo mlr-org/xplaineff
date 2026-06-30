@@ -21,22 +21,35 @@
 ^attic_local$
 ^CITATION.cff$
 ^CLAUDE.md$
+^codecov\.yml$
+^cspell\.jsonc$
 ^cspell.json$
 ^CONTRIBUTING.md$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
 ^docs$
+^example\.Rmd$
+^example\.html$
+^example_files$
+^figures$
+^gadget\.Rcheck$
+^gadget_.*\.tar\.gz$
 ^inst/extdata/.+\.R$
-^LICENSE$
 ^local_attic$
+^Makefile$
 ^man-roxygen$
 ^paper$
+^paper_backup$
 ^pkgdown$
+^Rplots\.pdf$
 ^README\.Rmd$
 ^README.html$
 ^revdep$
+^scripts$
+^simulation$
 ^tests/testthat/_object_snapshots$
 ^ALE Test Results\.pdf$
 ^ALE Test Results2\.pdf$
 ^UR Datasets Test\.Rmd$
+^UR-Datasets-Test\.html$
 ^data$

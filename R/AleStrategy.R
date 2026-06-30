@@ -286,12 +286,6 @@ AleStrategy = R6::R6Class(
       checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
       checkmate::assert_choice(order_method, c("mds", "pca", "random", "raw"), .var.name = "order_method")
       ale_engine = match.arg(ale_engine)
-      dots = list(...)
-      if ("with_stab" %in% names(dots)) {
-        cli::cli_abort(
-          "{.arg with_stab} has been retired. ALE split search now always uses the fast bias-corrected objective."
-        )
-      }
       if (is.null(model)) {
         cli::cli_abort("AleStrategy requires {.arg model} to be passed.")
       }

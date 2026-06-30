@@ -125,14 +125,17 @@ ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predic
   interval_index[interval_index == 0L] = 1L
   max_id = length(q) - 1L
   interval_index[interval_index > max_id] = max_id
-  original = stacked[[feature]][idx_lower]
+  original = data.table::copy(stacked[[feature]])
+  if (is.integer(original)) {
+    data.table::set(stacked, j = feature, value = as.numeric(original))
+  }
   data.table::set(stacked, i = idx_lower, j = feature, value = q[interval_index])
   data.table::set(stacked, i = idx_upper, j = feature, value = q[interval_index + 1L])
   pred_raw = predict_fun(model, stacked)
   pred = extract_numeric_prediction(pred_raw, expected_n = 2L * n_rows)
+  pred = pred + 0
   d_l = pred[idx_upper] - pred[idx_lower]
-  data.table::set(stacked, i = idx_lower, j = feature, value = original)
-  data.table::set(stacked, i = idx_upper, j = feature, value = original)
+  data.table::set(stacked, j = feature, value = original)
 
   DT = data.table::data.table(
     row_id         = seq_len(n_rows),
@@ -190,9 +193,9 @@ ale_categorical_feature = function(model, data, X, feature, predict_fun = NULL,
   row_ind_plus = seq_len(n_rows)[levels_id < K]
   row_ind_neg  = seq_len(n_rows)[levels_id > 1]
 
-  original = stacked[[feature]][idx_lower]
-  cp = X[[feature]]
-  cn = X[[feature]]
+  original = data.table::copy(stacked[[feature]])
+  cp = data.table::copy(X[[feature]])
+  cn = data.table::copy(X[[feature]])
   cp[row_ind_plus] = levels_orig[levels_id[row_ind_plus] + 1L]
   cn[row_ind_neg] = levels_orig[levels_id[row_ind_neg] - 1L]
   data.table::set(stacked, i = idx_lower, j = feature, value = cp)
@@ -202,9 +205,9 @@ ale_categorical_feature = function(model, data, X, feature, predict_fun = NULL,
     predict_fun(model, stacked),
     expected_n = 2L * n_rows
   )
+  pred_cat = pred_cat + 0
   delta = pred_cat[idx_lower] - pred_cat[idx_upper]
-  data.table::set(stacked, i = idx_lower, j = feature, value = original)
-  data.table::set(stacked, i = idx_upper, j = feature, value = original)
+  data.table::set(stacked, j = feature, value = original)
 
   DT = data.table::data.table(
     row_id         = seq_len(n_rows),

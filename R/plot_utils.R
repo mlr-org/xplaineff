@@ -87,23 +87,6 @@ calculate_y_range_impl = function(effect_values, data = NULL, target_feature_nam
   list(ymin = ymin, ymax = ymax + 0.2 * rng)
 }
 
-#' Compute y-axis range for ALE plots.
-#'
-#' @param curves (`list()`) \cr
-#'   Output of \code{prepare_plot_data_ale}.
-#' @param data (`data.frame()` or `NULL`) \cr
-#'   Unused; kept for call compatibility. Limits follow \code{d_l} only, not the response column.
-#' @param target_feature_name (`character(1)` or `NULL`) \cr
-#'   Unused; see \code{data}.
-#'
-#' @return (`list()`) \cr
-#'   \code{ymin}, \code{ymax}.
-#' @keywords internal
-calculate_y_range_ale = function(curves, data, target_feature_name) {
-  effect_values = unlist(mlr3misc::map(curves, function(x) x$mean_effect$d_l), use.names = FALSE)
-  calculate_y_range_impl(effect_values, NULL, NULL)
-}
-
 # Y limits for regional ALE panels: global + node curves (node-only can lie outside global after subsetting).
 calculate_y_range_ale_combined = function(global_curves, regional_curves, data, target_feature_name) {
   gv = unlist(mlr3misc::map(global_curves, function(x) x$mean_effect$d_l), use.names = FALSE)

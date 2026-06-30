@@ -185,6 +185,9 @@ compute_ice_r = function(model, data, feature, grid, predict_fun = NULL,
     feature_values = factor(feature_values, levels = levels(dt[[feature]]))
   }
   focal_restore = dt[[feature]]
+  if (use_cache && is.integer(focal_restore) && is.double(feature_values)) {
+    data.table::set(stacked, j = feature, value = as.numeric(stacked[[feature]]))
+  }
   if (!use_cache) {
     data.table::set(stacked, j = feature, value = feature_values)
     pred_slice = stacked

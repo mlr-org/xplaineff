@@ -16,11 +16,15 @@ assert_ale_effect_list = function(Y, var_name = "Y") {
 }
 
 default_predict_fun = function(model, data) {
+  if (is.function(model)) {
+    return(extract_numeric_prediction(model(data), expected_n = nrow(data)))
+  }
   predict_newdata_fast_dispatch(model, data)
 }
 
 has_predict_method = function(model, method) {
-  !is.null(model[[method]]) && is.function(model[[method]])
+  candidate = tryCatch(model[[method]], error = function(e) NULL)
+  !is.null(candidate) && is.function(candidate)
 }
 
 # Coerce mlr3 Prediction / matrix / vector outputs to a numeric vector (one value per row).
@@ -67,8 +71,8 @@ extract_numeric_prediction = function(pred, expected_n = NULL) {
 }
 
 # Prediction dispatch priority:
-# 1) mlr3 fast path (predict_newdata_fast, requires data.table),
-# 2) mlr3 standard path (predict_newdata),
+# 1) mlr3 predict_newdata_fast method (requires data.table),
+# 2) mlr3 predict_newdata method,
 # 3) generic stats::predict fallback.
 predict_newdata_fast_dispatch = function(model, newdata) {
   n_rows = nrow(newdata)

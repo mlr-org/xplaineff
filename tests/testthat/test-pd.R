@@ -120,6 +120,33 @@ test_that("compute_ice cpp matches r for integer focal feature (C++ promotes sta
   testthat::expect_equal(ice_cpp, ice_r, tolerance = 1e-10)
 })
 
+test_that("compute_ice_r preserves fractional grid values for cached integer features", {
+  data = data.table::data.table(x = 1L:4L, z = 0)
+  grid = c(1, 2.5, 4)
+  predict_fun = function(model, data) as.numeric(data$x)
+  stacked_pd_cache = list(
+    stacked = data.table::as.data.table(lapply(data, rep, times = length(grid))),
+    max_g = length(grid),
+    n_obs = nrow(data)
+  )
+
+  expect_warning({
+    ice = gadget:::compute_ice_r(
+      model = NULL,
+      data = data,
+      feature = "x",
+      grid = grid,
+      predict_fun = predict_fun,
+      base_data_dt = data,
+      stacked_pd_cache = stacked_pd_cache
+    )
+  },
+    NA
+  )
+
+  testthat::expect_equal(ice, matrix(rep(grid, each = nrow(data)), nrow = nrow(data)))
+})
+
 test_that("extract_numeric_prediction uses response then first prob column for mlr3 Prediction", {
   testthat::skip_if_not_installed("mlr3")
   testthat::skip_if_not_installed("mlr3learners")
@@ -158,6 +185,28 @@ test_that("PdStrategy PD path can target one class prob via predict_fun", {
 test_that("pd_feature_grid returns sorted unique levels for character x", {
   g = gadget:::pd_feature_grid(c("b", "a", "a", NA), n_grid = 5L)
   testthat::expect_equal(g, c("a", "b"))
+})
+
+test_that("prepare_split_data_pd infers feature_set from precomputed effect", {
+  effect = list(results = list(
+    x = data.frame(
+      .id = rep(1:3, each = 2),
+      .type = "ice",
+      .feature = "x",
+      .borders = rep(c(0, 1), times = 3),
+      .value = seq_len(6)
+    )
+  ))
+  data = data.frame(x = 1:3, z = 4:6, y = 7:9)
+
+  prepared = gadget:::prepare_split_data_pd(
+    effect = effect,
+    data = data,
+    target_feature_name = "y"
+  )
+
+  testthat::expect_equal(names(prepared$Y), "x")
+  testthat::expect_equal(names(prepared$Z), c("x", "z"))
 })
 
 test_that("calculate_y_range for PD omits raw target when mean_center is TRUE", {
