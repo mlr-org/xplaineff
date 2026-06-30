@@ -3,7 +3,7 @@
 <!-- badges: start -->
 
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![CRAN status](https://www.r-pkg.org/badges/version/gadget)](https://CRAN.R-project.org/package=gadget)
+[![CRAN status](https://img.shields.io/badge/CRAN-not%20submitted-lightgrey.svg)](cran-comments.md)
 [![R-CMD-check](https://github.com/mlr-org/gadget/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/mlr-org/gadget/actions/workflows/R-CMD-check.yaml)
 [![codecov](https://codecov.io/gh/mlr-org/gadget/graph/badge.svg)](https://app.codecov.io/gh/mlr-org/gadget)
 
