@@ -25,14 +25,16 @@ effects are more stable and easier to interpret.
 \enumerate{
   \item Train a model (e.g., with \pkg{mlr3}).
   \item Create a tree: \code{tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 3, min_node_size = 50)}.
-  \item Fit: \code{tree$fit(data, target_feature_name, ...)}\cr
-        Strategy-specific \code{...} arguments:\cr
-        \strong{AleStrategy}: \code{model} (required), \code{n_intervals = 10}, \code{predict_fun = NULL},
-        \code{order_method = "raw"}, and \code{ale_engine} (default \code{"cpp"}).\cr
-        \strong{PdStrategy}: either \code{effect}, or \code{model} with optional
-        \code{predict_fun}, \code{n_grid}, and \code{pd_engine} (default \code{"cpp"}).
-        Both accept \code{feature_set} and \code{split_feature}.\cr
-        Tree params: \code{impr_par}, \code{min_node_size}, \code{n_quantiles}.
+  \item Fit: \code{tree$fit(data, target_feature_name, ...)}.
+    Strategy-specific \code{...} arguments include:
+    \itemize{
+      \item \strong{AleStrategy}: \code{model} (required), \code{n_intervals = 10},
+        \code{predict_fun = NULL}, \code{order_method = "raw"}, and \code{ale_engine} (default \code{"cpp"}).
+      \item \strong{PdStrategy}: either \code{effect}, or \code{model} with optional \code{predict_fun},
+        \code{n_grid}, and \code{pd_engine} (default \code{"cpp"}).
+      \item Both strategies accept \code{feature_set} and \code{split_feature}.
+      \item Tree parameters include \code{impr_par}, \code{min_node_size}, and \code{n_quantiles}.
+    }
   \item Visualize: \code{tree$plot_tree_structure()}, \code{tree$plot(...)}, \code{tree$extract_split_info()}.
 }
 

@@ -226,8 +226,20 @@ For ALE, extracts from split_info (computed during sweep).
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{Z, Y, split_info, idx_left, idx_right, grid_left, grid_right}}{\cr
-Node/split context.}
+\item{\code{Z}}{(`data.frame()` or `data.table()`) \cr
+Split features.}
+
+\item{\code{Y}}{(`list()`) \cr
+ALE effect from \code{calculate_ale}.}
+
+\item{\code{split_info}}{(`list()`) \cr
+Split metadata.}
+
+\item{\code{idx_left, idx_right}}{(`integer()`) \cr
+Child row indices.}
+
+\item{\code{grid_left, grid_right}}{(`list()`) \cr
+Child grids.}
 }
 \if{html}{\out{</div>}}
 }

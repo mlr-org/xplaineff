@@ -112,7 +112,7 @@ GadgetTree = R6::R6Class(
     #'   Features for effect; \code{NULL} = all.
     #' @param split_feature (`character()` or `NULL`) \cr
     #'   Features for splitting; \code{NULL} = all.
-    #' @param ... \cr
+    #' @param ... (`list()`) \cr
     #'   Strategy-specific arguments passed to \code{$fit()}.
     #'   For [AleStrategy]: \code{model} or \code{effect}, plus optional
     #'   \code{n_intervals}, \code{predict_fun}, \code{order_method},

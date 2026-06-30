@@ -115,8 +115,16 @@ PdStrategy = R6::R6Class(
 
     #' @description
     #' Compute left/right child objective values via node_transform and heterogeneity.
-    #' @param Z,Y,split_info,idx_left,idx_right,grid_left,grid_right \cr
-    #'   Node/split context.
+    #' @param Z (`data.frame()` or `data.table()`) \cr
+    #'   Split features.
+    #' @param Y (`list()`) \cr
+    #'   Effect matrices.
+    #' @param split_info (`list()`) \cr
+    #'   Split metadata.
+    #' @param idx_left,idx_right (`integer()`) \cr
+    #'   Child row indices.
+    #' @param grid_left,grid_right (`list()`) \cr
+    #'   Child grids.
     #' @return (`list()`) \cr
     #'   \code{left_objective_value_j}, \code{right_objective_value_j},
     #'   \code{left_objective_value}, \code{right_objective_value}.

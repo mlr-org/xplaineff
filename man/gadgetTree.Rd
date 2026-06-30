@@ -160,7 +160,7 @@ Features for effect; \code{NULL} = all.}
 \item{\code{split_feature}}{(`character()` or `NULL`) \cr
 Features for splitting; \code{NULL} = all.}
 
-\item{\code{...}}{\cr
+\item{\code{...}}{(`list()`) \cr
 Strategy-specific arguments passed to \code{$fit()}.
 For [AleStrategy]: \code{model} or \code{effect}, plus optional
 \code{n_intervals}, \code{predict_fun}, \code{order_method},
