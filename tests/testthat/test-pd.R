@@ -44,6 +44,43 @@ test_that("compute_ice cpp matches r (factor focal feature)", {
   testthat::expect_equal(ice_cpp, ice_r, tolerance = 1e-10)
 })
 
+test_that("re_mean_center_ice_cpp centers grid columns and preserves metadata", {
+  tryCatch(
+    xplaineff:::re_mean_center_ice_cpp(
+      Y = list(x = matrix(1, nrow = 1L, dimnames = list(NULL, "a"))),
+      grid = list(x = "a"),
+      idx = 1L
+    ),
+    error = function(e) {
+      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+        testthat::skip("C++ re_mean_center_ice not loaded")
+      }
+      stop(e)
+    }
+  )
+
+  mat = matrix(
+    c(1, 2, 10, NA, 4, 20, 7, NA, 30),
+    nrow = 3L,
+    byrow = TRUE,
+    dimnames = list(NULL, c("g1", "g2", "meta"))
+  )
+
+  result = xplaineff:::re_mean_center_ice_cpp(
+    Y = list(x = mat),
+    grid = list(x = c("g1", NA_character_, "g2")),
+    idx = c(1L, 2L, 4L)
+  )
+
+  testthat::expect_named(result, "x")
+  centered = result$x
+  testthat::expect_equal(dim(centered), c(3L, 3L))
+  testthat::expect_equal(colnames(centered), c("g1", "g2", "meta"))
+  testthat::expect_equal(centered[1L, ], c(g1 = -0.5, g2 = 0.5, meta = NA_real_))
+  testthat::expect_equal(centered[2L, ], c(g1 = NA_real_, g2 = 0, meta = NA_real_))
+  testthat::expect_true(all(is.na(centered[3L, ])))
+})
+
 test_that("compute_ice cpp matches r (ranger native model, data= predict)", {
   testthat::skip_if_not_installed("ranger")
   tryCatch(
