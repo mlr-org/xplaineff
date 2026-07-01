@@ -57,6 +57,6 @@ Apley, D.W. and Zhu, J. (2016). Visualizing the Effects of Predictors on the Res
 \code{\link{GadgetTree}}, \code{\link{AleStrategy}}, \code{\link{PdStrategy}}
 }
 \author{
-\strong{Maintainer}: Zizheng Zhang \email{zhangzizheng@stat.uni-muenchen.de}
+\strong{Maintainer}: Zizheng Zhang \email{Zizheng.Zhang@stat.uni-muenchen.de}
 
 }
