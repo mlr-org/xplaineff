@@ -6,8 +6,9 @@ This is the first CRAN submission of `xplaineff`.
 
 Local checks were run with `LC_ALL=C R CMD check --as-cran xplaineff_0.1.0.tar.gz`.
 
-- macOS Ventura 13.1, R 4.5.0: `0 errors | 0 warnings | 3 notes`.
+- macOS Ventura 13.1, R 4.5.0: `0 errors | 0 warnings | 4 notes`.
 - `checking CRAN incoming feasibility ... NOTE`: new submission.
+- `checking for future file timestamps ... NOTE`: unable to verify current time.
 - `checking top-level files ... NOTE`: pandoc is not installed in the local check environment.
 - `checking HTML version of manual ... NOTE`: local HTML Tidy is not recent enough, and package `V8` is unavailable.
 

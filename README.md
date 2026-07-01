@@ -4,8 +4,8 @@
 
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![CRAN status](https://img.shields.io/badge/CRAN-not%20submitted-lightgrey.svg)](cran-comments.md)
-[![R-CMD-check](https://github.com/mlr-org/gadget/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/mlr-org/gadget/actions/workflows/R-CMD-check.yaml)
-[![codecov](https://codecov.io/gh/mlr-org/gadget/graph/badge.svg)](https://app.codecov.io/gh/mlr-org/gadget)
+[![R-CMD-check](https://github.com/mlr-org/xplaineff/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/mlr-org/xplaineff/actions/workflows/R-CMD-check.yaml)
+[![codecov](https://codecov.io/gh/mlr-org/xplaineff/graph/badge.svg)](https://app.codecov.io/gh/mlr-org/xplaineff)
 
 <!-- badges: end -->
 
@@ -26,7 +26,7 @@ Install the development version from GitHub:
 
 ```r
 # install.packages("devtools")
-devtools::install_github("mlr-org/gadget")
+devtools::install_github("mlr-org/xplaineff")
 ```
 
 Requires R6, ggplot2, data.table, Rcpp; see [DESCRIPTION](DESCRIPTION) for details.
