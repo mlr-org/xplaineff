@@ -3,7 +3,7 @@
 <!-- badges: start -->
 
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![CRAN status](https://img.shields.io/badge/CRAN-not%20submitted-lightgrey.svg)](cran-comments.md)
+![CRAN status](https://img.shields.io/badge/CRAN-not%20submitted-lightgrey.svg)
 [![R-CMD-check](https://github.com/mlr-org/xplaineff/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/mlr-org/xplaineff/actions/workflows/R-CMD-check.yaml)
 [![codecov](https://codecov.io/gh/mlr-org/xplaineff/graph/badge.svg)](https://app.codecov.io/gh/mlr-org/xplaineff)
 
@@ -280,7 +280,7 @@ In practice, a common workflow is:
 ## Documentation
 
 - In R: `?xplaineff`, `?GadgetTree`, `?AleStrategy`, `?PdStrategy`
-- Paper draft: [`paper/`](paper/) (see `paper/README.md`)
+- Paper draft: <https://github.com/mlr-org/xplaineff/tree/main/paper>
 
 ## Citation
 
