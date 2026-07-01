@@ -280,7 +280,6 @@ In practice, a common workflow is:
 ## Documentation
 
 - In R: `?xplaineff`, `?GadgetTree`, `?AleStrategy`, `?PdStrategy`
-- Paper draft: <https://github.com/mlr-org/xplaineff/tree/main/paper>
 
 ## Citation
 
