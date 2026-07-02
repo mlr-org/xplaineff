@@ -75,7 +75,7 @@ Minimum samples per node.}
 Quantiles for numeric split candidates.}
 
 \item{\code{split_benchmark}}{(`list()`) \cr
-Split timing (benchmarking).}
+Internal split timing records.}
 
 \item{\code{tree_list_cache}}{(`list()` or `NULL`) \cr
 Cached depth-based tree list; invalidated on \code{$fit()}.}
@@ -253,9 +253,17 @@ Layout stretch factors for the ggraph \code{"tree"} layout (larger values separa
 \subsection{Method \code{extract_split_info()}}{
 Extract split info from tree.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{GadgetTree$extract_split_info()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{GadgetTree$extract_split_info(include_timing = FALSE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{include_timing}}{(`logical(1)`) \cr
+Whether to include internal split timings in the output.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
 (`data.frame()`) \cr
   Split info: depth, id, split_feature, split_value, int_imp, etc.

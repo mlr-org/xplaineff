@@ -9,6 +9,7 @@
 - calculate_ale_fast() now normalizes custom predict_fun outputs like the R ALE path and errors on prediction length mismatches (no issue).
 - compute_ice_r() now preserves fractional grid values for cached integer features in the PD R backend (no issue).
 - extract_split_info() keeps categorical split level sets out of the default summary table (no issue).
+- extract_split_info() now omits internal split timings by default and can include them with `include_timing = TRUE` (no issue).
 - plot_tree_pd() now displays categorical split conditions as category sets instead of equality labels (no issue).
 - plot_tree_pd() now names returned node plots with actual tree node ids instead of depth-local positions (no issue).
 - prepare_split_data_pd() now infers effect features from precomputed PD/ICE results when feature_set is omitted and still uses all non-target columns as split candidates (no issue).

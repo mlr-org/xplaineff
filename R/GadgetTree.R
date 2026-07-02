@@ -37,7 +37,7 @@
 #' @field n_quantiles (`integer(1)` or `NULL`) \cr
 #'   Quantiles for numeric split candidates.
 #' @field split_benchmark (`list()`) \cr
-#'   Split timing (benchmarking).
+#'   Internal split timing records.
 #' @field tree_list_cache (`list()` or `NULL`) \cr
 #'   Cached depth-based tree list; invalidated on \code{$fit()}.
 #'
@@ -185,10 +185,14 @@ GadgetTree = R6::R6Class(
 
     #' @description
     #' Extract split info from tree.
+    #' @param include_timing (`logical(1)`) \cr
+    #'   Whether to include internal split timings in the output.
     #' @return (`data.frame()`) \cr
     #'   Split info: depth, id, split_feature, split_value, int_imp, etc.
-    extract_split_info = function() {
-      extract_split_info(self$get_tree_list(), split_benchmark = self$split_benchmark)
+    extract_split_info = function(include_timing = FALSE) {
+      checkmate::assert_flag(include_timing, .var.name = "include_timing")
+      split_benchmark = if (isTRUE(include_timing)) self$split_benchmark else NULL
+      extract_split_info(self$get_tree_list(), split_benchmark = split_benchmark)
     },
 
     #' @description

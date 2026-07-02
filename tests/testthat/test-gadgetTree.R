@@ -55,6 +55,14 @@ test_that("GadgetTree extract_split_info returns data frame", {
   expect_true(nrow(split_info) >= 1)
   expect_true("depth" %in% names(split_info))
   expect_true("id" %in% names(split_info))
+  expect_identical(names(split_info)[1:2], c("id", "depth"))
+  expect_false("time" %in% names(split_info))
+
+  timed_split_info = tree$extract_split_info(include_timing = TRUE)
+  expect_true(is.data.frame(timed_split_info))
+  if (length(tree$split_benchmark) > 0L) {
+    expect_true("time" %in% names(timed_split_info))
+  }
 })
 
 test_that("GadgetTree plot (ALE) returns list of plots", {

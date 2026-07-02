@@ -90,5 +90,7 @@ extract_split_info = function(tree, split_benchmark = NULL) {
         all.x = TRUE, sort = TRUE)
     }
   }
+  front_cols = intersect(c("id", "depth"), names(df_split))
+  df_split = df_split[, c(front_cols, setdiff(names(df_split), front_cols)), drop = FALSE]
   df_split
 }
