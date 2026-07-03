@@ -8,7 +8,7 @@
 #   - D:         noise-feature sensitivity
 #   - slope_mag: response-side SNR sensitivity
 #   - group_frac: signal-group-size sensitivity (optional)
-# gadget-ALE order_method variants (raw/random/mds/pca) are the focus, plus
+# xplaineff ALE order_method variants (raw/random/mds/pca) are the focus, plus
 # the oracle_partition method (exhaustive enumeration of binary partitions
 # when K <= max_partition_K) which serves as an upper bound.
 
@@ -41,11 +41,11 @@ library(data.table)
 library(ggplot2)
 
 method_order_labels = c(
-  "gadget_ale|raw" = "ALE (raw)",
-  "gadget_ale|random" = "ALE (random)",
-  "gadget_ale|mds" = "ALE (mds)",
-  "gadget_ale|pca" = "ALE (pca)",
-  "gadget_ale|oracle_partition" = "ALE (exhaustive search)"
+  "xplaineff_ale|raw" = "ALE (raw)",
+  "xplaineff_ale|random" = "ALE (random)",
+  "xplaineff_ale|mds" = "ALE (mds)",
+  "xplaineff_ale|pca" = "ALE (pca)",
+  "xplaineff_ale|oracle_partition" = "ALE (exhaustive search)"
 )
 method_order_levels = names(method_order_labels)
 
@@ -113,7 +113,7 @@ aggregate_sweep = function(d, xvar) {
 # differences have zero variance (e.g. degenerate leakage = 1) yield NA p-values.
 paired_t_table = function(d, xvar, baseline = ttest_baseline) {
   metrics = c("exact_recovery", "ari", "node_acc", "int_imp")
-  baseline_label = method_order_labels[paste0("gadget_ale|", baseline)]
+  baseline_label = method_order_labels[paste0("xplaineff_ale|", baseline)]
   if (is.na(baseline_label)) {
     warning("paired_t_table: baseline '", baseline, "' not found in method labels; skipping")
     return(data.table())
@@ -204,7 +204,9 @@ message("Written: ", file.path(indir, paste0(prefixed("summary"), ".csv")))
 
 # write paired t-test table (mds/pca/raw vs random by default)
 ttest_rows = list()
-if ("leakage" %in% sweeps && !is.null(d_leakage)) ttest_rows[[length(ttest_rows) + 1L]] = paired_t_table(d_leakage, "leakage")
+if ("leakage" %in% sweeps && !is.null(d_leakage)) {
+  ttest_rows[[length(ttest_rows) + 1L]] = paired_t_table(d_leakage, "leakage")
+}
 if ("K" %in% sweeps && !is.null(d_K)) ttest_rows[[length(ttest_rows) + 1L]] = paired_t_table(d_K, "K")
 if ("N" %in% sweeps && !is.null(d_N)) ttest_rows[[length(ttest_rows) + 1L]] = paired_t_table(d_N, "N")
 if ("D" %in% sweeps && !is.null(d_D)) ttest_rows[[length(ttest_rows) + 1L]] = paired_t_table(d_D, "D")

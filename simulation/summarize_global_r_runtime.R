@@ -24,7 +24,7 @@ paper_figdir = ""
 fixed_D = 20L
 model_types = c("rf", "toy")
 include_mlr3 = FALSE
-plot_gadget_cpp = FALSE
+plot_xplaineff_cpp = TRUE
 
 parse_model_vec = function(x) {
   x = strsplit(x, ",", fixed = TRUE)[[1L]]
@@ -52,8 +52,8 @@ while (i <= length(args)) {
     model_types = parse_model_vec(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--include-mlr3" && i < length(args)) {
     include_mlr3 = parse_flag(args[i + 1L]); i = i + 2L
-  } else if (args[i] == "--plot-gadget-cpp" && i < length(args)) {
-    plot_gadget_cpp = parse_flag(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--plot-xplaineff-cpp" && i < length(args)) {
+    plot_xplaineff_cpp = parse_flag(args[i + 1L]); i = i + 2L
   } else {
     i = i + 1L
   }
@@ -129,17 +129,17 @@ summary_dt = dt_ok[, .(
 ), by = .(module, package, impl, method, model_type, sub_experiment, N, D, n_grid, n_intervals)]
 
 summary_dt[, label := fifelse(
-  package == "gadget" & impl == "r",
-  "gadget-r",
-  fifelse(package == "gadget" & impl == "cpp", "gadget-cpp", package)
+  package == "xplaineff" & impl == "r",
+  "xplaineff-r",
+  fifelse(package == "xplaineff" & impl == "cpp", "xplaineff-cpp", package)
 )]
 
 write.csv(summary_dt, file.path(indir, "summary.csv"), row.names = FALSE)
 message("Written: ", file.path(indir, "summary.csv"))
 
 palette_values = c(
-  "gadget-r" = "#1f77b4",
-  "gadget-cpp" = "#17becf",
+  "xplaineff-r" = "#1f77b4",
+  "xplaineff-cpp" = "#17becf",
   "pdp" = "#ff7f0e",
   "iml" = "#2ca02c",
   "DALEX/ingredients" = "#9467bd",
@@ -147,8 +147,8 @@ palette_values = c(
   "effectplots" = "#8c564b"
 )
 shape_values = c(
-  "gadget-r" = 16,
-  "gadget-cpp" = 4,
+  "xplaineff-r" = 16,
+  "xplaineff-cpp" = 4,
   "pdp" = 17,
   "iml" = 15,
   "DALEX/ingredients" = 18,
@@ -156,8 +156,8 @@ shape_values = c(
   "effectplots" = 7
 )
 x_offset_values = c(
-  "gadget-r" = 0.952,
-  "gadget-cpp" = 0.968,
+  "xplaineff-r" = 0.952,
+  "xplaineff-cpp" = 0.968,
   "pdp" = 0.984,
   "iml" = 1.000,
   "DALEX/ingredients" = 1.016,
@@ -242,12 +242,12 @@ plot_runtime = function(data, title, filename) {
       strip.text = element_text(face = "bold")
     )
 
-  save_plot(p, filename, width = 11, height = 12)
+  save_plot(p, filename, width = 13, height = 12)
 }
 
 plot_runtime(
-  summary_dt[module == "global_r" & (isTRUE(plot_gadget_cpp) | label != "gadget-cpp")],
-  "Global feature-effect computation in R",
+  summary_dt[module == "global_r" & (isTRUE(plot_xplaineff_cpp) | label != "xplaineff-cpp")],
+  "Global feature-effect runtime",
   "global_r_methods.png"
 )
 

@@ -24,31 +24,31 @@ parse_flag = function(x) {
   FALSE
 }
 
-load_gadget_for_benchmark = function() {
-  use_load_all = parse_flag(Sys.getenv("GADGET_BENCH_LOAD_ALL", "true"))
+load_xplaineff_for_benchmark = function() {
+  use_load_all = parse_flag(Sys.getenv("XPLAINEFF_BENCH_LOAD_ALL", "true"))
   if (use_load_all) {
     if (!requireNamespace("pkgload", quietly = TRUE)) {
-      stop("Install pkgload or set GADGET_BENCH_LOAD_ALL=false to use the installed gadget package")
+      stop("Install pkgload or set XPLAINEFF_BENCH_LOAD_ALL=false to use the installed xplaineff package")
     }
     pkgload::load_all(".", quiet = TRUE)
-    message("Loaded gadget from local source with pkgload::load_all().")
-  } else if (!requireNamespace("gadget", quietly = TRUE)) {
-    stop("Install gadget or set GADGET_BENCH_LOAD_ALL=true")
+    message("Loaded xplaineff from local source with pkgload::load_all().")
+  } else if (!requireNamespace("xplaineff", quietly = TRUE)) {
+    stop("Install xplaineff or set XPLAINEFF_BENCH_LOAD_ALL=true")
   } else {
-    library(gadget)
-    message("Loaded installed gadget package.")
+    library(xplaineff)
+    message("Loaded installed xplaineff package.")
   }
 }
 
-if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: gadget") {
-  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: gadget") {
+if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xplaineff") {
+  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: xplaineff") {
     setwd("..")
   } else {
-    stop("Run from GADGET package root")
+    stop("Run from xplaineff package root")
   }
 }
 
-load_gadget_for_benchmark()
+load_xplaineff_for_benchmark()
 
 library(data.table)
 setDTthreads(1L)
@@ -261,8 +261,8 @@ make_dalex_explainer = function(model, X, y, pred_fun) {
   )
 }
 
-run_gadget_pdp = function(dat, model, pred_fun, engine, n_grid) {
-  gadget:::calculate_pd(
+run_xplaineff_pdp = function(dat, model, pred_fun, engine, n_grid) {
+  xplaineff:::calculate_pd(
     model = model,
     data = dat,
     target_feature_name = "y",
@@ -273,10 +273,10 @@ run_gadget_pdp = function(dat, model, pred_fun, engine, n_grid) {
   )
 }
 
-run_gadget_ale = function(dat, model, pred_fun, engine, n_intervals) {
+run_xplaineff_ale = function(dat, model, pred_fun, engine, n_intervals) {
   features = setdiff(colnames(dat), "y")
   if (identical(engine, "cpp")) {
-    gadget:::calculate_ale_fast(
+    xplaineff:::calculate_ale_fast(
       model = model,
       data = dat,
       feature_set = features,
@@ -285,7 +285,7 @@ run_gadget_ale = function(dat, model, pred_fun, engine, n_intervals) {
       predict_fun = pred_fun
     )
   } else {
-    gadget:::calculate_ale(
+    xplaineff:::calculate_ale(
       model = model,
       data = dat,
       feature_set = features,
@@ -370,67 +370,64 @@ run_ingredients_ale = function(dat, model, pred_fun, n_intervals) {
 
 run_ale_pkg_ale = function(dat, model, pred_fun, n_intervals) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
-  features = colnames(X)
   ale_pred = function(object, newdata, type) pred_fun(object, newdata)
-  for (feat in features) {
-    ale::ALE(
-      model = model,
-      x_cols = feat,
-      data = dat,
-      y_col = "y",
-      pred_fun = ale_pred,
-      parallel = 0,
-      boot_it = 0L,
-      max_num_bins = n_intervals,
-      sample_size = nrow(X),
-      output_stats = FALSE,
-      silent = TRUE
-    )
-  }
+  ale::ALE(
+    model = model,
+    x_cols = colnames(X),
+    data = dat,
+    y_col = "y",
+    pred_fun = ale_pred,
+    parallel = 0,
+    boot_it = 0L,
+    max_num_bins = n_intervals,
+    sample_size = nrow(X),
+    output_stats = FALSE,
+    silent = TRUE
+  )
 }
 
 run_effectplots_pdp = function(dat, model, pred_fun, n_grid) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
-  for (feat in colnames(X)) {
-    effectplots::partial_dependence(
-      object = model,
-      v = feat,
-      data = X,
-      pred_fun = function(object, newdata, ...) pred_fun(object, newdata),
-      breaks = n_grid,
-      pd_n = nrow(X)
-    )
-  }
+  effectplots::feature_effects(
+    object = model,
+    v = colnames(X),
+    data = X,
+    pred_fun = function(object, newdata, ...) pred_fun(object, newdata),
+    breaks = n_grid,
+    calc_pred = FALSE,
+    pd_n = nrow(X),
+    ale_n = 0L
+  )
 }
 
 run_effectplots_ale = function(dat, model, pred_fun, n_intervals) {
   X = dat[, setdiff(colnames(dat), "y"), drop = FALSE]
-  for (feat in colnames(X)) {
-    effectplots::ale(
-      object = model,
-      v = feat,
-      data = X,
-      pred_fun = function(object, newdata, ...) pred_fun(object, newdata),
-      breaks = n_intervals,
-      ale_n = nrow(X),
-      ale_bin_size = nrow(X)
-    )
-  }
+  effectplots::feature_effects(
+    object = model,
+    v = colnames(X),
+    data = X,
+    pred_fun = function(object, newdata, ...) pred_fun(object, newdata),
+    breaks = n_intervals,
+    calc_pred = FALSE,
+    pd_n = 0L,
+    ale_n = nrow(X),
+    ale_bin_size = nrow(X)
+  )
 }
 
 method_specs = list(
-  list(package = "gadget", impl = "r", method = "global_pdp", requires = character(),
+  list(package = "xplaineff", impl = "r", method = "global_pdp", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
-    runner = function(dat, model, pred_fun, cell) run_gadget_pdp(dat, model, pred_fun, "r", cell$n_grid)),
-  list(package = "gadget", impl = "cpp", method = "global_pdp", requires = character(),
+    runner = function(dat, model, pred_fun, cell) run_xplaineff_pdp(dat, model, pred_fun, "r", cell$n_grid)),
+  list(package = "xplaineff", impl = "cpp", method = "global_pdp", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
-    runner = function(dat, model, pred_fun, cell) run_gadget_pdp(dat, model, pred_fun, "cpp", cell$n_grid)),
-  list(package = "gadget", impl = "r", method = "global_ale", requires = character(),
+    runner = function(dat, model, pred_fun, cell) run_xplaineff_pdp(dat, model, pred_fun, "cpp", cell$n_grid)),
+  list(package = "xplaineff", impl = "r", method = "global_ale", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
-    runner = function(dat, model, pred_fun, cell) run_gadget_ale(dat, model, pred_fun, "r", cell$n_intervals)),
-  list(package = "gadget", impl = "cpp", method = "global_ale", requires = character(),
+    runner = function(dat, model, pred_fun, cell) run_xplaineff_ale(dat, model, pred_fun, "r", cell$n_intervals)),
+  list(package = "xplaineff", impl = "cpp", method = "global_ale", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
-    runner = function(dat, model, pred_fun, cell) run_gadget_ale(dat, model, pred_fun, "cpp", cell$n_intervals)),
+    runner = function(dat, model, pred_fun, cell) run_xplaineff_ale(dat, model, pred_fun, "cpp", cell$n_intervals)),
   list(package = "pdp", impl = "default", method = "global_pdp", requires = "pdp",
     model_types = c("rf", "toy"),
     runner = function(dat, model, pred_fun, cell) run_pdp(dat, model, pred_fun, cell$n_grid)),
@@ -483,7 +480,10 @@ make_cells = function(spec) {
       if (is_pdp) default_n_grid else default_n_intervals)))
   }
   if ("vs_res" %in% sub_experiments) {
-    cells[[length(cells) + 1L]] = do.call(rbind, lapply(res_vec, function(res) make_cell("vs_res", fixed_N, fixed_D, res)))
+    cells[[length(cells) + 1L]] = do.call(rbind, lapply(
+      res_vec,
+      function(res) make_cell("vs_res", fixed_N, fixed_D, res)
+    ))
   }
   do.call(rbind, cells)
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# GADGET regional PDP/ALE runtime benchmark.
+# xplaineff regional PDP/ALE runtime benchmark.
 # Measures the regional precompute, split-search, and total timings separately.
 
 Sys.setenv(
@@ -23,31 +23,31 @@ parse_flag = function(x) {
   FALSE
 }
 
-load_gadget_for_benchmark = function() {
-  use_load_all = parse_flag(Sys.getenv("GADGET_BENCH_LOAD_ALL", "true"))
+load_xplaineff_for_benchmark = function() {
+  use_load_all = parse_flag(Sys.getenv("XPLAINEFF_BENCH_LOAD_ALL", "true"))
   if (use_load_all) {
     if (!requireNamespace("pkgload", quietly = TRUE)) {
-      stop("Install pkgload or set GADGET_BENCH_LOAD_ALL=false to use the installed gadget package")
+      stop("Install pkgload or set XPLAINEFF_BENCH_LOAD_ALL=false to use the installed xplaineff package")
     }
     pkgload::load_all(".", quiet = TRUE)
-    message("Loaded gadget from local source with pkgload::load_all().")
-  } else if (!requireNamespace("gadget", quietly = TRUE)) {
-    stop("Install gadget or set GADGET_BENCH_LOAD_ALL=true")
+    message("Loaded xplaineff from local source with pkgload::load_all().")
+  } else if (!requireNamespace("xplaineff", quietly = TRUE)) {
+    stop("Install xplaineff or set XPLAINEFF_BENCH_LOAD_ALL=true")
   } else {
-    library(gadget)
-    message("Loaded installed gadget package.")
+    library(xplaineff)
+    message("Loaded installed xplaineff package.")
   }
 }
 
-if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: gadget") {
-  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: gadget") {
+if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xplaineff") {
+  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: xplaineff") {
     setwd("..")
   } else {
-    stop("Run from GADGET package root")
+    stop("Run from xplaineff package root")
   }
 }
 
-load_gadget_for_benchmark()
+load_xplaineff_for_benchmark()
 
 library(data.table)
 setDTthreads(1L)
@@ -252,7 +252,7 @@ record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
   status = "ok", error_message = NA_character_) {
   rows[[length(rows) + 1L]] = data.frame(
     module = "regional_runtime",
-    package = "gadget",
+    package = "xplaineff",
     impl = "cpp",
     effect = effect,
     method = sprintf("regional_%s", effect),
@@ -298,7 +298,7 @@ run_model = function(model_type) {
       dat = data_cache[[key]]
       model = model_cache[[key]]
       log_msg = sprintf(
-        "[%s] gadget regional %s %s N=%d D=%d res=%d n_split=%d",
+        "[%s] xplaineff regional %s %s N=%d D=%d res=%d n_split=%d",
         model_type, effect, cell$sub_experiment, cell$N, cell$D, cell$resolution, cell$n_split
       )
       message(log_msg, " | start")
@@ -346,6 +346,6 @@ for (model_type in model_types) {
 }
 
 out = if (length(all_rows)) rbindlist(all_rows, fill = TRUE) else data.table()
-fn = out_filename("regional_runtime_gadget")
+fn = out_filename("regional_runtime_xplaineff")
 fwrite(out, file.path(outdir, fn))
 message("Written: ", fn)

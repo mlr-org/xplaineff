@@ -21,7 +21,7 @@ export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-1}"
 export DATATABLE_NUM_THREADS="${DATATABLE_NUM_THREADS:-1}"
 export RCPP_PARALLEL_NUM_THREADS="${RCPP_PARALLEL_NUM_THREADS:-1}"
 export PYTHONHASHSEED="${PYTHONHASHSEED:-21}"
-export GADGET_BENCH_LOAD_ALL="${GADGET_BENCH_LOAD_ALL:-true}"
+export XPLAINEFF_BENCH_LOAD_ALL="${XPLAINEFF_BENCH_LOAD_ALL:-true}"
 export PARALLEL_SUB="${PARALLEL_SUB:-true}"
 export GLOBAL_SUB_JOBS="${GLOBAL_SUB_JOBS:-3}"
 export PARALLEL_PHASES="${PARALLEL_PHASES:-true}"
@@ -85,9 +85,9 @@ run_global_benchmark() {
   fi
 }
 
-run_regional_gadget() {
-  echo "2b. Running regional benchmark: gadget..."
-  Rscript simulation/benchmark_regional_runtime_gadget.R \
+run_regional_xplaineff() {
+  echo "2b. Running regional benchmark: xplaineff..."
+  Rscript simulation/benchmark_regional_runtime_xplaineff.R \
     --datadir "${DATADIR}" \
     --outdir "${REGIONAL_OUTDIR}" \
     --reps "${REPS}" \
@@ -123,14 +123,14 @@ run_regional_effector() {
 run_regional_benchmark() {
   if [ "$PARALLEL_REGIONAL_PACKAGES" = "true" ]; then
     mkdir -p "${REGIONAL_OUTDIR}"
-    run_regional_gadget > "${REGIONAL_OUTDIR}/_run_gadget.log" 2>&1 &
-    GADGET_PID=$!
+    run_regional_xplaineff > "${REGIONAL_OUTDIR}/_run_xplaineff.log" 2>&1 &
+    XPLAINEFF_PID=$!
     run_regional_effector > "${REGIONAL_OUTDIR}/_run_effector.log" 2>&1 &
     EFFECTOR_PID=$!
 
     FAILED=0
-    if ! wait "${GADGET_PID}"; then
-      echo "ERROR: regional gadget benchmark failed; see ${REGIONAL_OUTDIR}/_run_gadget.log" >&2
+    if ! wait "${XPLAINEFF_PID}"; then
+      echo "ERROR: regional xplaineff benchmark failed; see ${REGIONAL_OUTDIR}/_run_xplaineff.log" >&2
       FAILED=1
     fi
     if ! wait "${EFFECTOR_PID}"; then
@@ -141,7 +141,7 @@ run_regional_benchmark() {
       exit 1
     fi
   else
-    run_regional_gadget
+    run_regional_xplaineff
     run_regional_effector
   fi
   echo "2d. Summarizing regional benchmark..."

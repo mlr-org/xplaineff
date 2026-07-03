@@ -36,12 +36,12 @@ variant_labels = c(
   cat = "Categorical split"
 )
 method_labels = c(
-  gadget_pdp = "gadget PDP",
-  gadget_ale = "gadget ALE",
+  xplaineff_pdp = "xplaineff PDP",
+  xplaineff_ale = "xplaineff ALE",
   effector_rpdp = "effector RegionalPDP",
   effector_rale = "effector RegionalALE"
 )
-method_levels = c("gadget_pdp", "gadget_ale", "effector_rpdp", "effector_rale")
+method_levels = c("xplaineff_pdp", "xplaineff_ale", "effector_rpdp", "effector_rale")
 
 save_plot = function(filename, plot_obj, width, height) {
   ggsave(file.path(figdir, filename), plot_obj, width = width, height = height, dpi = 150)
@@ -50,9 +50,9 @@ save_plot = function(filename, plot_obj, width, height) {
   }
 }
 
-gadget_res = fread(file.path(indir, "structural_recovery_gadget.csv"))
+xplaineff_res = fread(file.path(indir, "structural_recovery_xplaineff.csv"))
 effector_res = fread(file.path(indir, "structural_recovery_effector.csv"))
-dt = rbind(gadget_res, effector_res, fill = TRUE)
+dt = rbind(xplaineff_res, effector_res, fill = TRUE)
 
 dt[, split_feat_correct := as.logical(split_feat_correct)]
 dt[, split_pt_error := as.numeric(split_pt_error)]

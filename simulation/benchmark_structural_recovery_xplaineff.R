@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
-# Accuracy benchmark (GADGET): recover the oracle first split for the x2 regional effect.
+# Accuracy benchmark (xplaineff): recover the oracle first split for the x2 regional effect.
 
-if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: gadget") {
-  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: gadget") {
+if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xplaineff") {
+  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: xplaineff") {
     setwd("..")
   } else {
-    stop("Run from the GADGET package root")
+    stop("Run from the xplaineff package root")
   }
 }
 
@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
   if (requireNamespace("devtools", quietly = TRUE)) {
     devtools::load_all(".", quiet = TRUE)
   } else {
-    library(gadget)
+    library(xplaineff)
   }
   library(data.table)
 })
@@ -153,8 +153,8 @@ predicted_left_mask = function(dat, split_feature, split_value, method_label) {
 
   z = dat[[split_feature]]
   if (is.factor(z)) {
-    if (identical(method_label, "gadget_ale")) {
-      return(gadget:::ordered_categorical_left_mask(z, split_value))
+    if (identical(method_label, "xplaineff_ale")) {
+      return(xplaineff:::ordered_categorical_left_mask(z, split_value))
     }
     return(z == split_value)
   }
@@ -162,7 +162,7 @@ predicted_left_mask = function(dat, split_feature, split_value, method_label) {
   z <= as.numeric(split_value)
 }
 
-record_gadget = function(method_label, variant, N, D, seed, dat, tree) {
+record_xplaineff = function(method_label, variant, N, D, seed, dat, tree) {
   split_info = tree$extract_split_info()
   root_split = root_split_info(split_info)
   split_feature = root_split$feature
@@ -177,7 +177,7 @@ record_gadget = function(method_label, variant, N, D, seed, dat, tree) {
   }
 
   data.table(
-    package = "gadget",
+    package = "xplaineff",
     method = method_label,
     variant = variant,
     N = N,
@@ -197,9 +197,9 @@ record_gadget = function(method_label, variant, N, D, seed, dat, tree) {
   )
 }
 
-run_gadget_pdp = function(dat, model, pred) {
+run_xplaineff_pdp = function(dat, model, pred) {
   split_features = setdiff(colnames(dat), c("y", foi_feature))
-  effect = gadget:::calculate_pd(
+  effect = xplaineff:::calculate_pd(
     model = model,
     data = dat,
     target_feature_name = "y",
@@ -225,7 +225,7 @@ run_gadget_pdp = function(dat, model, pred) {
   tree
 }
 
-run_gadget_ale = function(dat, model, pred) {
+run_xplaineff_ale = function(dat, model, pred) {
   split_features = setdiff(colnames(dat), c("y", foi_feature))
   tree = GadgetTree$new(
     strategy = AleStrategy$new(),
@@ -257,17 +257,17 @@ for (variant in variants) {
         dat = load_accuracy_csv(datadir, N, D, variant, seed)
         pred_bundle = fit_oracle_predictor(dat, variant)
 
-        tree_pdp = run_gadget_pdp(dat, pred_bundle$model, pred_bundle$predict_fun)
-        rows[[length(rows) + 1L]] = record_gadget("gadget_pdp", variant, N, D, seed, dat, tree_pdp)
+        tree_pdp = run_xplaineff_pdp(dat, pred_bundle$model, pred_bundle$predict_fun)
+        rows[[length(rows) + 1L]] = record_xplaineff("xplaineff_pdp", variant, N, D, seed, dat, tree_pdp)
 
-        tree_ale = run_gadget_ale(dat, pred_bundle$model, pred_bundle$predict_fun)
-        rows[[length(rows) + 1L]] = record_gadget("gadget_ale", variant, N, D, seed, dat, tree_ale)
+        tree_ale = run_xplaineff_ale(dat, pred_bundle$model, pred_bundle$predict_fun)
+        rows[[length(rows) + 1L]] = record_xplaineff("xplaineff_ale", variant, N, D, seed, dat, tree_ale)
       }
     }
   }
 }
 
 out = rbindlist(rows, fill = TRUE)
-fout = file.path(outdir, "structural_recovery_gadget.csv")
+fout = file.path(outdir, "structural_recovery_xplaineff.csv")
 fwrite(out, fout)
 message("Written: ", fout)

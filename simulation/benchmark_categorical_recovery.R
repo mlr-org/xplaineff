@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
-# Categorical split-feature recovery benchmark (GADGET-only).
+# Categorical split-feature recovery benchmark (xplaineff-only).
 #
-# Question: can a GADGET-ALE tree recover a KNOWN level grouping of a categorical
+# Question: can an xplaineff ALE tree recover a known level grouping of a categorical
 # split feature, and how does order_method (raw/random/mds/pca) affect recovery?
 #
 # DGP: factor x3 with K levels.
@@ -24,16 +24,20 @@
 # Output: one row per (sweep cell, seed, method) written to a raw CSV; includes
 #   elapsed_sec column for cost-vs-accuracy reporting.
 
-if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: gadget") {
-  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: gadget") {
+if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xplaineff") {
+  if (file.exists("../DESCRIPTION") && readLines("../DESCRIPTION", 1L) == "Package: xplaineff") {
     setwd("..")
   } else {
-    stop("Run from the GADGET package root")
+    stop("Run from the xplaineff package root")
   }
 }
 
 suppressPackageStartupMessages({
-  library(gadget)
+  if (requireNamespace("devtools", quietly = TRUE)) {
+    devtools::load_all(".", quiet = TRUE)
+  } else {
+    library(xplaineff)
+  }
   library(data.table)
 })
 
@@ -248,7 +252,7 @@ root_children_levels = function(tree, dat) {
 # level order induced by the selected order_method?
 order_correct = function(dat, signal_levels, order_method) {
   ord = tryCatch(
-    gadget:::order_categorical_levels(
+    xplaineff:::order_categorical_levels(
       x_cat = droplevels(dat$x3), data = dat, feature = "x3",
       target_feature_name = "y", order_method = order_method),
     error = function(e) NULL)
@@ -334,7 +338,7 @@ record_error_row = function(method, order_method, K, N, D, leakage, slope_mag_va
   )
 }
 
-run_gadget_ale = function(dat, bundle, order_method) {
+run_xplaineff_ale = function(dat, bundle, order_method) {
   tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = n_split,
     impr_par = impr_par, min_node_size = min_node_size)
   tree$fit(data = dat, target_feature_name = "y", model = bundle$model,
@@ -381,7 +385,7 @@ run_oracle_partition = function(dat, bundle, signal_levels) {
     new_order = c(sub, rest)
     dat_local = dat
     dat_local$x3 = factor(as.character(dat_local$x3), levels = new_order, ordered = TRUE)
-    tree_try = tryCatch(run_gadget_ale(dat_local, bundle, order_method = "raw"),
+    tree_try = tryCatch(run_xplaineff_ale(dat_local, bundle, order_method = "raw"),
       error = function(e) NULL)
     if (is.null(tree_try)) next
     si = tree_try$extract_split_info()
@@ -443,17 +447,17 @@ run_seed = function(cell, seed) {
     set.seed(method_seed)
     timing = system.time({
       result = tryCatch(
-        list(tree = run_gadget_ale(gen$dat, bundle, om), error_message = NA_character_),
+        list(tree = run_xplaineff_ale(gen$dat, bundle, om), error_message = NA_character_),
         error = function(e) list(tree = NULL, error_message = conditionMessage(e))
       )
     })
     elapsed = as.numeric(timing["elapsed"])
     rows[[length(rows) + 1L]] = if (!is.null(result$tree)) {
-      record_row("gadget_ale", om, cell$K, cell$N, cell$D,
+      record_row("xplaineff_ale", om, cell$K, cell$N, cell$D,
         cell$leakage, cell$slope_mag, dgp_type, seed, method_seed, cell$group_frac,
         gen$dat, gen$g, gen$signal_levels, result$tree, elapsed_sec = elapsed)
     } else {
-      record_error_row("gadget_ale", om, cell$K, cell$N, cell$D,
+      record_error_row("xplaineff_ale", om, cell$K, cell$N, cell$D,
         cell$leakage, cell$slope_mag, dgp_type, seed, method_seed, cell$group_frac,
         gen$dat, gen$signal_levels, result$error_message, elapsed_sec = elapsed)
     }
@@ -468,11 +472,11 @@ run_seed = function(cell, seed) {
     })
     elapsed = as.numeric(timing["elapsed"])
     rows[[length(rows) + 1L]] = if (!is.null(tree_oracle)) {
-      record_row("gadget_ale", "oracle_partition", cell$K, cell$N, cell$D,
+      record_row("xplaineff_ale", "oracle_partition", cell$K, cell$N, cell$D,
         cell$leakage, cell$slope_mag, dgp_type, seed, method_seed, cell$group_frac,
         gen$dat, gen$g, gen$signal_levels, tree_oracle, elapsed_sec = elapsed)
     } else {
-      record_error_row("gadget_ale", "oracle_partition", cell$K, cell$N, cell$D,
+      record_error_row("xplaineff_ale", "oracle_partition", cell$K, cell$N, cell$D,
         cell$leakage, cell$slope_mag, dgp_type, seed, method_seed, cell$group_frac,
         gen$dat, gen$signal_levels,
         error_message = "oracle_partition failed", elapsed_sec = elapsed)

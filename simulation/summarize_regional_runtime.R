@@ -86,7 +86,7 @@ summary_dt = dt_ok[, .(
 ), by = .(module, package, impl, effect, method, model_type, sub_experiment, N, D, resolution, n_split)]
 
 summary_dt[, label := fcase(
-  package == "gadget", "gadget",
+  package == "xplaineff", "xplaineff",
   package == "effector", "effector",
   default = package
 )]
@@ -95,15 +95,15 @@ write.csv(summary_dt, file.path(indir, "summary.csv"), row.names = FALSE)
 message("Written: ", file.path(indir, "summary.csv"))
 
 palette_values = c(
-  "gadget" = "#1f77b4",
+  "xplaineff" = "#1f77b4",
   "effector" = "#2ca02c"
 )
 shape_values = c(
-  "gadget" = 16,
+  "xplaineff" = 16,
   "effector" = 17
 )
 x_offset_values = c(
-  "gadget" = 0.985,
+  "xplaineff" = 0.985,
   "effector" = 1.015
 )
 
@@ -144,7 +144,7 @@ plot_metric = function(data, metric, filename, title, facet_layout = "grid", x_s
   data[, sweep_short := fcase(
     sub_experiment == "vs_N", "vs n",
     sub_experiment == "vs_D", "vs p",
-    sub_experiment == "vs_res", "vs resolution",
+    sub_experiment == "vs_res", "PDP grid / ALE intervals",
     sub_experiment == "vs_split", "vs splits",
     default = sub_experiment
   )]
@@ -158,14 +158,14 @@ plot_metric = function(data, metric, filename, title, facet_layout = "grid", x_s
   data[, sweep_label := fcase(
     sub_experiment == "vs_N", "Sample size n\np = 20, resolution = 20, splits = 2",
     sub_experiment == "vs_D", "Feature dimension p\nn = 10,000, resolution = 20, splits = 2",
-    sub_experiment == "vs_res", "Resolution\nn = 10,000, p = 20, splits = 2",
+    sub_experiment == "vs_res", "PDP grid / ALE intervals\nn = 10,000, p = 20, splits = 2",
     sub_experiment == "vs_split", "Number of splits\nn = 10,000, p = 20, resolution = 20",
     default = sub_experiment
   )]
   data[, sweep_label := factor(sweep_label, levels = c(
     "Sample size n\np = 20, resolution = 20, splits = 2",
     "Feature dimension p\nn = 10,000, resolution = 20, splits = 2",
-    "Resolution\nn = 10,000, p = 20, splits = 2",
+    "PDP grid / ALE intervals\nn = 10,000, p = 20, splits = 2",
     "Number of splits\nn = 10,000, p = 20, resolution = 20"
   ))]
   data[, x_value := fcase(
@@ -184,7 +184,7 @@ plot_metric = function(data, metric, filename, title, facet_layout = "grid", x_s
   sweep_levels = c(
     "vs n\np = 20, resolution = 20, splits = 2",
     "vs p\nn = 10,000, resolution = 20, splits = 2",
-    "vs resolution\nn = 10,000, p = 20, splits = 2",
+    "PDP grid / ALE intervals\nn = 10,000, p = 20, splits = 2",
     "vs splits\nn = 10,000, p = 20, resolution = 20"
   )
   panel_title_levels = unlist(lapply(panel_levels, function(row) paste(row, sweep_levels, sep = " - ")))

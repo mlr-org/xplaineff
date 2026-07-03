@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run the categorical split-feature recovery benchmark (GADGET-only).
+# Run the categorical split-feature recovery benchmark (xplaineff-only).
 # Usage:
 #   bash simulation/run_categorical_recovery.sh           # publication: all sweeps, 30 seeds, digit DGP
 #   bash simulation/run_categorical_recovery.sh smoke     # tiny wiring check

@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-export MPLCONFIGDIR="${TMPDIR:-/tmp}/matplotlib-gadget"
+export MPLCONFIGDIR="${TMPDIR:-/tmp}/matplotlib-xplaineff"
 mkdir -p "$MPLCONFIGDIR"
 
 echo "1. Generating shared accuracy datasets..."
@@ -44,11 +44,11 @@ else
   Rscript simulation/generate_structural_recovery_data.R
 fi
 
-echo "2. GADGET accuracy..."
+echo "2. xplaineff accuracy..."
 if [[ ${#all_args[@]} -gt 0 ]]; then
-  Rscript simulation/benchmark_structural_recovery_gadget.R "${all_args[@]}"
+  Rscript simulation/benchmark_structural_recovery_xplaineff.R "${all_args[@]}"
 else
-  Rscript simulation/benchmark_structural_recovery_gadget.R
+  Rscript simulation/benchmark_structural_recovery_xplaineff.R
 fi
 
 echo "3. effector accuracy..."
