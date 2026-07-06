@@ -2,6 +2,7 @@
 # Run the publication efficiency benchmark.
 # Usage:
 #   bash simulation/run_global_r_runtime.sh          # publication global-effect grid
+#   bash simulation/run_global_r_runtime.sh quick    # reduced grid for fast end-to-end comparisons
 #   bash simulation/run_global_r_runtime.sh smoke    # tiny dependency / wiring check
 
 set -e
@@ -47,6 +48,19 @@ if [ "$MODE" = "smoke" ]; then
   OUTDIR="${GLOBAL_OUTDIR:-${RUN_ROOT}/global_r_runtime_smoke}"
   FIGDIR="${GLOBAL_FIGDIR:-${RUN_ROOT}/paper_figures_smoke}"
   MODELS="${BENCHMARK_MODELS:-toy}"
+elif [ "$MODE" = "quick" ]; then
+  N_VEC="100,500,1000,2000"
+  D_VEC="5,10,20,50"
+  FIXED_N="1000"
+  FIXED_D="10"
+  N_GRID=20
+  N_INTERVALS=20
+  N_GRID_VEC="10,20,50"
+  N_INTERVALS_VEC="10,20,50"
+  REPS=5
+  OUTDIR="${GLOBAL_OUTDIR:-${RUN_ROOT}/global_r_runtime_quick}"
+  FIGDIR="${GLOBAL_FIGDIR:-${RUN_ROOT}/paper_figures_quick}"
+  MODELS="${BENCHMARK_MODELS:-rf,toy}"
 else
   N_VEC="1000,5000,10000,20000"
   D_VEC="10,20,50,100"
@@ -186,7 +200,26 @@ Rscript simulation/summarize_global_r_runtime.R \
   --indir "${OUTDIR}" \
   --figdir "${FIGDIR}" \
   --paper-figdir "${SUMMARY_PAPER_FIGDIR}" \
+  --fixed-N "${FIXED_N}" \
   --fixed-D "${FIXED_D}" \
+  --n-grid "${N_GRID}" \
+  --n-intervals "${N_INTERVALS}" \
+  --models "${MODELS}" \
+  --include-mlr3 "${INCLUDE_MLR3}"
+
+echo "4. Diagnosing benchmark completeness..."
+Rscript simulation/diagnose_global_r_runtime.R \
+  --indir "${OUTDIR}" \
+  --outdir "${OUTDIR}" \
+  --reps "${REPS}" \
+  --N-vec "${N_VEC}" \
+  --D-vec "${D_VEC}" \
+  --fixed-N "${FIXED_N}" \
+  --fixed-D "${FIXED_D}" \
+  --n-grid "${N_GRID}" \
+  --n-intervals "${N_INTERVALS}" \
+  --n-grid-vec "${N_GRID_VEC}" \
+  --n-intervals-vec "${N_INTERVALS_VEC}" \
   --models "${MODELS}" \
   --include-mlr3 "${INCLUDE_MLR3}"
 

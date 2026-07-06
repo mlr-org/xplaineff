@@ -10,9 +10,9 @@
 3           0.90       0.21         0.00                  0
 4           0.04         NA           NA                 NA
 5           0.04         NA           NA                 NA
-  split_feature_parent split_value_parent objective_value_parent is_final  time
-1                 <NA>               <NA>                     NA    FALSE 0.055
-2           workingday                  0              2220499.2     TRUE    NA
-3           workingday                  0              2220499.2    FALSE 0.009
-4                 temp               0.47               167776.3     TRUE    NA
-5                 temp               0.47               167776.3     TRUE    NA
+  split_feature_parent split_value_parent objective_value_parent is_final
+1                 <NA>               <NA>                     NA    FALSE
+2           workingday                  0              2220499.2     TRUE
+3           workingday                  0              2220499.2    FALSE
+4                 temp               0.47               167776.3     TRUE
+5                 temp               0.47               167776.3     TRUE

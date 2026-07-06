@@ -21,7 +21,10 @@ run_root = file.path("simulation/results/runtime_runs", run_id)
 indir = file.path(run_root, "global_r_runtime")
 figdir = file.path(run_root, "paper_figures")
 paper_figdir = ""
+fixed_N = 10000L
 fixed_D = 20L
+default_n_grid = 20L
+default_n_intervals = 20L
 model_types = c("rf", "toy")
 include_mlr3 = FALSE
 plot_xplaineff_cpp = TRUE
@@ -46,8 +49,14 @@ while (i <= length(args)) {
     figdir = args[i + 1L]; i = i + 2L
   } else if (args[i] == "--paper-figdir" && i < length(args)) {
     paper_figdir = args[i + 1L]; i = i + 2L
+  } else if (args[i] == "--fixed-N" && i < length(args)) {
+    fixed_N = as.integer(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--fixed-D" && i < length(args)) {
     fixed_D = as.integer(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--n-grid" && i < length(args)) {
+    default_n_grid = as.integer(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--n-intervals" && i < length(args)) {
+    default_n_intervals = as.integer(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--models" && i < length(args)) {
     model_types = parse_model_vec(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--include-mlr3" && i < length(args)) {
@@ -67,49 +76,27 @@ if (nzchar(paper_figdir)) {
 library(data.table)
 library(ggplot2)
 library(scales)
+source("simulation/global_runtime_io.R")
 
 setDTthreads(1L)
 
-load_csv = function(filename) {
-  path = file.path(indir, filename)
-  if (!file.exists(path)) return(data.table())
-  fread(path)
+if (isTRUE(include_mlr3) && !"mlr3_rf" %in% model_types) {
+  model_types = c(model_types, "mlr3_rf")
 }
 
-csv_files = list()
-if ("rf" %in% model_types) {
-  csv_files = c(csv_files, list(load_csv("global_r_runtime_rf.csv")), list(load_csv("global_r_runtime_rf_vs_D.csv")))
-}
-if ("toy" %in% model_types) {
-  csv_files = c(csv_files, list(load_csv("global_r_runtime_toy.csv")), list(load_csv("global_r_runtime_toy_vs_D.csv")))
-}
-if ("mlr3_rf" %in% model_types || isTRUE(include_mlr3)) {
-  csv_files = c(csv_files, list(load_csv("global_r_runtime_mlr3_rf.csv")))
-}
-dt = rbindlist(csv_files, use.names = TRUE, fill = TRUE)
+dt = load_global_runtime_data(indir = indir, model_types = model_types, include_mlr3 = include_mlr3)
 
 if (nrow(dt) == 0L) {
   stop("No benchmark data found. Run simulation/run_global_r_runtime.sh first.")
 }
 
-if (!("status" %in% names(dt))) dt[, status := "ok"]
-dt[is.na(status) | status == "", status := "ok"]
-if (!("sub_experiment" %in% names(dt))) dt[, sub_experiment := "vs_N"]
-dt[is.na(sub_experiment) | sub_experiment == "", sub_experiment := "vs_N"]
 n_err = dt[status == "error", .N]
 if (n_err > 0L) {
   message("Warning: ", n_err, " benchmark row(s) have status=error; see error_message in raw CSV.")
 }
 
-dt[, n_grid := as.integer(fifelse(is.na(n_grid) | n_grid == "", NA_character_, as.character(n_grid)))]
-dt[, n_intervals := as.integer(fifelse(
-  is.na(n_intervals) | n_intervals == "",
-  NA_character_,
-  as.character(n_intervals)
-))]
 dt[, time_sec := as.numeric(time_sec)]
-dt[package == "ingredients", package := "DALEX/ingredients"]
-dt = dt[module == "global_r"]
+dt[, c("source_file", "source_rank") := NULL]
 dt = dt[!(sub_experiment == "vs_N" & N == 500L)]
 
 dt_ok = dt[status == "ok" & is.finite(time_sec)]
@@ -176,6 +163,22 @@ save_plot = function(plot_obj, filename, width, height, dpi = 220) {
   }
 }
 
+format_integer_label = function(x) {
+  scales::comma(as.integer(x))
+}
+
+format_resolution_label = function() {
+  if (identical(as.integer(default_n_grid), as.integer(default_n_intervals))) {
+    sprintf("resolution = %s", format_integer_label(default_n_grid))
+  } else {
+    sprintf(
+      "PDP grid = %s, ALE intervals = %s",
+      format_integer_label(default_n_grid),
+      format_integer_label(default_n_intervals)
+    )
+  }
+}
+
 plot_runtime = function(data, title, filename) {
   if (nrow(data) == 0L) return(invisible(NULL))
   data = copy(data)
@@ -189,15 +192,42 @@ plot_runtime = function(data, title, filename) {
     "PDP / Toy model"
   ))]
   data[, sweep_label := fcase(
-    sub_experiment == "vs_N", "Sample size n\np = 20, resolution = 20",
-    sub_experiment == "vs_D", "Feature dimension p\nn = 10,000, resolution = 20",
-    sub_experiment == "vs_res", "PDP grid / ALE intervals\nn = 10,000, p = 20",
+    sub_experiment == "vs_N",
+    sprintf(
+      "Sample size n\np = %s, %s",
+      format_integer_label(fixed_D),
+      format_resolution_label()
+    ),
+    sub_experiment == "vs_D",
+    sprintf(
+      "Feature dimension p\nn = %s, %s",
+      format_integer_label(fixed_N),
+      format_resolution_label()
+    ),
+    sub_experiment == "vs_res",
+    sprintf(
+      "PDP grid / ALE intervals\nn = %s, p = %s",
+      format_integer_label(fixed_N),
+      format_integer_label(fixed_D)
+    ),
     default = sub_experiment
   )]
   data[, sweep_label := factor(sweep_label, levels = c(
-    "Sample size n\np = 20, resolution = 20",
-    "Feature dimension p\nn = 10,000, resolution = 20",
-    "PDP grid / ALE intervals\nn = 10,000, p = 20"
+    sprintf(
+      "Sample size n\np = %s, %s",
+      format_integer_label(fixed_D),
+      format_resolution_label()
+    ),
+    sprintf(
+      "Feature dimension p\nn = %s, %s",
+      format_integer_label(fixed_N),
+      format_resolution_label()
+    ),
+    sprintf(
+      "PDP grid / ALE intervals\nn = %s, p = %s",
+      format_integer_label(fixed_N),
+      format_integer_label(fixed_D)
+    )
   ))]
   data[, x_value := fcase(
     sub_experiment == "vs_N", as.numeric(N),

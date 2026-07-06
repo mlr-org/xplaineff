@@ -25,13 +25,13 @@ t = GadgetTree$new(strategy, n_split = 2, impr_par = 0.1, min_node_size = 10, n_
 * `strategy` :: ([AleStrategy] | [PdStrategy])\cr
   Effect strategy object.
 * `n_split` :: `integer(1)`\cr
-  Maximum number of splits.
+  Maximum split depth, counted as splits along any root-to-leaf path.
 * `impr_par` :: `numeric(1)`\cr
   Improvement threshold.
 * `min_node_size` :: `integer(1)`\cr
   Minimum samples per node.
 * `n_quantiles` :: `integer(1)` or `NULL`\cr
-  Quantiles for numeric splits; `NULL` = use all unique values.
+  Number of quantile cut points for numeric split candidates; `NULL` = use all unique values.
 }
 
 \examples{
@@ -63,7 +63,7 @@ Effect-specific logic.}
 Root node.}
 
 \item{\code{n_split}}{(`integer(1)`) \cr
-Maximum number of splits.}
+Maximum split depth, counted as splits along any root-to-leaf path.}
 
 \item{\code{impr_par}}{(`numeric(1)`) \cr
 Improvement threshold.}
@@ -72,7 +72,7 @@ Improvement threshold.}
 Minimum samples per node.}
 
 \item{\code{n_quantiles}}{(`integer(1)` or `NULL`) \cr
-Quantiles for numeric split candidates.}
+Number of quantile cut points for numeric split candidates.}
 
 \item{\code{split_benchmark}}{(`list()`) \cr
 Internal split timing records.}
@@ -116,7 +116,7 @@ Initialize tree parameters.
 Strategy object.}
 
 \item{\code{n_split}}{(`integer(1)`) \cr
-Maximum number of splits.}
+Maximum split depth, counted as splits along any root-to-leaf path.}
 
 \item{\code{impr_par}}{(`numeric(1)`) \cr
 Improvement threshold.}
@@ -125,7 +125,7 @@ Improvement threshold.}
 Minimum node size.}
 
 \item{\code{n_quantiles}}{(`integer(1)` or `NULL`) \cr
-Quantiles for numeric splits.}
+Number of quantile cut points for numeric split candidates.}
 }
 \if{html}{\out{</div>}}
 }

@@ -16,26 +16,26 @@
 #' * `strategy` :: ([AleStrategy] | [PdStrategy])\cr
 #'   Effect strategy object.
 #' * `n_split` :: `integer(1)`\cr
-#'   Maximum number of splits.
+#'   Maximum split depth, counted as splits along any root-to-leaf path.
 #' * `impr_par` :: `numeric(1)`\cr
 #'   Improvement threshold.
 #' * `min_node_size` :: `integer(1)`\cr
 #'   Minimum samples per node.
 #' * `n_quantiles` :: `integer(1)` or `NULL`\cr
-#'   Quantiles for numeric splits; `NULL` = use all unique values.
+#'   Number of quantile cut points for numeric split candidates; `NULL` = use all unique values.
 #'
 #' @field strategy (PdStrategy | AleStrategy) \cr
 #'   Effect-specific logic.
 #' @field root (`Node`) \cr
 #'   Root node.
 #' @field n_split (`integer(1)`) \cr
-#'   Maximum number of splits.
+#'   Maximum split depth, counted as splits along any root-to-leaf path.
 #' @field impr_par (`numeric(1)`) \cr
 #'   Improvement threshold.
 #' @field min_node_size (`integer(1)`) \cr
 #'   Minimum samples per node.
 #' @field n_quantiles (`integer(1)` or `NULL`) \cr
-#'   Quantiles for numeric split candidates.
+#'   Number of quantile cut points for numeric split candidates.
 #' @field split_benchmark (`list()`) \cr
 #'   Internal split timing records.
 #' @field tree_list_cache (`list()` or `NULL`) \cr
@@ -81,13 +81,13 @@ GadgetTree = R6::R6Class(
     #' @param strategy (PdStrategy | AleStrategy) \cr
     #'   Strategy object.
     #' @param n_split (`integer(1)`) \cr
-    #'   Maximum number of splits.
+    #'   Maximum split depth, counted as splits along any root-to-leaf path.
     #' @param impr_par (`numeric(1)`) \cr
     #'   Improvement threshold.
     #' @param min_node_size (`integer(1)`) \cr
     #'   Minimum node size.
     #' @param n_quantiles (`integer(1)` or `NULL`) \cr
-    #'   Quantiles for numeric splits.
+    #'   Number of quantile cut points for numeric split candidates.
     initialize = function(strategy, n_split = 2, impr_par = 0.1, min_node_size = 10, n_quantiles = NULL) {
       checkmate::assert_r6(strategy, .var.name = "strategy")
       checkmate::assert_integerish(n_split, len = 1, lower = 0, any.missing = FALSE, .var.name = "n_split")
