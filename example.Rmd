@@ -1,5 +1,5 @@
 ---
-title: "Introduction to gadget - PDP/ALE Method & Benchmarks"
+title: "Introduction to xplaineff - PDP/ALE Method & Benchmarks"
 author: "Zizheng Zhang"
 date: "2026-3-10"
 output: html_document
@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
-library(gadget)
+library(xplaineff)
 library(iml)
 library(mlr3)
 library(mlr3learners)
@@ -19,9 +19,9 @@ library(ggplot2)
 library(pryr)
 ```
 
-## Overview of the gadget Package
+## Overview of the xplaineff Package
 
-**GADGET** algorithm is designed to interpret black-box models by decomposing the feature space into regions where **interaction effects** are minimized, such that the obtained prediction subregions are dominated by **main effects**. The **gadget** package provides users an extensible framework to have an interpretable and regionally-partitioned decision tree based on different local feature effect estimation methods, current we have implementation based on the following methods:
+**GADGET** algorithm is designed to interpret black-box models by decomposing the feature space into regions where **interaction effects** are minimized, such that the obtained prediction subregions are dominated by **main effects**. The **xplaineff** package provides users an extensible framework to have an interpretable and regionally-partitioned decision tree based on different local feature effect estimation methods, current we have implementation based on the following methods:
 
 -   Individual Conditional Expectation (**ICE**)
 
@@ -31,14 +31,14 @@ library(pryr)
 
 Both ALE and PD show the average model prediction over the feature. The difference is that ALE are computed as accumulated differences over the conditional prediction distribution and PD over the marginal distribution. ICE curves describe how would one single observation change when one feature changes and can be combined with PD plots (for all observations).
 
-For **PD/ICE**, you can pre-compute effects with **iml** and pass them to `$fit()`, or pass a fitted **mlr3** learner as `model` and let gadget build ICE/PD internally.
-For **ALE**, pass the fitted learner as `model`; gadget computes ALE internally (external ALE summaries are not accepted as `effect` yet).
+For **PD/ICE**, you can pre-compute effects with **iml** and pass them to `$fit()`, or pass a fitted **mlr3** learner as `model` and let xplaineff build ICE/PD internally.
+For **ALE**, pass the fitted learner as `model`; xplaineff computes ALE internally (external ALE summaries are not accepted as `effect` yet).
 
-The gadget workflow would be as follows:
+The xplaineff workflow would be as follows:
 
 1.  **Feature Effect Selection**: Choose a suitable feature effect method
 
-2.  **Feature Effect Computation**: Obtain ICE/PD either externally (e.g. **iml**) or internally from the fitted learner; obtain ALE internally from the learner (gadget’s ALE path).
+2.  **Feature Effect Computation**: Obtain ICE/PD either externally (e.g. **iml**) or internally from the fitted learner; obtain ALE internally from the learner (xplaineff's ALE path).
 
 3.  **(Optional) Feature Set Selection**: Define interacting feature set (feature of interest) and splitting feature set. Interacting features and splitting features can be distinct, or partially, or fully overlap with each other. By default we use all features as both interacting feature set and splitting feature set.
 
@@ -83,7 +83,7 @@ syn_tree_pd_effect$plot(effect = syn_effect, data = syn_data, target_feature_nam
   show_plot = TRUE, show_point = TRUE, mean_center = TRUE)
 ```
 
-2. Pass a fitted `model` and let `gadget` compute ICE/PD internally.
+2. Pass a fitted `model` and let `xplaineff` compute ICE/PD internally.
 ```{r}
 syn_tree_pd_model = GadgetTree$new(strategy = PdStrategy$new(), n_split = 4, impr_par = 0.1, min_node_size = 1)
 syn_tree_pd_model$fit(data = syn_data, target_feature_name = "y", model = syn_learner, n_grid = 20L)
@@ -98,9 +98,9 @@ syn_tree_pd_model$plot(data = syn_data, target_feature_name = "y",
 
 `AleStrategy` currently supports the built-in ALE path via `model`.
 The `effect` argument is reserved for future extension and is not enabled yet.
-This is because gadget's splitting and node-wise heterogeneity require per-sample local ALE increments,
+This is because xplaineff's splitting and node-wise heterogeneity require per-sample local ALE increments,
 whereas current `iml` and `ALEPlot` outputs provide interval-level ALE summaries rather than sample-level effects.
-Therefore, these outputs cannot currently be used as direct `effect` input for gadget.
+Therefore, these outputs cannot currently be used as direct `effect` input for xplaineff.
 
 ```{r}
 syn_tree_ale_model = GadgetTree$new(strategy = AleStrategy$new(), n_split = 3)

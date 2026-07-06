@@ -1,5 +1,5 @@
 # Generate README example outputs
-# Run: Rscript scripts/generate_readme_examples.R
+# Run: Rscript tools/generate_readme_examples.R
 
 options(warn = -1)
 dir.create("figures", showWarnings = FALSE)

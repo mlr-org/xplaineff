@@ -32,10 +32,8 @@
 ^example\.html$
 ^example_files$
 ^figures$
-^gadget\.Rcheck$
-^gadget_.*\.tar\.gz$
-^xplaineff\.Rcheck$
-^xplaineff_.*\.tar\.gz$
+^[^/]+\.Rcheck$
+^[^/]+_.*\.tar\.gz$
 ^inst/extdata/.+\.R$
 ^local_attic$
 ^Makefile$
@@ -50,6 +48,7 @@
 ^scripts$
 ^simulation$
 ^tests/testthat/_object_snapshots$
+^tools$
 ^ALE Test Results\.pdf$
 ^ALE Test Results2\.pdf$
 ^UR Datasets Test\.Rmd$
