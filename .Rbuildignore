@@ -32,8 +32,10 @@
 ^example\.html$
 ^example_files$
 ^figures$
+^RJwrapper\.pdf$
 ^[^/]+\.Rcheck$
 ^[^/]+_.*\.tar\.gz$
+^inst/extdata/exampleDataForAutoSumWebExtended\.csv$
 ^inst/extdata/.+\.R$
 ^local_attic$
 ^Makefile$
