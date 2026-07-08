@@ -97,13 +97,17 @@ def make_predict(model, model_type):
     return toy_pred_fun
 
 
-def make_space_partitioner(n_split, min_node_size):
-    return effector.space_partitioning.Best(max_depth=n_split, min_samples_leaf=min_node_size)
+def make_space_partitioner(n_split, min_node_size, numerical_features_grid_size):
+    return effector.space_partitioning.Best(
+        max_depth=n_split,
+        min_samples_leaf=min_node_size,
+        numerical_features_grid_size=numerical_features_grid_size,
+    )
 
 
-def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size):
+def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
     axis_limits = np.array([[-1.0] * d, [1.0] * d])
-    space_partitioner = make_space_partitioner(n_split, min_node_size)
+    space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
     features = list(range(d))
     regional = effector.RegionalPDP(data=x, model=predict, axis_limits=axis_limits, nof_instances="all")
     regional.y_ice = {}
@@ -116,7 +120,7 @@ def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size):
         except TypeError:
             pdp.fit(features=feat)
         xs = quantile_points(x[:, feat], resolution)
-        y_ice = pdp.eval(feature=feat, xs=xs, heterogeneity=True, return_all=True)
+        y_ice = pdp.eval(feature=feat, xs=xs, heterogeneity=True, centering=True, return_all=True)
         regional.y_ice["feature_" + str(feat)] = y_ice.T
     precompute = time.time() - tic
 
@@ -131,9 +135,9 @@ def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size):
     return {"precompute": precompute, "split": split, "total": precompute + split}
 
 
-def measure_regional_ale(x, predict, d, resolution, n_split, min_node_size):
+def measure_regional_ale(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
     axis_limits = np.array([[-1.0] * d, [1.0] * d])
-    space_partitioner = make_space_partitioner(n_split, min_node_size)
+    space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
     binning = effector.axis_partitioning.Fixed(nof_bins=resolution, min_points_per_bin=0)
     features = list(range(d))
     regional = effector.RegionalALE(data=x, model=predict, axis_limits=axis_limits, nof_instances="all")
@@ -194,6 +198,9 @@ def record(args, model_type, effect, cell, repetition, timing=None, status="ok",
         "n_grid": resolution if effect == "pdp" else "",
         "n_intervals": resolution if effect == "ale" else "",
         "n_split": n_split,
+        "numerical_features_grid_size": args.numerical_features_grid_size,
+        "n_candidates": args.numerical_features_grid_size - 1,
+        "split_candidate_rule": "uniform",
         "repetition": repetition,
         "precompute_time_sec": "" if timing is None else timing["precompute"],
         "split_time_sec": "" if timing is None else timing["split"],
@@ -228,13 +235,22 @@ def run_model(args, model_type):
             x, _ = data_cache[key]
             predict = make_predict(model_cache[key], model_type)
             msg = (
-                "[{}] effector regional {} {} N={} D={} res={} n_split={}".format(
-                    model_type, effect, sub_experiment, n, d, resolution, n_split
+                "[{}] effector regional {} {} N={} D={} res={} n_split={} numerical_grid_size={}".format(
+                    model_type, effect, sub_experiment, n, d, resolution, n_split,
+                    args.numerical_features_grid_size,
                 )
             )
             print(msg + " | start", flush=True)
             try:
-                runner(x, predict, d, resolution, n_split, args.min_node_size)
+                runner(
+                    x,
+                    predict,
+                    d,
+                    resolution,
+                    n_split,
+                    args.min_node_size,
+                    args.numerical_features_grid_size,
+                )
             except Exception as exc:
                 if args.fail_fast:
                     raise
@@ -242,7 +258,15 @@ def run_model(args, model_type):
 
             for repetition in range(1, args.reps + 1):
                 try:
-                    timing = runner(x, predict, d, resolution, n_split, args.min_node_size)
+                    timing = runner(
+                        x,
+                        predict,
+                        d,
+                        resolution,
+                        n_split,
+                        args.min_node_size,
+                        args.numerical_features_grid_size,
+                    )
                     rows.append(record(args, model_type, effect, cell, repetition, timing=timing))
                 except Exception as exc:
                     if args.fail_fast:
@@ -276,6 +300,7 @@ def main():
     parser.add_argument("--n-split", type=int, default=2)
     parser.add_argument("--n-split-vec", default="2,5,8,10")
     parser.add_argument("--min-node-size", type=int, default=50)
+    parser.add_argument("--numerical-features-grid-size", type=int, default=20)
     parser.add_argument("--models", default="rf,toy")
     parser.add_argument("--sub-experiments", default="vs_N,vs_D,vs_res,vs_split")
     parser.add_argument("--output-suffix", default="")
@@ -288,6 +313,8 @@ def main():
     args.models = parse_chr_vec(args.models)
     args.sub_experiments = parse_chr_vec(args.sub_experiments)
     args.fail_fast = parse_flag(args.fail_fast)
+    if args.numerical_features_grid_size < 2:
+        raise ValueError("--numerical-features-grid-size must be at least 2")
     invalid_models = sorted(set(args.models) - {"rf", "toy"})
     if invalid_models:
         raise ValueError("Unsupported regional model type(s): {}".format(", ".join(invalid_models)))
@@ -304,7 +331,8 @@ def main():
     out = os.path.join(args.outdir, filename)
     columns = [
         "module", "package", "impl", "effect", "method", "model_type", "sub_experiment",
-        "N", "D", "resolution", "n_grid", "n_intervals", "n_split", "repetition",
+        "N", "D", "resolution", "n_grid", "n_intervals", "n_split",
+        "numerical_features_grid_size", "n_candidates", "split_candidate_rule", "repetition",
         "precompute_time_sec", "split_time_sec", "total_time_sec", "status", "error_message",
     ]
     with open(out, "w", newline="") as handle:

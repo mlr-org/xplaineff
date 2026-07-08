@@ -67,6 +67,7 @@ resolution_vec = c(10L, 20L, 50L)
 default_n_split = 2L
 n_split_vec = c(2L, 5L, 8L, 10L)
 min_node_size = 50L
+n_quantiles = 19L
 fail_fast = FALSE
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res", "vs_split")
@@ -74,6 +75,11 @@ output_suffix = ""
 
 parse_int_vec = function(x) as.integer(strsplit(x, ",", fixed = TRUE)[[1L]])
 parse_chr_vec = function(x) trimws(strsplit(x, ",", fixed = TRUE)[[1L]])
+parse_nullable_int = function(x) {
+  x = tolower(trimws(as.character(x)))
+  if (x %in% c("", "na", "null", "none", "all")) return(NULL)
+  as.integer(x)
+}
 
 i = 1L
 while (i <= length(args)) {
@@ -101,6 +107,8 @@ while (i <= length(args)) {
     n_split_vec = parse_int_vec(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--min-node-size" && i < length(args)) {
     min_node_size = as.integer(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--n-quantiles" && i < length(args)) {
+    n_quantiles = parse_nullable_int(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--fail-fast" && i < length(args)) {
     fail_fast = parse_flag(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--models" && i < length(args)) {
@@ -219,7 +227,12 @@ make_cells = function() {
 run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
   if (identical(effect, "pdp")) {
     strat = PdStrategy$new()
-    tree = GadgetTree$new(strategy = strat, n_split = n_split, min_node_size = min_node_size)
+    tree = GadgetTree$new(
+      strategy = strat,
+      n_split = n_split,
+      min_node_size = min_node_size,
+      n_quantiles = n_quantiles
+    )
     tree$fit(
       data = dat,
       target_feature_name = "y",
@@ -230,7 +243,12 @@ run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
     )
   } else {
     strat = AleStrategy$new()
-    tree = GadgetTree$new(strategy = strat, n_split = n_split, min_node_size = min_node_size)
+    tree = GadgetTree$new(
+      strategy = strat,
+      n_split = n_split,
+      min_node_size = min_node_size,
+      n_quantiles = n_quantiles
+    )
     tree$fit(
       data = dat,
       target_feature_name = "y",
@@ -264,6 +282,9 @@ record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
     n_grid = if (identical(effect, "pdp")) cell$resolution else NA_integer_,
     n_intervals = if (identical(effect, "ale")) cell$resolution else NA_integer_,
     n_split = cell$n_split,
+    n_quantiles = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
+    n_candidates = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
+    split_candidate_rule = if (is.null(n_quantiles)) "all_unique" else "quantile",
     repetition = repetition,
     precompute_time_sec = if (is.null(timing)) NA_real_ else timing[["precompute"]],
     split_time_sec = if (is.null(timing)) NA_real_ else timing[["split"]],
@@ -298,8 +319,9 @@ run_model = function(model_type) {
       dat = data_cache[[key]]
       model = model_cache[[key]]
       log_msg = sprintf(
-        "[%s] xplaineff regional %s %s N=%d D=%d res=%d n_split=%d",
-        model_type, effect, cell$sub_experiment, cell$N, cell$D, cell$resolution, cell$n_split
+        "[%s] xplaineff regional %s %s N=%d D=%d res=%d n_split=%d n_quantiles=%s",
+        model_type, effect, cell$sub_experiment, cell$N, cell$D, cell$resolution, cell$n_split,
+        if (is.null(n_quantiles)) "NULL" else as.character(n_quantiles)
       )
       message(log_msg, " | start")
       tryCatch(

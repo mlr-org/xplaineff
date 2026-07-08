@@ -59,12 +59,27 @@ if (!nrow(dt)) {
 }
 if (!("status" %in% names(dt))) dt[, status := "ok"]
 dt[is.na(status) | status == "", status := "ok"]
+# Raw CSVs from runs before the package rename record package = "gadget".
+dt[package == "gadget", package := "xplaineff"]
 
 for (col in c("precompute_time_sec", "split_time_sec", "total_time_sec")) {
   dt[, (col) := as.numeric(get(col))]
 }
 dt[, resolution := as.integer(resolution)]
 dt[, n_split := as.integer(n_split)]
+if (!("n_quantiles" %in% names(dt))) dt[, n_quantiles := NA_integer_]
+if (!("numerical_features_grid_size" %in% names(dt))) dt[, numerical_features_grid_size := NA_integer_]
+if (!("n_candidates" %in% names(dt))) dt[, n_candidates := NA_integer_]
+if (!("split_candidate_rule" %in% names(dt))) dt[, split_candidate_rule := NA_character_]
+dt[, n_quantiles := as.integer(n_quantiles)]
+dt[, numerical_features_grid_size := as.integer(numerical_features_grid_size)]
+dt[, n_candidates := as.integer(n_candidates)]
+dt[package == "xplaineff" & is.na(split_candidate_rule) & is.na(n_quantiles), split_candidate_rule := "all_unique"]
+dt[package == "xplaineff" & is.na(split_candidate_rule) & !is.na(n_quantiles), split_candidate_rule := "quantile"]
+dt[package == "effector" & is.na(split_candidate_rule), split_candidate_rule := "uniform"]
+dt[package == "effector" & is.na(numerical_features_grid_size), numerical_features_grid_size := 20L]
+dt[package == "effector" & is.na(n_candidates), n_candidates := numerical_features_grid_size - 1L]
+dt[package == "xplaineff" & is.na(n_candidates) & !is.na(n_quantiles), n_candidates := n_quantiles]
 
 n_err = dt[status == "error", .N]
 if (n_err > 0L) {
@@ -83,7 +98,10 @@ summary_dt = dt_ok[, .(
   total_q25 = stats::quantile(total_time_sec, 0.25, names = FALSE),
   total_q75 = stats::quantile(total_time_sec, 0.75, names = FALSE),
   n_rep = .N
-), by = .(module, package, impl, effect, method, model_type, sub_experiment, N, D, resolution, n_split)]
+), by = .(
+  module, package, impl, effect, method, model_type, sub_experiment, N, D, resolution, n_split,
+  n_quantiles, numerical_features_grid_size, n_candidates, split_candidate_rule
+)]
 
 summary_dt[, label := fcase(
   package == "xplaineff", "xplaineff",
@@ -134,39 +152,39 @@ plot_metric = function(data, metric, filename, title, facet_layout = "grid", x_s
   data[, time_q25 := get(q25_col)]
   data[, time_q75 := get(q75_col)]
   data[, effect_label := fifelse(effect == "pdp", "PDP", "ALE")]
-  data[, model_label := fifelse(model_type == "rf", "RF model", "Toy model")]
+  data[, model_label := fifelse(model_type == "rf", "bagged trees", "toy model")]
   data[, panel := factor(paste(effect_label, model_label, sep = " / "), levels = c(
-    "PDP / RF model",
-    "PDP / Toy model",
-    "ALE / RF model",
-    "ALE / Toy model"
+    "PDP / bagged trees",
+    "PDP / toy model",
+    "ALE / bagged trees",
+    "ALE / toy model"
   ))]
   data[, sweep_short := fcase(
-    sub_experiment == "vs_N", "vs n",
-    sub_experiment == "vs_D", "vs p",
+    sub_experiment == "vs_N", "Sample size n",
+    sub_experiment == "vs_D", "Feature dimension p",
     sub_experiment == "vs_res", "PDP grid / ALE intervals",
-    sub_experiment == "vs_split", "vs splits",
+    sub_experiment == "vs_split", "Number of splits",
     default = sub_experiment
   )]
   data[, fixed_desc := fcase(
-    sub_experiment == "vs_N", "p = 20, resolution = 20, splits = 2",
-    sub_experiment == "vs_D", "n = 10,000, resolution = 20, splits = 2",
-    sub_experiment == "vs_res", "n = 10,000, p = 20, splits = 2",
-    sub_experiment == "vs_split", "n = 10,000, p = 20, resolution = 20",
+    sub_experiment == "vs_N", "p = 20, K = 20, n_split = 2",
+    sub_experiment == "vs_D", "n = 10,000, K = 20, n_split = 2",
+    sub_experiment == "vs_res", "n = 10,000, p = 20, n_split = 2",
+    sub_experiment == "vs_split", "n = 10,000, p = 20, K = 20",
     default = sub_experiment
   )]
   data[, sweep_label := fcase(
-    sub_experiment == "vs_N", "Sample size n\np = 20, resolution = 20, splits = 2",
-    sub_experiment == "vs_D", "Feature dimension p\nn = 10,000, resolution = 20, splits = 2",
-    sub_experiment == "vs_res", "PDP grid / ALE intervals\nn = 10,000, p = 20, splits = 2",
-    sub_experiment == "vs_split", "Number of splits\nn = 10,000, p = 20, resolution = 20",
+    sub_experiment == "vs_N", "Sample size n\np = 20, K = 20, n_split = 2",
+    sub_experiment == "vs_D", "Feature dimension p\nn = 10,000, K = 20, n_split = 2",
+    sub_experiment == "vs_res", "PDP grid / ALE intervals\nn = 10,000, p = 20, n_split = 2",
+    sub_experiment == "vs_split", "Number of splits\nn = 10,000, p = 20, K = 20",
     default = sub_experiment
   )]
   data[, sweep_label := factor(sweep_label, levels = c(
-    "Sample size n\np = 20, resolution = 20, splits = 2",
-    "Feature dimension p\nn = 10,000, resolution = 20, splits = 2",
-    "PDP grid / ALE intervals\nn = 10,000, p = 20, splits = 2",
-    "Number of splits\nn = 10,000, p = 20, resolution = 20"
+    "Sample size n\np = 20, K = 20, n_split = 2",
+    "Feature dimension p\nn = 10,000, K = 20, n_split = 2",
+    "PDP grid / ALE intervals\nn = 10,000, p = 20, n_split = 2",
+    "Number of splits\nn = 10,000, p = 20, K = 20"
   ))]
   data[, x_value := fcase(
     sub_experiment == "vs_N", as.numeric(N),
@@ -182,10 +200,10 @@ plot_metric = function(data, metric, filename, title, facet_layout = "grid", x_s
 
   panel_levels = levels(data$panel)
   sweep_levels = c(
-    "vs n\np = 20, resolution = 20, splits = 2",
-    "vs p\nn = 10,000, resolution = 20, splits = 2",
-    "PDP grid / ALE intervals\nn = 10,000, p = 20, splits = 2",
-    "vs splits\nn = 10,000, p = 20, resolution = 20"
+    "Sample size n\np = 20, K = 20, n_split = 2",
+    "Feature dimension p\nn = 10,000, K = 20, n_split = 2",
+    "PDP grid / ALE intervals\nn = 10,000, p = 20, n_split = 2",
+    "Number of splits\nn = 10,000, p = 20, K = 20"
   )
   panel_title_levels = unlist(lapply(panel_levels, function(row) paste(row, sweep_levels, sep = " - ")))
   data[, panel_title := factor(paste(panel, paste(sweep_short, fixed_desc, sep = "\n"), sep = " - "),

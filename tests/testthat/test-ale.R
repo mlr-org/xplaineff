@@ -305,6 +305,71 @@ test_that("make_predictor normalizes custom prediction output and checks length"
   )
 })
 
+test_that("node_transform_ale reuses full root ALE effect", {
+  skip_ale_cpp_if_unavailable()
+  dt = data.table::data.table(
+    row_id = 1:6,
+    feat_val = 1:6,
+    d_l = c(1, 2, 3, 4, 5, 6),
+    interval_index = rep(1:2, each = 3L)
+  )
+  dt[, int_n := .N, by = interval_index]
+  dt[, int_s1 := sum(d_l), by = interval_index]
+  dt[, int_s2 := sum(d_l^2), by = interval_index]
+  effect = list(x = dt)
+
+  result = xplaineff:::node_transform_ale(effect, idx = 1:6, is_child = FALSE)
+
+  expect_identical(result, effect)
+})
+
+test_that("node_transform_ale refreshes child interval statistics", {
+  skip_ale_cpp_if_unavailable()
+  dt = data.table::data.table(
+    row_id = 1:8,
+    feat_val = c(1, 2, 1, 2, 3, 4, 3, 4),
+    d_l = c(1, 2, 3, 4, 5, 6, 7, 8),
+    interval_index = rep(1:2, each = 4L)
+  )
+  dt[, int_n := .N, by = interval_index]
+  dt[, int_s1 := sum(d_l), by = interval_index]
+  dt[, int_s2 := sum(d_l^2), by = interval_index]
+  effect = list(x = dt)
+  idx = c(2L, 3L, 6L, 7L)
+
+  result = xplaineff:::node_transform_ale(effect, idx = idx, is_child = FALSE)$x
+  expected = dt[match(idx, row_id)]
+  expected[, `:=`(
+    int_n = .N,
+    int_s1 = sum(d_l, na.rm = TRUE),
+    int_s2 = sum(d_l^2, na.rm = TRUE)
+  ), by = interval_index]
+
+  expect_equal(result, expected)
+})
+
+test_that("build_ale_interval_stats orders rows by row_id when needed", {
+  skip_ale_cpp_if_unavailable()
+  dt = data.table::data.table(
+    row_id = c(3L, 1L, 4L, 2L),
+    feat_val = c(3, 1, 4, 2),
+    d_l = c(30, 10, 40, 20),
+    interval_index = c(2L, 1L, 2L, 1L)
+  )
+  dt[, int_n := .N, by = interval_index]
+  dt[, int_s1 := sum(d_l), by = interval_index]
+  dt[, int_s2 := sum(d_l^2), by = interval_index]
+  effect = list(x = dt)
+
+  result = xplaineff:::build_ale_interval_stats(effect, "x")
+
+  expect_equal(result$d_l_mat[1L, ], c(10, 20, 30, 40))
+  expect_equal(result$interval_idx_mat[1L, ], c(1L, 1L, 2L, 2L))
+  expect_equal(result$tot_n, c(2, 2))
+  expect_equal(result$tot_s1, c(30, 70))
+  expect_equal(result$tot_s2, c(500, 2500))
+})
+
 test_that("cpp_ale_numeric_prepare returns zero_effect for constant feature", {
   skip_ale_cpp_if_unavailable()
   result = xplaineff:::cpp_ale_numeric_prepare(rep(1.0, 20L), n_intervals = 5L)

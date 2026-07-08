@@ -97,6 +97,8 @@ if (n_err > 0L) {
 
 dt[, time_sec := as.numeric(time_sec)]
 dt[, c("source_file", "source_rank") := NULL]
+# Raw CSVs from runs before the package rename record package = "gadget".
+dt[package == "gadget", package := "xplaineff"]
 dt = dt[!(sub_experiment == "vs_N" & N == 500L)]
 
 dt_ok = dt[status == "ok" & is.finite(time_sec)]
@@ -169,7 +171,7 @@ format_integer_label = function(x) {
 
 format_resolution_label = function() {
   if (identical(as.integer(default_n_grid), as.integer(default_n_intervals))) {
-    sprintf("resolution = %s", format_integer_label(default_n_grid))
+    sprintf("K = %s", format_integer_label(default_n_grid))
   } else {
     sprintf(
       "PDP grid = %s, ALE intervals = %s",
@@ -183,36 +185,30 @@ plot_runtime = function(data, title, filename) {
   if (nrow(data) == 0L) return(invisible(NULL))
   data = copy(data)
   data[, effect := fifelse(grepl("pdp", method), "PDP", "ALE")]
-  data[, model_label := fifelse(model_type == "rf", "RF model", "Toy model")]
+  data[, model_label := fifelse(model_type == "rf", "bagged trees", "toy model")]
   data[, panel := ifelse(module == "global_r", paste(effect, model_label, sep = " / "), effect)]
   data[, panel := factor(panel, levels = c(
-    "ALE / RF model",
-    "ALE / Toy model",
-    "PDP / RF model",
-    "PDP / Toy model"
+    "PDP / bagged trees",
+    "PDP / toy model",
+    "ALE / bagged trees",
+    "ALE / toy model"
   ))]
-  data[, sweep_label := fcase(
-    sub_experiment == "vs_N",
-    sprintf(
-      "Sample size n\np = %s, %s",
-      format_integer_label(fixed_D),
-      format_resolution_label()
-    ),
-    sub_experiment == "vs_D",
-    sprintf(
-      "Feature dimension p\nn = %s, %s",
-      format_integer_label(fixed_N),
-      format_resolution_label()
-    ),
-    sub_experiment == "vs_res",
-    sprintf(
-      "PDP grid / ALE intervals\nn = %s, p = %s",
-      format_integer_label(fixed_N),
-      format_integer_label(fixed_D)
-    ),
+  data[, sweep_short := fcase(
+    sub_experiment == "vs_N", "Sample size n",
+    sub_experiment == "vs_D", "Feature dimension p",
+    sub_experiment == "vs_res", "PDP grid / ALE intervals",
     default = sub_experiment
   )]
-  data[, sweep_label := factor(sweep_label, levels = c(
+  data[, fixed_desc := fcase(
+    sub_experiment == "vs_N",
+    sprintf("p = %s, %s", format_integer_label(fixed_D), format_resolution_label()),
+    sub_experiment == "vs_D",
+    sprintf("n = %s, %s", format_integer_label(fixed_N), format_resolution_label()),
+    sub_experiment == "vs_res",
+    sprintf("n = %s, p = %s", format_integer_label(fixed_N), format_integer_label(fixed_D)),
+    default = sub_experiment
+  )]
+  sweep_levels = c(
     sprintf(
       "Sample size n\np = %s, %s",
       format_integer_label(fixed_D),
@@ -228,7 +224,13 @@ plot_runtime = function(data, title, filename) {
       format_integer_label(fixed_N),
       format_integer_label(fixed_D)
     )
-  ))]
+  )
+  panel_levels = levels(data$panel)
+  panel_title_levels = unlist(lapply(panel_levels, function(row) paste(row, sweep_levels, sep = " - ")))
+  data[, panel_title := factor(
+    paste(panel, paste(sweep_short, fixed_desc, sep = "\n"), sep = " - "),
+    levels = panel_title_levels
+  )]
   data[, x_value := fcase(
     sub_experiment == "vs_N", as.numeric(N),
     sub_experiment == "vs_D", as.numeric(D),
@@ -255,7 +257,7 @@ plot_runtime = function(data, title, filename) {
     geom_ribbon(aes(ymin = time_q25_plot, ymax = time_q75_plot), alpha = 0.16, colour = NA) +
     geom_line(linewidth = 0.8) +
     geom_point(aes(shape = label), size = 2.1, stroke = 0.2) +
-    facet_grid(panel ~ sweep_label, scales = "free") +
+    facet_wrap(~ panel_title, ncol = 3L, scales = "free") +
     scale_x_log10(labels = comma, breaks = sort(unique(data$x_value))) +
     scale_y_log10(labels = label_number(accuracy = 0.1, trim = TRUE)) +
     scale_color_manual(values = colors, breaks = labels, drop = FALSE) +

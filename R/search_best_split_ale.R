@@ -16,14 +16,26 @@ build_ale_interval_stats = function(effect, features) {
   K = integer(p)
   for (j in seq_len(p)) {
     DT = effect[[features[j]]]
-    data.table::setorderv(DT, "row_id")
-    S = unique(DT[, c("interval_index", "int_n", "int_s1", "int_s2"), with = FALSE])
-    data.table::setnames(S, c("int_n", "int_s1", "int_s2"), c("n", "s1", "s2"))
-    data.table::setorderv(S, "interval_index")
+    row_id = DT$row_id
+    if (!identical(as.integer(row_id), seq_len(nrow(DT)))) {
+      DT = DT[order(row_id)]
+    }
+    interval_index = as.integer(DT$interval_index)
+    K[j] = max(interval_index, na.rm = TRUE)
+    S = data.table::data.table(
+      interval_index = seq_len(K[j]),
+      n = rep(0, K[j]),
+      s1 = rep(0, K[j]),
+      s2 = rep(0, K[j])
+    )
+    first_pos = match(seq_len(K[j]), interval_index)
+    has_interval = !is.na(first_pos)
+    S$n[has_interval] = DT$int_n[first_pos[has_interval]]
+    S$s1[has_interval] = DT$int_s1[first_pos[has_interval]]
+    S$s2[has_interval] = DT$int_s2[first_pos[has_interval]]
     stats_list[[j]] = S
-    row_pos_list[[j]] = match(DT$interval_index, S$interval_index)
+    row_pos_list[[j]] = interval_index
     d_l_list[[j]] = DT$d_l
-    K[j] = nrow(S)
   }
   offsets = c(0L, cumsum(K))
   M = offsets[length(offsets)]

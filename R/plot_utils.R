@@ -127,6 +127,9 @@ preprocess_node_data = function(tree, Y, grid_total, mean_center) {
     nodes = tree[[depth_idx]]
     y_processed = mlr3misc::map(names(Y), function(i) {
       y_i = Y[[i]]
+      if (is.matrix(y_i)) {
+        y_i = as.data.frame(y_i, check.names = FALSE)
+      }
       y_i$node = NA_integer_
       grid_i_total = grid_total[[i]]
       for (node_idx in seq_along(nodes)) {

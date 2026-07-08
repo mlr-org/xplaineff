@@ -81,6 +81,22 @@ test_that("re_mean_center_ice_cpp centers grid columns and preserves metadata", 
   testthat::expect_true(all(is.na(centered[3L, ])))
 })
 
+test_that("PdStrategy reuses full-root centered matrices", {
+  mat = matrix(
+    c(1, -1, 2, -2, 3, -3),
+    nrow = 3L,
+    byrow = TRUE,
+    dimnames = list(NULL, c("a", "b"))
+  )
+  Y = list(x = mat)
+  grid = list(x = c("a", "b"))
+  strategy = PdStrategy$new()
+
+  result = strategy$node_transform(Y = Y, idx = 1:3, grid = grid)
+
+  testthat::expect_identical(result, Y)
+})
+
 test_that("compute_ice cpp matches r (ranger native model, data= predict)", {
   testthat::skip_if_not_installed("ranger")
   tryCatch(
@@ -244,6 +260,73 @@ test_that("prepare_split_data_pd infers feature_set from precomputed effect", {
 
   testthat::expect_equal(names(prepared$Y), "x")
   testthat::expect_equal(names(prepared$Z), c("x", "z"))
+})
+
+test_that("calculate_pd_matrix matches long-format PD preprocessing", {
+  tryCatch(
+    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
+    error = function(e) {
+      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+        testthat::skip("C++ pd_fast not loaded")
+      }
+      stop(e)
+    }
+  )
+  set.seed(6L)
+  n = 35L
+  dat = data.frame(x1 = runif(n), x2 = rnorm(n))
+  dat$y = 1 + 2 * dat$x1 - dat$x2
+  fit = stats::lm(y ~ x1 + x2, data = dat)
+
+  effect_long = xplaineff:::calculate_pd(
+    model = fit,
+    data = dat,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    n_grid = 7L,
+    pd_engine = "cpp"
+  )
+  effect_matrix = xplaineff:::calculate_pd_matrix(
+    model = fit,
+    data = dat,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    n_grid = 7L,
+    pd_engine = "cpp"
+  )
+
+  long_prepared = xplaineff:::mean_center_ice(effect_long, feature_set = c("x1", "x2"))
+  matrix_prepared = xplaineff:::mean_center_ice(effect_matrix, feature_set = c("x1", "x2"))
+
+  testthat::expect_s3_class(effect_matrix, "xplaineff_pd_matrix")
+  testthat::expect_equal(matrix_prepared$grid, long_prepared$grid)
+  testthat::expect_equal(matrix_prepared$Y$x1, as.matrix(long_prepared$Y$x1), tolerance = 1e-10)
+  testthat::expect_equal(matrix_prepared$Y$x2, as.matrix(long_prepared$Y$x2), tolerance = 1e-10)
+})
+
+test_that("PdStrategy model path caches matrix-native effects", {
+  tryCatch(
+    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
+    error = function(e) {
+      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+        testthat::skip("C++ pd_fast not loaded")
+      }
+      stop(e)
+    }
+  )
+  set.seed(7L)
+  n = 40L
+  dat = data.frame(x1 = runif(n), x2 = rnorm(n))
+  dat$y = dat$x1 + dat$x2
+  fit = stats::lm(y ~ x1 + x2, data = dat)
+  strat = PdStrategy$new()
+  tree = GadgetTree$new(strategy = strat, n_split = 1L, min_node_size = 10L)
+  tree$fit(data = dat, target_feature_name = "y", model = fit, n_grid = 5L, pd_engine = "cpp")
+
+  testthat::expect_s3_class(strat$effect, "xplaineff_pd_matrix")
+  testthat::expect_true(is.list(strat$effect$Y))
+  testthat::expect_true(all(vapply(strat$effect$Y, is.matrix, TRUE)))
+  testthat::expect_true(!is.null(tree$root))
 })
 
 test_that("calculate_y_range for PD omits raw target when mean_center is TRUE", {

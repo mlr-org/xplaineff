@@ -73,6 +73,68 @@ calculate_pd = function(model, data, target_feature_name, feature_set = NULL,
 }
 
 
+#' Calculate Partial Dependence Matrices
+#'
+#' Internal matrix-native variant used by \code{PdStrategy} when effects are
+#' computed from a model.
+#' It avoids converting ICE matrices to long tables only to pivot them back to
+#' matrices before split search.
+#'
+#' @inheritParams calculate_pd
+#'
+#' @return (`list()`) \cr
+#'   Object of class \code{xplaineff_pd_matrix} with \code{Y} and \code{grid}.
+#'
+#' @keywords internal
+calculate_pd_matrix = function(model, data, target_feature_name, feature_set = NULL,
+  predict_fun = NULL, n_grid = 20L, pd_engine = c("cpp", "r")) {
+  pd_engine = match.arg(pd_engine)
+  features = setdiff(colnames(data), target_feature_name)
+  feature_set = resolve_split_features(feature_set, features, "Features")
+  if (length(feature_set) == 0L) {
+    cli::cli_abort("{.arg feature_set} must contain at least one feature.")
+  }
+  x_features = if (data.table::is.data.table(data)) {
+    data[, features, with = FALSE]
+  } else {
+    data[, features, drop = FALSE]
+  }
+  x_features_dt = data.table::as.data.table(x_features)
+  x_cols_list = as.list(x_features_dt)
+  n_obs = nrow(x_features_dt)
+
+  grids = stats::setNames(
+    nm = feature_set,
+    lapply(feature_set, function(feat) pd_feature_grid(x_features[[feat]], n_grid = n_grid))
+  )
+
+  max_g_r = max(lengths(grids))
+  stacked_pd_cache = NULL
+  if (identical(pd_engine, "r")) {
+    stacked_pd_cache = list(
+      stacked = data.table::as.data.table(lapply(x_features_dt, rep, times = max_g_r)),
+      max_g = max_g_r,
+      n_obs = n_obs
+    )
+  }
+
+  Y = mlr3misc::map(setNames(nm = feature_set), function(feat) {
+    grid = grids[[feat]]
+    feat_index = match(feat, names(x_features_dt))
+    ice = compute_ice(
+      model = model, data = x_features_dt, feature = feat, grid = grid,
+      predict_fun = predict_fun, pd_engine = pd_engine,
+      base_data_dt = x_features_dt, cols_list = x_cols_list, feature_index = feat_index,
+      stacked_pd_cache = stacked_pd_cache
+    )
+    colnames(ice) = as.character(grid)
+    ice
+  })
+
+  structure(list(Y = Y, grid = mlr3misc::map(grids, as.character)), class = "xplaineff_pd_matrix")
+}
+
+
 #' Compute ICE Matrix (Dispatch)
 #'
 #' Dispatches ICE computation to the C++ or R backend based on \code{pd_engine}.

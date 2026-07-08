@@ -92,6 +92,9 @@ PdStrategy = R6::R6Class(
       checkmate::assert_list(Y, .var.name = "Y")
       checkmate::assert_list(grid, .var.name = "grid")
       checkmate::assert_integerish(idx, min.len = 1, .var.name = "idx")
+      if (is_full_pd_node(Y, idx, grid)) {
+        return(Y)
+      }
       as_numeric_matrix = function(x) {
         x = as.matrix(x)
         storage.mode(x) = "double"
@@ -133,10 +136,36 @@ PdStrategy = R6::R6Class(
       checkmate::assert_integerish(idx_right, min.len = 1, .var.name = "idx_right")
       checkmate::assert_list(grid_left, .var.name = "grid_left")
       checkmate::assert_list(grid_right, .var.name = "grid_right")
-      y_left = self$node_transform(Y = Y, idx = idx_left, grid = grid_left)
-      y_right = self$node_transform(Y = Y, idx = idx_right, grid = grid_right)
-      left_objective_value_j = self$heterogeneity(y_left)
-      right_objective_value_j = self$heterogeneity(y_right)
+      raw = split_info$raw_result
+      objective_cols = c("left_objective_value_j", "right_objective_value_j")
+      can_reuse = !is.null(raw) && all(objective_cols %in% colnames(raw))
+      if (can_reuse) {
+        rows = which(raw$best_split & raw$split_feature == split_info$split_feature)
+        can_reuse = length(rows) > 0L
+      }
+      if (can_reuse) {
+        row = rows[1L]
+        left_objective_value_j = unlist(raw$left_objective_value_j[[row]], use.names = TRUE)
+        right_objective_value_j = unlist(raw$right_objective_value_j[[row]], use.names = TRUE)
+        split_feature = split_info$split_feature
+        if (split_feature %in% names(Y)) {
+          y_left = self$node_transform(
+            Y = Y[split_feature], idx = idx_left, grid = grid_left[split_feature]
+          )
+          y_right = self$node_transform(
+            Y = Y[split_feature], idx = idx_right, grid = grid_right[split_feature]
+          )
+          left_objective_value_j[split_feature] = self$heterogeneity(y_left)[[1L]]
+          right_objective_value_j[split_feature] = self$heterogeneity(y_right)[[1L]]
+        }
+        names(left_objective_value_j) = NULL
+        names(right_objective_value_j) = NULL
+      } else {
+        y_left = self$node_transform(Y = Y, idx = idx_left, grid = grid_left)
+        y_right = self$node_transform(Y = Y, idx = idx_right, grid = grid_right)
+        left_objective_value_j = self$heterogeneity(y_left)
+        right_objective_value_j = self$heterogeneity(y_right)
+      }
       list(
         left_objective_value_j = left_objective_value_j,
         right_objective_value_j = right_objective_value_j,
@@ -254,7 +283,7 @@ PdStrategy = R6::R6Class(
       # --- global part (timed): ICE/PD precompute when needed, then preprocess to Z/Y/grid ---
       t_global = system.time({
         if (is.null(effect)) {
-          effect = calculate_pd(
+          effect = calculate_pd_matrix(
             model = model,
             data = data,
             target_feature_name = target_feature_name,
@@ -290,3 +319,16 @@ PdStrategy = R6::R6Class(
     }
   )
 )
+
+is_full_pd_node = function(Y, idx, grid) {
+  if (length(Y) == 0L || length(grid) == 0L) {
+    return(FALSE)
+  }
+  n_rows = nrow(Y[[1L]])
+  if (length(idx) != n_rows || !identical(as.integer(idx), seq_len(n_rows))) {
+    return(FALSE)
+  }
+  all(vapply(names(Y), function(feat) {
+    !is.null(grid[[feat]]) && identical(as.character(colnames(Y[[feat]])), as.character(grid[[feat]]))
+  }, TRUE))
+}

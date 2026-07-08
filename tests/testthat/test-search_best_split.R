@@ -55,6 +55,26 @@ test_that("search_best_split_cpp with multiple Y matrices", {
   expect_equal(nrow(result), 1)
 })
 
+test_that("search_best_split_cpp returns child objective list columns", {
+  skip_cpp_if_unavailable()
+  Z = data.frame(x = 1:6)
+  Y = list(
+    f1 = matrix(c(rep(2, 3L), rep(-2, 3L)), ncol = 1L),
+    f2 = matrix(0, nrow = 6L, ncol = 1L)
+  )
+
+  result = search_best_split_cpp(Z = Z, Y = Y, min_node_size = 2L)
+
+  expect_true(is.data.frame(result))
+  expect_equal(nrow(result), 1L)
+  expect_true(is.list(result$left_objective_value_j))
+  expect_true(is.list(result$right_objective_value_j))
+  expect_named(result$left_objective_value_j[[1L]], c("f1", "f2"))
+  expect_named(result$right_objective_value_j[[1L]], c("f1", "f2"))
+  expect_equal(result$left_objective_value_j[[1L]], c(f1 = 0, f2 = 0))
+  expect_equal(result$right_objective_value_j[[1L]], c(f1 = 0, f2 = 0))
+})
+
 test_that("search_best_split_cpp handles categorical split and one-level factor", {
   skip_cpp_if_unavailable()
   Z = data.frame(

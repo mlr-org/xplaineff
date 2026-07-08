@@ -60,6 +60,20 @@ mean_center_ice = function(effect, feature_set = NULL, mean_center = TRUE) {
   checkmate::assert_true(inherits(effect, "R6") || is.list(effect), .var.name = "effect")
   checkmate::assert_character(feature_set, null.ok = TRUE, .var.name = "feature_set")
   checkmate::assert_flag(mean_center, .var.name = "mean_center")
+  if (inherits(effect, "xplaineff_pd_matrix")) {
+    all_features = names(effect$Y)
+    feature_set = resolve_split_features(feature_set, all_features, "Features")
+    Y = mlr3misc::map(setNames(nm = feature_set), function(feat) {
+      mat = as.matrix(effect$Y[[feat]])
+      storage.mode(mat) = "double"
+      if (mean_center) {
+        mat = mat - rowMeans(mat, na.rm = TRUE)
+      }
+      mat
+    })
+    grid = effect$grid[feature_set]
+    return(list(Y = Y, grid = grid))
+  }
   effect_results = effect$results
 
   items = if (inherits(effect_results, "data.frame")) {

@@ -42,6 +42,8 @@ if [ "$MODE" = "smoke" ]; then
   RESOLUTION="10"
   N_SPLIT_VEC="2"
   N_SPLIT="2"
+  N_QUANTILES="19"
+  EFFECTOR_NUMERICAL_GRID_SIZE="20"
   REPS="1"
   MODELS="${BENCHMARK_MODELS:-toy}"
   GLOBAL_OUTDIR="${RUN_ROOT}/global_r_runtime_smoke"
@@ -58,6 +60,8 @@ else
   RESOLUTION="20"
   N_SPLIT_VEC="2,5,8,10"
   N_SPLIT="2"
+  N_QUANTILES="19"
+  EFFECTOR_NUMERICAL_GRID_SIZE="20"
   REPS="20"
   MODELS="${BENCHMARK_MODELS:-rf,toy}"
   GLOBAL_OUTDIR="${RUN_ROOT}/global_r_runtime"
@@ -71,6 +75,7 @@ echo "=== Runtime benchmark mode: ${MODE} ==="
 echo "    RUN_ID=${RUN_ID}  RUN_ROOT=${RUN_ROOT}"
 echo "    N_VEC=${N_VEC}  D_VEC=${D_VEC}  fixed_N=${FIXED_N}  fixed_D=${FIXED_D}"
 echo "    RES_VEC=${RES_VEC}  resolution=${RESOLUTION}  n_split_vec=${N_SPLIT_VEC}"
+echo "    n_quantiles=${N_QUANTILES}  effector_numerical_grid_size=${EFFECTOR_NUMERICAL_GRID_SIZE}"
 echo "    reps=${REPS}  models=${MODELS}  PARALLEL_SUB=${PARALLEL_SUB}  GLOBAL_SUB_JOBS=${GLOBAL_SUB_JOBS}"
 echo "    PARALLEL_PHASES=${PARALLEL_PHASES}  PARALLEL_REGIONAL_PACKAGES=${PARALLEL_REGIONAL_PACKAGES}"
 
@@ -99,6 +104,7 @@ run_regional_xplaineff() {
     --resolution-vec "${RES_VEC}" \
     --n-split "${N_SPLIT}" \
     --n-split-vec "${N_SPLIT_VEC}" \
+    --n-quantiles "${N_QUANTILES}" \
     --models "${MODELS}"
 
 }
@@ -117,6 +123,7 @@ run_regional_effector() {
     --resolution-vec "${RES_VEC}" \
     --n-split "${N_SPLIT}" \
     --n-split-vec "${N_SPLIT_VEC}" \
+    --numerical-features-grid-size "${EFFECTOR_NUMERICAL_GRID_SIZE}" \
     --models "${MODELS}"
 }
 

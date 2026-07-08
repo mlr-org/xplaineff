@@ -37,6 +37,74 @@ test_that("PdStrategy heterogeneity returns numeric vector", {
   expect_true(all(h >= 0))
 })
 
+test_that("PdStrategy child objectives reuse non-split feature objectives only", {
+  tryCatch({
+    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
+  }, error = function(e) {
+    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+      testthat::skip("C++ symbols not loaded (install package with compile)")
+    }
+  })
+  strategy = PdStrategy$new()
+  Y = list(
+    x = matrix(
+      c(
+        1, 2, 3, 10, 11, 12,
+        2, 3, 4, 11, 12, 13,
+        3, 4, 5, 12, 13, 14,
+        4, 5, 6, 13, 14, 15,
+        5, 6, 7, 14, 15, 16,
+        6, 7, 8, 15, 16, 17
+      ),
+      nrow = 6L,
+      byrow = TRUE,
+      dimnames = list(NULL, as.character(1:6))
+    ),
+    f = matrix(
+      c(
+        1, -1,
+        1, -1,
+        1, -1,
+        -1, 1,
+        -1, 1,
+        -1, 1
+      ),
+      nrow = 6L,
+      byrow = TRUE,
+      dimnames = list(NULL, c("a", "b"))
+    )
+  )
+  grid_left = list(x = as.character(1:3), f = c("a", "b"))
+  grid_right = list(x = as.character(4:6), f = c("a", "b"))
+  idx_left = 1:3
+  idx_right = 4:6
+  raw = xplaineff:::search_best_split_cpp(
+    Z = data.frame(x = 1:6),
+    Y = Y,
+    min_node_size = 2L
+  )
+  split_info = list(
+    split_feature = "x",
+    split_value = 3.5,
+    raw_result = raw
+  )
+
+  result = strategy$get_child_objectives(
+    Z = NULL, Y = Y, split_info = split_info,
+    idx_left = idx_left, idx_right = idx_right,
+    grid_left = grid_left, grid_right = grid_right
+  )
+  y_left = strategy$node_transform(Y = Y, idx = idx_left, grid = grid_left)
+  y_right = strategy$node_transform(Y = Y, idx = idx_right, grid = grid_right)
+  expected_left = strategy$heterogeneity(y_left)
+  expected_right = strategy$heterogeneity(y_right)
+
+  expect_equal(result$left_objective_value_j, expected_left)
+  expect_equal(result$right_objective_value_j, expected_right)
+  expect_equal(result$left_objective_value, sum(expected_left))
+  expect_equal(result$right_objective_value, sum(expected_right))
+})
+
 test_that("AleStrategy can be created", {
   strategy = AleStrategy$new()
   expect_true(inherits(strategy, "AleStrategy"))
