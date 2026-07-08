@@ -9,7 +9,7 @@ Local checks were run with
 
 - macOS Ventura 13.1, R 4.5.0: `0 errors | 0 warnings | 4 notes`.
 - Windows Server 2022, R-release 4.6.1 (win-builder): `0 errors | 0 warnings | 1 note`.
-- Windows Server 2022, R-devel r90199 (win-builder): `0 errors | 0 warnings | 1 note`.
+- Windows Server 2022, R-devel r90210 (win-builder): `0 errors | 0 warnings | 1 note`.
 - `checking CRAN incoming feasibility ... NOTE`: new submission.
 - `checking for future file timestamps ... NOTE`: unable to verify current time in the local check environment.
 - `checking top-level files ... NOTE`: pandoc is not installed in the local check environment.
