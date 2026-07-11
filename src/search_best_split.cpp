@@ -48,10 +48,10 @@ inline arma::mat arma_view(SEXP obj) {
 }
 
 List child_objectives_from_flat_sums(
-    const arma::rowvec& SL,
-    const arma::rowvec& QL,
-    const arma::rowvec& S_tot,
-    const arma::rowvec& Q_tot,
+    const arma::vec& SL,
+    const arma::vec& QL,
+    const arma::vec& S_tot,
+    const arma::vec& Q_tot,
     const std::vector<int>& offsets,
     int NL,
     int NR
@@ -66,12 +66,17 @@ List child_objectives_from_flat_sums(
     );
   }
   for (int l = 0; l < Ly; ++l) {
+    if (offsets[l] == offsets[l + 1]) {
+      left_obj[l] = 0.0;
+      right_obj[l] = 0.0;
+      continue;
+    }
     const int start = offsets[l];
     const int end = offsets[l + 1] - 1;
-    const arma::rowvec SL_l = SL.subvec(start, end);
-    const arma::rowvec QL_l = QL.subvec(start, end);
-    const arma::rowvec SR_l = S_tot.subvec(start, end) - SL_l;
-    const arma::rowvec QR_l = Q_tot.subvec(start, end) - QL_l;
+    const arma::vec SL_l = SL.subvec(start, end);
+    const arma::vec QL_l = QL.subvec(start, end);
+    const arma::vec SR_l = S_tot.subvec(start, end) - SL_l;
+    const arma::vec QR_l = Q_tot.subvec(start, end) - QL_l;
     left_obj[l] = arma::accu(QL_l - SL_l%SL_l / NL);
     right_obj[l] = arma::accu(QR_l - SR_l%SR_l / NR);
   }
@@ -84,22 +89,22 @@ List child_objectives_from_flat_sums(
 List child_objectives_numeric_flat(
     NumericVector z_num,
     double split_value,
-    const arma::mat& Y_flat,
-    const arma::rowvec& S_tot,
-    const arma::rowvec& Q_tot,
+    const arma::mat& Y_by_obs,
+    const arma::vec& S_tot,
+    const arma::vec& Q_tot,
     const std::vector<int>& offsets
 ) {
-  const int N = Y_flat.n_rows;
-  arma::rowvec SL(Y_flat.n_cols, arma::fill::zeros);
-  arma::rowvec QL(Y_flat.n_cols, arma::fill::zeros);
+  const int N = Y_by_obs.n_cols;
+  arma::vec SL(Y_by_obs.n_rows, arma::fill::zeros);
+  arma::vec QL(Y_by_obs.n_rows, arma::fill::zeros);
   int NL = 0;
   for (int i = 0; i < N; ++i) {
     const double v = z_num[i];
     if (R_IsNA(v) || v > split_value) continue;
     ++NL;
-    const arma::rowvec row = Y_flat.row(i);
-    SL += row;
-    QL += row % row;
+    const arma::subview_col<double> yi = Y_by_obs.col(i);
+    SL += yi;
+    QL += yi % yi;
   }
   return child_objectives_from_flat_sums(SL, QL, S_tot, Q_tot, offsets, NL, N - NL);
 }
@@ -107,21 +112,21 @@ List child_objectives_numeric_flat(
 List child_objectives_categorical_flat(
     IntegerVector z_fac,
     int level_index,
-    const arma::mat& Y_flat,
-    const arma::rowvec& S_tot,
-    const arma::rowvec& Q_tot,
+    const arma::mat& Y_by_obs,
+    const arma::vec& S_tot,
+    const arma::vec& Q_tot,
     const std::vector<int>& offsets
 ) {
-  const int N = Y_flat.n_rows;
-  arma::rowvec SL(Y_flat.n_cols, arma::fill::zeros);
-  arma::rowvec QL(Y_flat.n_cols, arma::fill::zeros);
+  const int N = Y_by_obs.n_cols;
+  arma::vec SL(Y_by_obs.n_rows, arma::fill::zeros);
+  arma::vec QL(Y_by_obs.n_rows, arma::fill::zeros);
   int NL = 0;
   for (int i = 0; i < N; ++i) {
     if (z_fac[i] == NA_INTEGER || z_fac[i] != level_index + 1) continue;
     ++NL;
-    const arma::rowvec row = Y_flat.row(i);
-    SL += row;
-    QL += row % row;
+    const arma::subview_col<double> yi = Y_by_obs.col(i);
+    SL += yi;
+    QL += yi % yi;
   }
   return child_objectives_from_flat_sums(SL, QL, S_tot, Q_tot, offsets, NL, N - NL);
 }
@@ -141,16 +146,17 @@ List child_objectives_categorical_flat(
 // -----------------------------------------------------------------------------
 List search_best_split_point_cpp_internal(
     SEXP              z,
-    const arma::mat&  Y_flat,                // & = reference, const = read-only, avoids copying large matrix
-    const arma::rowvec& S_tot,               // & = reference, const = read-only, avoids copying large vector
-    const arma::rowvec& Q_tot,               // & = reference, const = read-only, avoids copying large vector
+    const arma::mat&  Y_by_obs,              // effect rows as contiguous observation columns
+    const arma::vec&  S_tot,                 // & = reference, const = read-only, avoids copying large vector
+    const arma::vec&  Q_tot,                 // & = reference, const = read-only, avoids copying large vector
     const std::vector<int>& offsets,         // Column offsets for per-effect child objectives
     Nullable<int>     n_quantiles   = R_NilValue,
     bool              is_categorical = false,
-    int               min_node_size  = 1)
+    int               min_node_size  = 1,
+    bool              compute_child_objectives = true)
 {
   const int Ly = offsets.size() - 1; // p
-  const int N = Y_flat.n_rows; // n
+  const int N = Y_by_obs.n_cols; // n
 
   double best_obj = R_PosInf, best_split = NA_REAL;
   std::string best_level;
@@ -173,10 +179,10 @@ List search_best_split_point_cpp_internal(
         _["right_objective_value_j"] = best_right_obj);
 
     // Calculate per-level left sums for the flattened effect matrix.
-    std::vector<arma::rowvec> SumL(K);
+    std::vector<arma::vec> SumL(K);
     std::vector<int> countL(K, 0);
     for (int k = 0; k < K; ++k) {
-      SumL[k] = arma::rowvec(Y_flat.n_cols, arma::fill::zeros);
+      SumL[k] = arma::vec(Y_by_obs.n_rows, arma::fill::zeros);
     }
 
     // Accumulate sums for each level (skip NA)
@@ -184,7 +190,7 @@ List search_best_split_point_cpp_internal(
       if (z_fac[i] == NA_INTEGER) continue;
       int k = z_fac[i] - 1;
       ++countL[k];
-      SumL[k] += Y_flat.row(i);  // Direct accumulation, NaN already processed in preprocessing
+      SumL[k] += Y_by_obs.col(i);  // Direct accumulation, NaN already processed in preprocessing
     }
 
     // Evaluate each level as potential split (one vs rest)
@@ -195,8 +201,8 @@ List search_best_split_point_cpp_internal(
       if (NL < min_node_size || NR < min_node_size) continue;
 
       // Calculate objective function for this split
-      const arma::rowvec SL = SumL[k];
-      const arma::rowvec SR = S_tot - SL;
+      const arma::vec SL = SumL[k];
+      const arma::vec SR = S_tot - SL;
       double obj = arma::accu( - SL%SL / NL - SR%SR / NR );
 
       // Update best split if this one is better
@@ -213,9 +219,11 @@ List search_best_split_point_cpp_internal(
         _["left_objective_value_j"] = best_left_obj,
         _["right_objective_value_j"] = best_right_obj);
 
-    List child_obj = child_objectives_categorical_flat(z_fac, best_level_idx, Y_flat, S_tot, Q_tot, offsets);
-    best_left_obj = child_obj["left_objective_value_j"];
-    best_right_obj = child_obj["right_objective_value_j"];
+    if (compute_child_objectives) {
+      List child_obj = child_objectives_categorical_flat(z_fac, best_level_idx, Y_by_obs, S_tot, Q_tot, offsets);
+      best_left_obj = child_obj["left_objective_value_j"];
+      best_right_obj = child_obj["right_objective_value_j"];
+    }
     return List::create(_["split_point"]     = best_level,
       _["split_objective"] = best_obj,
       _["left_objective_value_j"] = best_left_obj,
@@ -278,13 +286,13 @@ List search_best_split_point_cpp_internal(
       _["right_objective_value_j"] = best_right_obj);
 
   // Stream through split candidates and accumulate left sums (incremental; splits are sorted)
-  arma::rowvec SL(Y_flat.n_cols, arma::fill::zeros);
+  arma::vec SL(Y_by_obs.n_rows, arma::fill::zeros);
 
   int idx = 0;
   for (double sp : splits) {
     while (idx < N && z_sorted[idx] <= sp) {
       int r = ord[idx++];
-      SL += Y_flat.row(r);
+      SL += Y_by_obs.col(r);
     }
     int NL = idx, NR = N - NL;
 
@@ -292,7 +300,7 @@ List search_best_split_point_cpp_internal(
     if (NL < min_node_size || NR < min_node_size) continue;
 
     // Calculate objective function for this split
-    const arma::rowvec SR = S_tot - SL;
+    const arma::vec SR = S_tot - SL;
     double obj = arma::accu( - SL%SL / NL - SR%SR / NR );
     if (obj < best_obj) {
       best_obj = obj;
@@ -316,9 +324,11 @@ List search_best_split_point_cpp_internal(
   }
   double mid = std::isinf(Rgt) ? Lft : (Lft + Rgt) / 2.0;
 
-  List child_obj = child_objectives_numeric_flat(z_num, best_split, Y_flat, S_tot, Q_tot, offsets);
-  best_left_obj = child_obj["left_objective_value_j"];
-  best_right_obj = child_obj["right_objective_value_j"];
+  if (compute_child_objectives) {
+    List child_obj = child_objectives_numeric_flat(z_num, best_split, Y_by_obs, S_tot, Q_tot, offsets);
+    best_left_obj = child_obj["left_objective_value_j"];
+    best_right_obj = child_obj["right_objective_value_j"];
+  }
   return List::create(_["split_point"]     = mid,
     _["split_objective"] = best_obj,
     _["left_objective_value_j"] = best_left_obj,
@@ -356,51 +366,98 @@ DataFrame search_best_split_cpp(
   const int Ly = Y.size();
   std::vector<arma::mat> Ym(Ly);
   std::vector<int> offsets(Ly + 1, 0);
+  std::vector<bool> active_effect(Ly, false);
+  std::vector<double> effect_objective(Ly, 0.0);
+  std::vector<arma::rowvec> S_effect(Ly);
+  std::vector<arma::rowvec> Q_effect(Ly);
   int N = 0;
-  int M = 0;
   for (int l = 0; l < Ly; ++l) {
     Ym[l] = arma_view(Y[l]);
     Ym[l].replace(arma::datum::nan, 0.0);  // Process all NaN values once
     if (l == 0) {
       N = Ym[l].n_rows;
     }
+    S_effect[l] = arma::sum(Ym[l], 0);
+    Q_effect[l] = arma::sum(Ym[l] % Ym[l], 0);
+    effect_objective[l] = arma::accu(Q_effect[l] - S_effect[l]%S_effect[l] / N);
+  }
+
+  double total_effect_objective = 0.0;
+  for (int l = 0; l < Ly; ++l) {
+    if (effect_objective[l] > 0.0) {
+      total_effect_objective += effect_objective[l];
+    }
+  }
+  const double active_effect_tol = total_effect_objective * 1e-14;
+
+  int M = 0;
+  int n_active_effects = 0;
+  int single_active_effect = -1;
+  for (int l = 0; l < Ly; ++l) {
     offsets[l] = M;
-    M += Ym[l].n_cols;
+    active_effect[l] = effect_objective[l] > active_effect_tol;
+    if (active_effect[l]) {
+      ++n_active_effects;
+      single_active_effect = l;
+      M += Ym[l].n_cols;
+    }
   }
   offsets[Ly] = M;
-  arma::mat Y_flat(N, M);
-  for (int l = 0; l < Ly; ++l) {
-    Y_flat.cols(offsets[l], offsets[l + 1] - 1) = Ym[l];
+  arma::mat Y_flat;
+  const arma::mat* Y_search = nullptr;
+  arma::rowvec S_tot(M, arma::fill::zeros);
+  arma::rowvec Q_tot(M, arma::fill::zeros);
+  if (n_active_effects == 1) {
+    Y_search = &Ym[single_active_effect];
+    S_tot = S_effect[single_active_effect];
+    Q_tot = Q_effect[single_active_effect];
+  } else {
+    Y_flat.set_size(N, M);
+    for (int l = 0; l < Ly; ++l) {
+      if (active_effect[l]) {
+        const int start = offsets[l];
+        const int end = offsets[l + 1] - 1;
+        Y_flat.cols(start, end) = Ym[l];
+        S_tot.subvec(start, end) = S_effect[l];
+        Q_tot.subvec(start, end) = Q_effect[l];
+      }
+    }
+    Y_search = &Y_flat;
   }
-  arma::rowvec S_tot = arma::sum(Y_flat, 0);         // Precompute column sums
-  arma::rowvec Q_tot = arma::sum(Y_flat % Y_flat, 0); // Precompute column sums of squares
+  // Armadillo stores matrices column-major. Split scanning repeatedly accumulates
+  // all effect columns for one observation, so scanning a transposed view gives
+  // contiguous memory access for each observation vector.
+  arma::mat Y_by_obs = Y_search->t();
+  arma::vec S_tot_col = S_tot.t();
+  arma::vec Q_tot_col = Q_tot.t();
   SEXP effect_names_obj = Y.attr("names");
   const bool has_effect_names = !Rf_isNull(effect_names_obj);
   CharacterVector effect_names = has_effect_names ? CharacterVector(effect_names_obj) : CharacterVector(0);
   List left_obj_list(p);
   List right_obj_list(p);
+  NumericVector empty_left_obj(Ly, NA_REAL);
+  NumericVector empty_right_obj(Ly, NA_REAL);
+  if (has_effect_names) {
+    empty_left_obj.attr("names") = effect_names;
+    empty_right_obj.attr("names") = effect_names;
+  }
   // Evaluate each feature
   for (int j = 0; j < p; ++j) {
     SEXP z_j  = Z[j];
     bool is_c = Rf_isFactor(z_j);
 
-    // Call internal function directly, passing preprocessed data
+    // First pass: find the best split objective for each split feature.
+    // Child objective vectors are only needed for the globally selected split and are computed below.
     List res = search_best_split_point_cpp_internal(
-      z_j, Y_flat, S_tot, Q_tot, offsets, n_quantiles, is_c, min_node_size);
+      z_j, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_c, min_node_size, false);
 
     // Store results
     split_feature[j]   = feat_names[j];
     is_cat_vec[j]      = is_c;
     split_obj[j]       = res["split_objective"];
     split_point_out[j] = as<CharacterVector>(wrap(res["split_point"]))[0];
-    NumericVector left_obj = res["left_objective_value_j"];
-    NumericVector right_obj = res["right_objective_value_j"];
-    if (has_effect_names) {
-      left_obj.attr("names") = effect_names;
-      right_obj.attr("names") = effect_names;
-    }
-    left_obj_list[j] = left_obj;
-    right_obj_list[j] = right_obj;
+    left_obj_list[j] = Rcpp::clone(empty_left_obj);
+    right_obj_list[j] = Rcpp::clone(empty_right_obj);
   }
   // Find best valid split.
   // The internal function always returns R_PosInf when no split is found, so
@@ -419,6 +476,21 @@ DataFrame search_best_split_cpp(
   LogicalVector best_split(p, false);
   if (best_idx >= 0) {
     best_split[best_idx] = true;
+
+    SEXP z_best = Z[best_idx];
+    List best_res = search_best_split_point_cpp_internal(
+      z_best, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_cat_vec[best_idx], min_node_size, true);
+    split_obj[best_idx] = best_res["split_objective"];
+    split_point_out[best_idx] = as<CharacterVector>(wrap(best_res["split_point"]))[0];
+
+    NumericVector left_obj = best_res["left_objective_value_j"];
+    NumericVector right_obj = best_res["right_objective_value_j"];
+    if (has_effect_names) {
+      left_obj.attr("names") = effect_names;
+      right_obj.attr("names") = effect_names;
+    }
+    left_obj_list[best_idx] = left_obj;
+    right_obj_list[best_idx] = right_obj;
   }
 
   // Return results as DataFrame. Attach child objectives afterwards so they stay list-columns.

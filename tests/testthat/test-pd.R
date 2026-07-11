@@ -97,6 +97,39 @@ test_that("PdStrategy reuses full-root centered matrices", {
   testthat::expect_identical(result, Y)
 })
 
+test_that("PdStrategy only skips full-grid centering for prepared centered PD matrices", {
+  strategy = PdStrategy$new()
+  raw_y = list(x = matrix(c(0, 2, 10, 14), nrow = 2L, byrow = TRUE, dimnames = list(NULL, c("a", "b"))))
+  raw_result = strategy$node_transform(Y = raw_y, idx = 1L, grid = list(x = c("a", "b")))
+
+  testthat::expect_equal(unname(raw_result$x), matrix(c(-1, 1), nrow = 1L))
+
+  centered_y = list(
+    x = matrix(c(-1, 0, 1, -2, 0, 2), nrow = 2L, byrow = TRUE, dimnames = list(NULL, c("a", "b", "c"))),
+    z = matrix(c(-3, 3, -4, 4), nrow = 2L, byrow = TRUE, dimnames = list(NULL, c("l", "r")))
+  )
+  attr(centered_y, "xplaineff_pd_centered") = TRUE
+
+  full_grid_result = strategy$node_transform(
+    Y = centered_y,
+    idx = c(2L, 1L),
+    grid = list(x = c("a", "b", "c"), z = c("l", "r"))
+  )
+  testthat::expect_equal(full_grid_result$x, centered_y$x[c(2L, 1L), , drop = FALSE])
+  testthat::expect_equal(full_grid_result$z, centered_y$z[c(2L, 1L), , drop = FALSE])
+
+  restricted_grid_result = strategy$node_transform(
+    Y = centered_y,
+    idx = 1:2,
+    grid = list(x = c("a", "b"), z = c("l", "r"))
+  )
+  testthat::expect_equal(
+    unname(restricted_grid_result$x),
+    matrix(c(-0.5, 0.5, NA, -1, 1, NA), nrow = 2L, byrow = TRUE)
+  )
+  testthat::expect_equal(restricted_grid_result$z, centered_y$z)
+})
+
 test_that("compute_ice cpp matches r (ranger native model, data= predict)", {
   testthat::skip_if_not_installed("ranger")
   tryCatch(
@@ -123,6 +156,141 @@ test_that("compute_ice cpp matches r (ranger native model, data= predict)", {
   ice_r = xplaineff:::compute_ice_r(fit, x_only, "x1", grid, predict_fun = NULL)
   ice_cpp = xplaineff:::compute_ice_cpp(fit, x_only, "x1", grid, predict_fun = NULL)
   testthat::expect_equal(ice_cpp, ice_r, tolerance = 1e-10)
+})
+
+test_that("ranger fast PD path matches default prediction for native regression forests", {
+  testthat::skip_if_not_installed("ranger")
+  tryCatch(
+    xplaineff:::ranger_pd_numeric_cpp(
+      list(
+        num.trees = 0,
+        child.nodeIDs = list(),
+        split.varIDs = list(),
+        split.values = list()
+      ),
+      matrix(numeric(), nrow = 0L),
+      integer(),
+      list()
+    ),
+    error = function(e) {
+      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+        testthat::skip("C++ ranger fast path not loaded")
+      }
+      stop(e)
+    }
+  )
+  set.seed(8L)
+  n = 80L
+  dat = data.frame(x1 = runif(n), x2 = rnorm(n), x3 = runif(n))
+  dat$y = sin(dat$x1) + dat$x2 * (dat$x3 > 0.5)
+  fit = ranger::ranger(
+    y ~ .,
+    data = dat,
+    num.trees = 30L,
+    mtry = 3L,
+    min.node.size = 2L,
+    num.threads = 1L,
+    seed = 8L
+  )
+  x_only = data.table::as.data.table(dat[, c("x1", "x2", "x3")])
+  grids = list(x1 = seq(0.1, 0.9, length.out = 5L), x2 = seq(-1, 1, length.out = 4L))
+
+  withr::local_options(list(xplaineff.pd.ranger_fast = TRUE))
+  fast_info = xplaineff:::pd_ranger_fast_info(fit, x_only, names(grids), grids, predict_fun = NULL)
+  fast = xplaineff:::calculate_pd_ranger_matrix(
+    forest = fast_info$forest,
+    x_features_dt = x_only,
+    forest_features = fast_info$forest_features,
+    feature_indices = fast_info$feature_indices,
+    feature_set = names(grids),
+    grids = grids
+  )
+
+  expected_x1 = xplaineff:::compute_ice_r(fit, x_only, "x1", grids$x1, predict_fun = NULL)
+  expected_x2 = xplaineff:::compute_ice_r(fit, x_only, "x2", grids$x2, predict_fun = NULL)
+  testthat::expect_equal(unname(fast$Y$x1), unname(expected_x1), tolerance = 1e-10)
+  testthat::expect_equal(unname(fast$Y$x2), unname(expected_x2), tolerance = 1e-10)
+})
+
+test_that("ranger fast PD path matches default prediction for mlr3 ranger learners", {
+  testthat::skip_if_not_installed("mlr3")
+  testthat::skip_if_not_installed("mlr3learners")
+  testthat::skip_if_not_installed("ranger")
+  tryCatch(
+    xplaineff:::ranger_pd_numeric_cpp(
+      list(
+        num.trees = 0,
+        child.nodeIDs = list(),
+        split.varIDs = list(),
+        split.values = list()
+      ),
+      matrix(numeric(), nrow = 0L),
+      integer(),
+      list()
+    ),
+    error = function(e) {
+      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+        testthat::skip("C++ ranger fast path not loaded")
+      }
+      stop(e)
+    }
+  )
+  set.seed(9L)
+  n = 80L
+  dat = data.frame(x1 = runif(n), x2 = rnorm(n), x3 = runif(n))
+  dat$y = dat$x1 - 0.5 * dat$x2 + dat$x3
+  task = mlr3::TaskRegr$new("pd_ranger_fast", backend = dat, target = "y")
+  learner = mlr3::lrn("regr.ranger", num.trees = 30L, mtry = 3L, min.node.size = 2L, num.threads = 1L)
+  learner$train(task)
+  x_only = data.table::as.data.table(dat[, c("x1", "x2", "x3")])
+  grids = list(x1 = seq(0.1, 0.9, length.out = 5L), x3 = seq(0.2, 0.8, length.out = 4L))
+
+  withr::local_options(list(xplaineff.pd.ranger_fast = TRUE))
+  fast_info = xplaineff:::pd_ranger_fast_info(learner, x_only, names(grids), grids, predict_fun = NULL)
+  fast = xplaineff:::calculate_pd_ranger_matrix(
+    forest = fast_info$forest,
+    x_features_dt = x_only,
+    forest_features = fast_info$forest_features,
+    feature_indices = fast_info$feature_indices,
+    feature_set = names(grids),
+    grids = grids
+  )
+
+  expected_x1 = xplaineff:::compute_ice_r(learner, x_only, "x1", grids$x1, predict_fun = NULL)
+  expected_x3 = xplaineff:::compute_ice_r(learner, x_only, "x3", grids$x3, predict_fun = NULL)
+  testthat::expect_equal(unname(fast$Y$x1), unname(expected_x1), tolerance = 1e-10)
+  testthat::expect_equal(unname(fast$Y$x3), unname(expected_x3), tolerance = 1e-10)
+})
+
+test_that("custom predict_fun PD cpp engine uses the same values as the R backend", {
+  set.seed(10L)
+  data = data.frame(x1 = runif(40L), x2 = rnorm(40L), x3 = runif(40L))
+  data$y = data$x1 + data$x2
+  pred_fun = function(model, newdata) {
+    newdata$x1 - 0.5 * newdata$x2 + ifelse(newdata$x3 > 0.5, newdata$x1, 0)
+  }
+
+  cpp = xplaineff:::calculate_pd_matrix(
+    model = "toy",
+    data = data,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    predict_fun = pred_fun,
+    n_grid = 5L,
+    pd_engine = "cpp"
+  )
+  r = xplaineff:::calculate_pd_matrix(
+    model = "toy",
+    data = data,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    predict_fun = pred_fun,
+    n_grid = 5L,
+    pd_engine = "r"
+  )
+
+  testthat::expect_equal(cpp$Y, r$Y)
+  testthat::expect_equal(cpp$grid, r$grid)
 })
 
 test_that("PdStrategy fit aborts when target column is missing from data", {
@@ -198,6 +366,7 @@ test_that("compute_ice_r preserves fractional grid values for cached integer fea
   )
 
   testthat::expect_equal(ice, matrix(rep(grid, each = nrow(data)), nrow = nrow(data)))
+  testthat::expect_equal(stacked_pd_cache$stacked$x, as.numeric(rep(data$x, times = length(grid))))
 })
 
 test_that("extract_numeric_prediction uses response then first prob column for mlr3 Prediction", {

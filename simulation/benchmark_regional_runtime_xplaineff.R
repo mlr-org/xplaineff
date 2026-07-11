@@ -186,6 +186,13 @@ predict_for_model = function(model_type) {
   if (identical(model_type, "rf")) rf_pred_fun else toy_pred_fun
 }
 
+xplaineff_predict_fun = function(model, pred_fun) {
+  if (inherits(model, "ranger")) {
+    return(NULL)
+  }
+  pred_fun
+}
+
 make_cells = function() {
   rows = list()
   make_cell = function(sub_experiment, N, D, resolution, n_split) {
@@ -225,6 +232,7 @@ make_cells = function() {
 }
 
 run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
+  pred_fun = xplaineff_predict_fun(model, pred_fun)
   if (identical(effect, "pdp")) {
     strat = PdStrategy$new()
     tree = GadgetTree$new(

@@ -75,6 +75,23 @@ test_that("search_best_split_cpp returns child objective list columns", {
   expect_equal(result$right_objective_value_j[[1L]], c(f1 = 0, f2 = 0))
 })
 
+test_that("search_best_split_cpp prunes numerically inactive effect matrices", {
+  skip_cpp_if_unavailable()
+  Z = data.frame(x = 1:10)
+  Y = list(
+    signal = matrix(c(rep(2, 5L), rep(-2, 5L)), ncol = 1L),
+    inactive = matrix(seq_len(10L) * 1e-14, ncol = 1L)
+  )
+
+  result = search_best_split_cpp(Z = Z, Y = Y, min_node_size = 2L)
+
+  best = which(result$best_split)[1L]
+  expect_named(result$left_objective_value_j[[best]], c("signal", "inactive"))
+  expect_named(result$right_objective_value_j[[best]], c("signal", "inactive"))
+  expect_equal(unname(result$left_objective_value_j[[best]]["inactive"]), 0)
+  expect_equal(unname(result$right_objective_value_j[[best]]["inactive"]), 0)
+})
+
 test_that("search_best_split_cpp handles categorical split and one-level factor", {
   skip_cpp_if_unavailable()
   Z = data.frame(

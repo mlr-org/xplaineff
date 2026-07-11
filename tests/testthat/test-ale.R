@@ -180,6 +180,96 @@ test_that("prepare_split_data_ale cpp engine works for non-mlr3 model", {
   expect_true(all(c("x1", "x2") %in% names(out$Y)))
 })
 
+test_that("ranger fast ALE path matches default prediction for native regression forests", {
+  skip_if_not_installed("ranger")
+  skip_ale_cpp_if_unavailable()
+  set.seed(14)
+  n = 90L
+  data = data.frame(x1 = runif(n), x2 = rnorm(n), x3 = runif(n))
+  data$y = sin(data$x1) + data$x2 * (data$x3 > 0.5)
+  model = ranger::ranger(
+    y ~ .,
+    data = data,
+    num.trees = 40L,
+    mtry = 3L,
+    min.node.size = 2L,
+    num.threads = 1L,
+    seed = 14L
+  )
+  pred_fun = function(model, newdata) {
+    as.numeric(predict(model, data = newdata, num.threads = 1L)$predictions)
+  }
+
+  fast = xplaineff:::calculate_ale_fast(
+    model = model,
+    data = data,
+    feature_set = c("x1", "x2"),
+    target_feature_name = "y",
+    n_intervals = 6L,
+    predict_fun = NULL
+  )
+  expected = xplaineff:::calculate_ale_fast(
+    model = model,
+    data = data,
+    feature_set = c("x1", "x2"),
+    target_feature_name = "y",
+    n_intervals = 6L,
+    predict_fun = pred_fun
+  )
+
+  compare_cols = c("row_id", "feat_val", "x_left", "x_right", "d_l", "interval_index", "int_n", "int_s1", "int_s2")
+  for (feat in c("x1", "x2")) {
+    testthat::expect_equal(
+      fast[[feat]][, compare_cols, with = FALSE],
+      expected[[feat]][, compare_cols, with = FALSE],
+      tolerance = 1e-10
+    )
+  }
+})
+
+test_that("ranger fast ALE path matches default prediction for mlr3 ranger learners", {
+  skip_if_not_installed("mlr3")
+  skip_if_not_installed("mlr3learners")
+  skip_if_not_installed("ranger")
+  skip_ale_cpp_if_unavailable()
+  set.seed(15)
+  n = 90L
+  data = data.frame(x1 = runif(n), x2 = rnorm(n), x3 = runif(n))
+  data$y = data$x1 - 0.5 * data$x2 + data$x3
+  task = mlr3::TaskRegr$new("ale_ranger_fast", backend = data, target = "y")
+  learner = mlr3::lrn("regr.ranger", num.trees = 40L, mtry = 3L, min.node.size = 2L, num.threads = 1L)
+  learner$train(task)
+  pred_fun = function(model, newdata) {
+    as.numeric(model$predict_newdata(newdata)$response)
+  }
+
+  fast = xplaineff:::calculate_ale_fast(
+    model = learner,
+    data = data,
+    feature_set = c("x1", "x3"),
+    target_feature_name = "y",
+    n_intervals = 6L,
+    predict_fun = NULL
+  )
+  expected = xplaineff:::calculate_ale_fast(
+    model = learner,
+    data = data,
+    feature_set = c("x1", "x3"),
+    target_feature_name = "y",
+    n_intervals = 6L,
+    predict_fun = pred_fun
+  )
+
+  compare_cols = c("row_id", "feat_val", "x_left", "x_right", "d_l", "interval_index", "int_n", "int_s1", "int_s2")
+  for (feat in c("x1", "x3")) {
+    testthat::expect_equal(
+      fast[[feat]][, compare_cols, with = FALSE],
+      expected[[feat]][, compare_cols, with = FALSE],
+      tolerance = 1e-10
+    )
+  }
+})
+
 test_that("calculate_ale returns zero d_l for constant numeric feature", {
   n = 15L
   data = data.frame(x_const = rep(2.5, n), y = seq_len(n))

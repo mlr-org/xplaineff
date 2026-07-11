@@ -64,14 +64,21 @@ mean_center_ice = function(effect, feature_set = NULL, mean_center = TRUE) {
     all_features = names(effect$Y)
     feature_set = resolve_split_features(feature_set, all_features, "Features")
     Y = mlr3misc::map(setNames(nm = feature_set), function(feat) {
-      mat = as.matrix(effect$Y[[feat]])
-      storage.mode(mat) = "double"
-      if (mean_center) {
-        mat = mat - rowMeans(mat, na.rm = TRUE)
+      mat = effect$Y[[feat]]
+      if (!is.matrix(mat)) {
+        mat = as.matrix(mat)
+      }
+      if (!is.double(mat)) {
+        storage.mode(mat) = "double"
       }
       mat
     })
     grid = effect$grid[feature_set]
+    if (mean_center) {
+      idx = seq_len(nrow(Y[[1L]]))
+      Y = re_mean_center_ice_cpp(Y = Y, grid = grid, idx = idx)
+    }
+    attr(Y, "xplaineff_pd_centered") = isTRUE(mean_center)
     return(list(Y = Y, grid = grid))
   }
   effect_results = effect$results
@@ -92,8 +99,10 @@ mean_center_ice = function(effect, feature_set = NULL, mean_center = TRUE) {
     Y = pivot_effect_to_wide(it$data, it$grid_col, drop_cols = it$drop, mean_center = mean_center)
     list(Y = Y, grid = colnames(Y))
   })
+  Y = mlr3misc::map(res, "Y")
+  attr(Y, "xplaineff_pd_centered") = isTRUE(mean_center)
   list(
-    Y = mlr3misc::map(res, "Y"),
+    Y = Y,
     grid = mlr3misc::map(res, "grid")
   )
 }

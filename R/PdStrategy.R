@@ -96,13 +96,38 @@ PdStrategy = R6::R6Class(
         return(Y)
       }
       as_numeric_matrix = function(x) {
-        x = as.matrix(x)
+        if (!is.matrix(x)) {
+          x = as.matrix(x)
+        }
         storage.mode(x) = "double"
         x
       }
-      # Normalize each effect block before passing to C++.
-      y_numeric = lapply(Y, as_numeric_matrix)
-      re_mean_center_ice_cpp(Y = y_numeric, grid = grid, idx = idx)
+      idx = as.integer(idx)
+      is_centered = isTRUE(attr(Y, "xplaineff_pd_centered"))
+      out = vector("list", length(Y))
+      names(out) = names(Y)
+      needs_center = logical(length(Y))
+      for (i in seq_along(Y)) {
+        feat = names(Y)[i]
+        mat = as_numeric_matrix(Y[[feat]])
+        full_grid = as.character(colnames(mat))
+        node_grid = as.character(grid[[feat]])
+        if (is_centered && identical(full_grid, node_grid)) {
+          out[[feat]] = mat[idx, , drop = FALSE]
+        } else {
+          out[[feat]] = mat
+          needs_center[i] = TRUE
+        }
+      }
+      if (any(needs_center)) {
+        center_names = names(Y)[needs_center]
+        out[center_names] = re_mean_center_ice_cpp(
+          Y = out[center_names],
+          grid = grid[center_names],
+          idx = idx
+        )
+      }
+      out
     },
 
     #' @description

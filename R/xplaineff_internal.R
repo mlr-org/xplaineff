@@ -19,6 +19,10 @@ default_predict_fun = function(model, data) {
   if (is.function(model)) {
     return(extract_numeric_prediction(model(data), expected_n = nrow(data)))
   }
+  fast_pred = fast_predict_regression_model(model, data)
+  if (!is.null(fast_pred)) {
+    return(extract_numeric_prediction(fast_pred, expected_n = nrow(data)))
+  }
   predict_newdata_fast_dispatch(model, data)
 }
 
@@ -104,6 +108,188 @@ predict_newdata_fast_dispatch = function(model, newdata) {
   extract_numeric_prediction(pred, expected_n = n_rows)
 }
 
+fast_predict_regression_model = function(model, newdata) {
+  pred = predict_ranger_regression_fast(model, newdata)
+  if (!is.null(pred)) {
+    return(pred)
+  }
+  pred = predict_rpart_regression_fast(model, newdata)
+  if (!is.null(pred)) {
+    return(pred)
+  }
+  pred = predict_xgboost_regression_fast(model, newdata)
+  if (!is.null(pred)) {
+    return(pred)
+  }
+  NULL
+}
+
+predict_ranger_regression_fast = function(model, newdata) {
+  info = extract_ranger_regression_model(model)
+  if (is.null(info)) {
+    return(NULL)
+  }
+  newdata_selected = select_newdata_features(newdata, info$feature_names)
+  if (is.null(newdata_selected)) {
+    return(NULL)
+  }
+  pred = tryCatch(
+    stats::predict(info$model, data = as.data.frame(newdata_selected), num.threads = 1L)$predictions,
+    error = function(e) NULL
+  )
+  if (is.null(pred)) {
+    return(NULL)
+  }
+  as.numeric(pred)
+}
+
+extract_ranger_regression_model = function(model) {
+  if (inherits(model, "ranger") && identical(model$treetype, "Regression")) {
+    feature_names = tryCatch(model$forest$independent.variable.names, error = function(e) NULL)
+    return(list(model = model, feature_names = feature_names))
+  }
+  if (inherits(model, "LearnerRegr")) {
+    ranger_model = extract_mlr3_native_model(model)
+    if (inherits(ranger_model, "ranger") && identical(ranger_model$treetype, "Regression")) {
+      return(list(model = ranger_model, feature_names = extract_mlr3_feature_names(model)))
+    }
+  }
+  NULL
+}
+
+predict_rpart_regression_fast = function(model, newdata) {
+  info = extract_rpart_regression_model(model)
+  if (is.null(info)) {
+    return(NULL)
+  }
+  newdata_selected = select_newdata_features(newdata, info$feature_names)
+  if (is.null(newdata_selected)) {
+    return(NULL)
+  }
+  pred = tryCatch(
+    stats::predict(info$model, newdata = as.data.frame(newdata_selected), type = "vector"),
+    error = function(e) NULL
+  )
+  if (is.null(pred)) {
+    return(NULL)
+  }
+  as.numeric(pred)
+}
+
+extract_rpart_regression_model = function(model) {
+  if (inherits(model, "rpart") && identical(model$method, "anova")) {
+    return(list(model = model, feature_names = NULL))
+  }
+  if (inherits(model, "LearnerRegr")) {
+    rpart_model = extract_mlr3_native_model(model)
+    if (inherits(rpart_model, "rpart") && identical(rpart_model$method, "anova")) {
+      return(list(model = rpart_model, feature_names = extract_mlr3_feature_names(model)))
+    }
+  }
+  NULL
+}
+
+predict_xgboost_regression_fast = function(model, newdata) {
+  info = extract_xgboost_regression_model(model)
+  if (is.null(info)) {
+    return(NULL)
+  }
+  x = numeric_matrix_for_prediction(newdata, info$feature_names)
+  if (is.null(x)) {
+    return(NULL)
+  }
+  pred = tryCatch(
+    stats::predict(info$model, newdata = x),
+    error = function(e) NULL
+  )
+  if (is.null(pred)) {
+    return(NULL)
+  }
+  as.numeric(pred)
+}
+
+extract_xgboost_regression_model = function(model) {
+  if (inherits(model, "LearnerRegr")) {
+    booster = extract_mlr3_native_model(model)
+    if (inherits(booster, "xgb.Booster")) {
+      return(list(model = booster, feature_names = extract_mlr3_feature_names(model)))
+    }
+  }
+  if (inherits(model, "xgb.Booster") && isTRUE(xgboost_booster_is_regression(model))) {
+    return(list(model = model, feature_names = NULL))
+  }
+  NULL
+}
+
+xgboost_booster_is_regression = function(model) {
+  if (!requireNamespace("xgboost", quietly = TRUE)) {
+    return(FALSE)
+  }
+  xgb_config = tryCatch(get("xgb.config", envir = asNamespace("xgboost"), mode = "function"), error = function(e) NULL)
+  if (is.null(xgb_config)) {
+    return(FALSE)
+  }
+  config = tryCatch(xgb_config(model), error = function(e) NULL)
+  if (is.null(config)) {
+    return(FALSE)
+  }
+  objective = config$learner$learner_train_param$objective
+  if (is.null(objective)) {
+    objective = config$learner$objective$name
+  }
+  is.character(objective) && length(objective) == 1L && grepl("^reg:", objective)
+}
+
+extract_mlr3_native_model = function(model) {
+  native_model = tryCatch(model$native_model, error = function(e) NULL)
+  if (!is.null(native_model)) {
+    return(native_model)
+  }
+  learner_model = tryCatch(model$model, error = function(e) NULL)
+  if (is.list(learner_model) && !is.null(learner_model$model)) {
+    return(learner_model$model)
+  }
+  learner_model
+}
+
+extract_mlr3_feature_names = function(model) {
+  state = tryCatch(model$state, error = function(e) NULL)
+  feature_names = state$feature_names
+  if (is.character(feature_names) && length(feature_names)) {
+    feature_names
+  } else {
+    NULL
+  }
+}
+
+select_newdata_features = function(newdata, feature_names = NULL) {
+  if (is.null(feature_names)) {
+    return(newdata)
+  }
+  if (!all(feature_names %in% names(newdata))) {
+    return(NULL)
+  }
+  if (data.table::is.data.table(newdata)) {
+    newdata[, feature_names, with = FALSE]
+  } else {
+    newdata[, feature_names, drop = FALSE]
+  }
+}
+
+numeric_matrix_for_prediction = function(newdata, feature_names = NULL) {
+  selected = select_newdata_features(newdata, feature_names)
+  if (is.null(selected)) {
+    return(NULL)
+  }
+  supported = vapply(selected, function(x) is.numeric(x) || is.integer(x) || is.logical(x), logical(1L))
+  if (!all(supported)) {
+    return(NULL)
+  }
+  x = as.matrix(selected)
+  storage.mode(x) = "double"
+  x
+}
+
 # Wrap each line of a node label (split by \\n) for ggraph tree plots.
 wrap_tree_label = function(text, width = 34L) {
   if (length(text) == 0L) {
@@ -131,8 +317,12 @@ wrap_tree_label = function(text, width = 34L) {
 #' @aliases ale_sweep_cpp calculate_ale_heterogeneity_list_cpp
 #'   calculate_ale_heterogeneity_single_cpp re_mean_center_ice_cpp
 #'   search_best_split_cpp default_predict_fun predict_newdata_fast_dispatch
-#'   extract_numeric_prediction has_predict_method cpp_pd_stack_newdata
-#'   risk_from_stats assert_ale_effect_list
+#'   fast_predict_regression_model predict_ranger_regression_fast extract_ranger_regression_model
+#'   predict_rpart_regression_fast
+#'   extract_rpart_regression_model predict_xgboost_regression_fast
+#'   extract_xgboost_regression_model xgboost_booster_is_regression
+#'   extract_mlr3_native_model extract_mlr3_feature_names select_newdata_features numeric_matrix_for_prediction
+#'   extract_numeric_prediction has_predict_method cpp_pd_stack_newdata risk_from_stats assert_ale_effect_list
 #'   d_l interval_index level x x_grid x_left x_right y
 #' @keywords internal
 NULL
