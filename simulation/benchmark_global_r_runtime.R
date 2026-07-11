@@ -226,6 +226,17 @@ predict_for_model = function(model_type) {
   }
 }
 
+xplaineff_predict_fun = function(model, pred_fun) {
+  if (inherits(model, "ranger")) {
+    return(NULL)
+  }
+  mlr3_model = tryCatch(model$model, error = function(e) NULL)
+  if (inherits(mlr3_model, "ranger") || (is.list(mlr3_model) && inherits(mlr3_model$model, "ranger"))) {
+    return(NULL)
+  }
+  pred_fun
+}
+
 fit_model = function(dat, model_type) {
   if (identical(model_type, "rf")) {
     fit_rf(dat)
@@ -267,7 +278,7 @@ run_xplaineff_pdp = function(dat, model, pred_fun, engine, n_grid) {
     data = dat,
     target_feature_name = "y",
     feature_set = NULL,
-    predict_fun = pred_fun,
+    predict_fun = xplaineff_predict_fun(model, pred_fun),
     n_grid = n_grid,
     pd_engine = engine
   )
@@ -282,7 +293,7 @@ run_xplaineff_ale = function(dat, model, pred_fun, engine, n_intervals) {
       feature_set = features,
       target_feature_name = "y",
       n_intervals = n_intervals,
-      predict_fun = pred_fun
+      predict_fun = xplaineff_predict_fun(model, pred_fun)
     )
   } else {
     xplaineff:::calculate_ale(
@@ -291,7 +302,7 @@ run_xplaineff_ale = function(dat, model, pred_fun, engine, n_intervals) {
       feature_set = features,
       target_feature_name = "y",
       n_intervals = n_intervals,
-      predict_fun = pred_fun
+      predict_fun = xplaineff_predict_fun(model, pred_fun)
     )
   }
 }
