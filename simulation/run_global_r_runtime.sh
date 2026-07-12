@@ -12,7 +12,8 @@ MODE="${1:-publication}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 RUN_ROOT="${RUN_ROOT:-simulation/results/runtime_runs/${RUN_ID}}"
 
-# Keep every benchmark single-threaded and avoid Intel/OpenMP shared-memory failures in sandboxed shells.
+# Keep non-model BLAS/OpenMP libraries single-threaded and avoid Intel/OpenMP shared-memory failures in sandboxed shells.
+# Model backends keep their package defaults unless the benchmark script passes an explicit backend option.
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export OMP_THREAD_LIMIT="${OMP_THREAD_LIMIT:-1}"
 export OMP_PROC_BIND="${OMP_PROC_BIND:-FALSE}"
@@ -96,6 +97,7 @@ echo "    global_models=${MODELS}"
 echo "    threads: OMP_NUM_THREADS=${OMP_NUM_THREADS}  OMP_THREAD_LIMIT=${OMP_THREAD_LIMIT}"
 echo "    openmp: KMP_INIT_AT_FORK=${KMP_INIT_AT_FORK}  KMP_AFFINITY=${KMP_AFFINITY}"
 echo "    R: DATATABLE_NUM_THREADS=${DATATABLE_NUM_THREADS}  XPLAINEFF_BENCH_LOAD_ALL=${XPLAINEFF_BENCH_LOAD_ALL}"
+echo "    model backend: native ranger num.threads uses package default; mlr3 keeps its learner default"
 echo "    DATADIR=${DATADIR}  OUTDIR=${OUTDIR}  FIGDIR=${FIGDIR}"
 echo "    PARALLEL_SUB=${PARALLEL_SUB}  GLOBAL_SUB_JOBS=${GLOBAL_SUB_JOBS}  GENERATE_DATA=${GENERATE_DATA}"
 

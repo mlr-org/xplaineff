@@ -18,6 +18,7 @@ test_that("native ranger regression fast prediction matches ranger predict", {
   expect_s3_class(info$model, "ranger")
   expected = as.numeric(predict(model, data = x, num.threads = 1L)$predictions)
 
+  withr::local_options(list(xplaineff.ranger.num_threads = 1L))
   expect_equal(xplaineff:::predict_ranger_regression_fast(model, x), expected)
   expect_equal(xplaineff:::default_predict_fun(model, x), expected)
 })

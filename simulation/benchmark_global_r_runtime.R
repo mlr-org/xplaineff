@@ -49,6 +49,8 @@ if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xpl
 }
 
 load_xplaineff_for_benchmark()
+options(xplaineff.pd.ranger_fast = FALSE)
+options(xplaineff.ranger.num_threads = NULL)
 
 library(data.table)
 setDTthreads(1L)
@@ -161,17 +163,31 @@ rf_config = list(
   sample_fraction = 1.0,
   splitrule = "variance",
   respect_unordered_factors = "ignore",
-  num_threads = 1L,
+  num_threads = NULL,
   seed = 21L
 )
+
+ranger_threads_label = function(num_threads) {
+  if (is.null(num_threads)) "ranger_default" else as.character(as.integer(num_threads))
+}
+
+ranger_fit_threads_label = function(model_type) {
+  if (identical(model_type, "mlr3_rf")) {
+    return("mlr3_default")
+  }
+  if (identical(model_type, "rf")) {
+    return(ranger_threads_label(rf_config$num_threads))
+  }
+  NA_character_
+}
 
 fit_rf = function(dat) {
   p = ncol(dat) - 1L
   if (!requireNamespace("ranger", quietly = TRUE)) {
     stop("Install ranger for the RF benchmark")
   }
-  ranger::ranger(
-    y ~ .,
+  args = list(
+    formula = y ~ .,
     data = dat,
     num.trees = rf_config$num_trees,
     mtry = p,
@@ -180,9 +196,12 @@ fit_rf = function(dat) {
     sample.fraction = rf_config$sample_fraction,
     splitrule = rf_config$splitrule,
     respect.unordered.factors = rf_config$respect_unordered_factors,
-    num.threads = rf_config$num_threads,
     seed = rf_config$seed
   )
+  if (!is.null(rf_config$num_threads)) {
+    args$num.threads = rf_config$num_threads
+  }
+  do.call(ranger::ranger, args)
 }
 
 fit_mlr3_rf = function(dat) {
@@ -192,8 +211,8 @@ fit_mlr3_rf = function(dat) {
   }
   suppressPackageStartupMessages(loadNamespace("mlr3learners"))
   task = mlr3::as_task_regr(dat, target = "y", id = "global_r_mlr3_rf")
-  learner = mlr3::lrn(
-    "regr.ranger",
+  learner_args = list(
+    .key = "regr.ranger",
     num.trees = rf_config$num_trees,
     mtry = p,
     min.node.size = rf_config$min_node_size,
@@ -201,15 +220,22 @@ fit_mlr3_rf = function(dat) {
     sample.fraction = rf_config$sample_fraction,
     splitrule = rf_config$splitrule,
     respect.unordered.factors = rf_config$respect_unordered_factors,
-    num.threads = rf_config$num_threads,
     seed = rf_config$seed
   )
+  if (!is.null(rf_config$num_threads)) {
+    learner_args$num.threads = rf_config$num_threads
+  }
+  learner = do.call(mlr3::lrn, learner_args)
   learner$train(task)
   learner
 }
 
 rf_pred_fun = function(model, newdata) {
-  as.numeric(predict(model, data = newdata, num.threads = 1L)$predictions)
+  args = list(object = model, data = newdata)
+  if (!is.null(rf_config$num_threads)) {
+    args$num.threads = rf_config$num_threads
+  }
+  as.numeric(do.call(stats::predict, args)$predictions)
 }
 
 mlr3_rf_pred_fun = function(model, newdata) {
@@ -513,6 +539,13 @@ record_row = function(
     D = cell$D,
     n_grid = cell$n_grid,
     n_intervals = cell$n_intervals,
+    prediction_backend = if (model_type %in% c("rf", "mlr3_rf")) "ranger" else "custom_predict_fun",
+    ranger_fit_threads = ranger_fit_threads_label(model_type),
+    ranger_predict_threads = if (model_type %in% c("rf", "mlr3_rf")) {
+      ranger_threads_label(getOption("xplaineff.ranger.num_threads", NULL))
+    } else {
+      NA_character_
+    },
     repetition = repetition,
     time_sec = time_sec,
     status = status,

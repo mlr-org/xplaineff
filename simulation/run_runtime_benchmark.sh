@@ -78,6 +78,7 @@ echo "    RES_VEC=${RES_VEC}  resolution=${RESOLUTION}  n_split_vec=${N_SPLIT_VE
 echo "    n_quantiles=${N_QUANTILES}  effector_numerical_grid_size=${EFFECTOR_NUMERICAL_GRID_SIZE}"
 echo "    reps=${REPS}  models=${MODELS}  PARALLEL_SUB=${PARALLEL_SUB}  GLOBAL_SUB_JOBS=${GLOBAL_SUB_JOBS}"
 echo "    PARALLEL_PHASES=${PARALLEL_PHASES}  PARALLEL_REGIONAL_PACKAGES=${PARALLEL_REGIONAL_PACKAGES}"
+echo "    model backend: native ranger num.threads uses package default; sklearn n_jobs=None"
 
 run_global_benchmark() {
   echo "2a. Running global benchmark..."

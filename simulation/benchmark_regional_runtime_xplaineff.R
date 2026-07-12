@@ -48,6 +48,8 @@ if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xpl
 }
 
 load_xplaineff_for_benchmark()
+options(xplaineff.pd.ranger_fast = FALSE)
+options(xplaineff.ranger.num_threads = NULL)
 
 library(data.table)
 setDTthreads(1L)
@@ -150,17 +152,21 @@ rf_config = list(
   sample_fraction = 1.0,
   splitrule = "variance",
   respect_unordered_factors = "ignore",
-  num_threads = 1L,
+  num_threads = NULL,
   seed = 21L
 )
+
+ranger_threads_label = function(num_threads) {
+  if (is.null(num_threads)) "ranger_default" else as.character(as.integer(num_threads))
+}
 
 fit_rf = function(dat) {
   if (!requireNamespace("ranger", quietly = TRUE)) {
     stop("Install ranger for the RF benchmark")
   }
   p = ncol(dat) - 1L
-  ranger::ranger(
-    y ~ .,
+  args = list(
+    formula = y ~ .,
     data = dat,
     num.trees = rf_config$num_trees,
     mtry = p,
@@ -169,13 +175,20 @@ fit_rf = function(dat) {
     sample.fraction = rf_config$sample_fraction,
     splitrule = rf_config$splitrule,
     respect.unordered.factors = rf_config$respect_unordered_factors,
-    num.threads = rf_config$num_threads,
     seed = rf_config$seed
   )
+  if (!is.null(rf_config$num_threads)) {
+    args$num.threads = rf_config$num_threads
+  }
+  do.call(ranger::ranger, args)
 }
 
 rf_pred_fun = function(model, newdata) {
-  as.numeric(predict(model, data = newdata, num.threads = 1L)$predictions)
+  args = list(object = model, data = newdata)
+  if (!is.null(rf_config$num_threads)) {
+    args$num.threads = rf_config$num_threads
+  }
+  as.numeric(do.call(stats::predict, args)$predictions)
 }
 
 fit_model = function(dat, model_type) {
@@ -293,6 +306,18 @@ record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
     n_quantiles = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     n_candidates = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     split_candidate_rule = if (is.null(n_quantiles)) "all_unique" else "quantile",
+    prediction_path = if (identical(model_type, "rf")) "native_ranger_batch" else "custom_predict_fun",
+    pd_ranger_fast = isTRUE(getOption("xplaineff.pd.ranger_fast", FALSE)),
+    ranger_fit_threads = if (identical(model_type, "rf")) {
+      ranger_threads_label(rf_config$num_threads)
+    } else {
+      NA_character_
+    },
+    ranger_predict_threads = if (identical(model_type, "rf")) {
+      ranger_threads_label(getOption("xplaineff.ranger.num_threads", NULL))
+    } else {
+      NA_character_
+    },
     repetition = repetition,
     precompute_time_sec = if (is.null(timing)) NA_real_ else timing[["precompute"]],
     split_time_sec = if (is.null(timing)) NA_real_ else timing[["split"]],

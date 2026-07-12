@@ -133,8 +133,14 @@ predict_ranger_regression_fast = function(model, newdata) {
   if (is.null(newdata_selected)) {
     return(NULL)
   }
+  num_threads = getOption("xplaineff.ranger.num_threads", NULL)
+  predict_args = list(object = info$model, data = as.data.frame(newdata_selected))
+  if (!is.null(num_threads)) {
+    checkmate::assert_integerish(num_threads, len = 1L, lower = 1L, .var.name = "xplaineff.ranger.num_threads")
+    predict_args$num.threads = as.integer(num_threads)
+  }
   pred = tryCatch(
-    stats::predict(info$model, data = as.data.frame(newdata_selected), num.threads = 1L)$predictions,
+    do.call(stats::predict, predict_args)$predictions,
     error = function(e) NULL
   )
   if (is.null(pred)) {

@@ -47,7 +47,7 @@ RF_CONFIG = {
     "max_samples": None,
     "ccp_alpha": 0.0,
     "random_state": 21,
-    "n_jobs": 1,
+    "n_jobs": None,
 }
 
 
@@ -201,6 +201,7 @@ def record(args, model_type, effect, cell, repetition, timing=None, status="ok",
         "numerical_features_grid_size": args.numerical_features_grid_size,
         "n_candidates": args.numerical_features_grid_size - 1,
         "split_candidate_rule": "uniform",
+        "rf_n_jobs": "None" if model_type == "rf" else "",
         "repetition": repetition,
         "precompute_time_sec": "" if timing is None else timing["precompute"],
         "split_time_sec": "" if timing is None else timing["split"],
@@ -332,7 +333,7 @@ def main():
     columns = [
         "module", "package", "impl", "effect", "method", "model_type", "sub_experiment",
         "N", "D", "resolution", "n_grid", "n_intervals", "n_split",
-        "numerical_features_grid_size", "n_candidates", "split_candidate_rule", "repetition",
+        "numerical_features_grid_size", "n_candidates", "split_candidate_rule", "rf_n_jobs", "repetition",
         "precompute_time_sec", "split_time_sec", "total_time_sec", "status", "error_message",
     ]
     with open(out, "w", newline="") as handle:
