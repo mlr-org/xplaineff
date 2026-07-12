@@ -204,7 +204,7 @@ Node = R6::R6Class("Node", public = list(
         n_quantiles,
         impr_par,
         depth + 1,
-        max.depth,
+        max_depth,
         verbose = verbose)
     }
     if (!is.null(self$children$right_child)) {
@@ -216,7 +216,7 @@ Node = R6::R6Class("Node", public = list(
         n_quantiles,
         impr_par,
         depth + 1,
-        max.depth,
+        max_depth,
         verbose = verbose)
     }
   },
@@ -276,7 +276,7 @@ Node = R6::R6Class("Node", public = list(
   #'   Improvement threshold.
   #' @return (`list()`) \cr
   #'   Left/right child nodes and split statistics.
-  create_children = function(z_split.feature, Y, split_info, objective_value_root_j, objective_value_root, impr_par, verbose = 0) {
+  create_children = function(z_split_feature, Y, split_info, objective_value_root_j, objective_value_root, impr_par, verbose = 0) {
     split_feature = split_info$split_feature
     split_value = split_info$split_value
     is_categorical = split_info$is_categorical
@@ -317,8 +317,8 @@ Node = R6::R6Class("Node", public = list(
     # Threshold for root node: impr_par; for child node: parent int_imp * impr_par
     threshold = if (is.null(self$parent)) impr_par else self$parent$int_imp * impr_par
     # Check if improvement meets threshold
-    if (intImp < threshold) {
-      self$improvement.met = TRUE
+    if (int_imp < threshold) {
+      self$improvement_met = TRUE
       # Improvement not sufficient: stop splitting at this node
       if (verbose > 0) {
         print(paste("Terminated at intImp < threshold of Node$create_children at node id ", self$id))
