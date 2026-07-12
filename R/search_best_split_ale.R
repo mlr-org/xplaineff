@@ -75,6 +75,25 @@ build_ale_interval_stats = function(effect, features) {
     d_l_mat = d_l_mat, interval_idx_mat = interval_idx_mat)
 }
 
+active_ale_effect_features = function(effect, tolerance = 1e-10) {
+  objective_value_j = unlist(calculate_ale_heterogeneity_cpp(effect), use.names = TRUE)
+  active = is.finite(objective_value_j) & objective_value_j > tolerance
+  if (!any(active)) {
+    names(effect)
+  } else {
+    names(objective_value_j)[active]
+  }
+}
+
+pad_ale_objective_values = function(values, active_features, full_features) {
+  if (length(values) == 1L && is.na(values)) {
+    return(rep(NA_real_, length(full_features)))
+  }
+  padded = rep(0.0, length(full_features))
+  padded[match(active_features, full_features)] = as.numeric(values)
+  padded
+}
+
 #' Find best ALE split across features.
 #'
 #' @param Z (`data.frame()` or `data.table()`) \cr
@@ -96,12 +115,15 @@ search_best_split_ale = function(
 ) {
   split_feature_names = colnames(Z)
   if (is.null(split_feature_names)) cli::cli_abort("Z (split features) must have column names.")
-  st_table = build_ale_interval_stats(effect, names(effect))
+  full_feature_names = names(effect)
+  active_feature_names = active_ale_effect_features(effect)
+  active_effect = effect[active_feature_names]
+  st_table = build_ale_interval_stats(active_effect, active_feature_names)
   # Per split_feature, compute best split once and capture per-feature vectors
   per_feature_res = lapply(split_feature_names, function(split_feat) {
     res = search_best_split_point_ale(
       z = Z[[split_feat]],
-      effect = effect,
+      effect = active_effect,
       st_table = st_table,
       split_feat = split_feat,
       is_categorical = is.factor(Z[[split_feat]]),
@@ -115,19 +137,15 @@ search_best_split_ale = function(
 
   # Long format rows
   res = data.table::rbindlist(lapply(per_feature_res, function(res) {
-    feature_names = names(effect)
-    ovj = res$objective_value_j
-    ovjl = res$left_objective_value_j
-    ovjr = res$right_objective_value_j
-    if (length(ovj) == 1 && is.na(ovj)) ovj = rep(NA_real_, length(feature_names))
-    if (length(ovjl) == 1 && is.na(ovjl)) ovjl = rep(NA_real_, length(feature_names))
-    if (length(ovjr) == 1 && is.na(ovjr)) ovjr = rep(NA_real_, length(feature_names))
+    ovj = pad_ale_objective_values(res$objective_value_j, active_feature_names, full_feature_names)
+    ovjl = pad_ale_objective_values(res$left_objective_value_j, active_feature_names, full_feature_names)
+    ovjr = pad_ale_objective_values(res$right_objective_value_j, active_feature_names, full_feature_names)
     data.frame(
       split_feature = res$split_feature,
       is_categorical = res$is_categorical,
       split_point = res$split_point,
       split_objective = res$split_objective,
-      feature = feature_names,
+      feature = full_feature_names,
       objective_value_j = as.numeric(ovj),
       left_objective_value_j = as.numeric(ovjl),
       right_objective_value_j = as.numeric(ovjr),

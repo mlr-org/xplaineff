@@ -460,6 +460,44 @@ test_that("build_ale_interval_stats orders rows by row_id when needed", {
   expect_equal(result$tot_s2, c(500, 2500))
 })
 
+test_that("search_best_split_ale prunes inactive ALE components without pruning split candidates", {
+  skip_ale_cpp_if_unavailable()
+  n = 10L
+  signal = data.table::data.table(
+    row_id = seq_len(n),
+    feat_val = seq_len(n),
+    x_left = seq_len(n),
+    x_right = seq_len(n),
+    d_l = c(rep(2, 5L), rep(-2, 5L)),
+    interval_index = rep(1L, n)
+  )
+  signal[, int_n := .N, by = interval_index]
+  signal[, int_s1 := sum(d_l), by = interval_index]
+  signal[, int_s2 := sum(d_l^2), by = interval_index]
+  inactive = data.table::copy(signal)
+  inactive[, d_l := seq_len(n) * 1e-14]
+  inactive[, int_s1 := sum(d_l), by = interval_index]
+  inactive[, int_s2 := sum(d_l^2), by = interval_index]
+  effect = list(signal = signal, inactive = inactive)
+  Z = data.frame(x = seq_len(n), z = rev(seq_len(n)))
+
+  result = xplaineff:::search_best_split_ale(Z = Z, effect = effect, min_node_size = 2L)
+  active_result = xplaineff:::search_best_split_ale(Z = Z, effect = effect["signal"], min_node_size = 2L)
+
+  expect_equal(xplaineff:::active_ale_effect_features(effect), "signal")
+  expect_setequal(unique(result$split_feature), colnames(Z))
+  expect_equal(nrow(result), length(effect) * ncol(Z))
+  expect_true(all(result$feature == rep(names(effect), times = ncol(Z))))
+  expect_equal(result$left_objective_value_j[result$feature == "inactive"], rep(0, ncol(Z)))
+  expect_equal(result$right_objective_value_j[result$feature == "inactive"], rep(0, ncol(Z)))
+
+  best = result[result$best_split, ][1L, ]
+  active_best = active_result[active_result$best_split, ][1L, ]
+  expect_equal(best$split_feature, active_best$split_feature)
+  expect_equal(best$split_point, active_best$split_point)
+  expect_equal(best$split_objective, active_best$split_objective)
+})
+
 test_that("cpp_ale_numeric_prepare returns zero_effect for constant feature", {
   skip_ale_cpp_if_unavailable()
   result = xplaineff:::cpp_ale_numeric_prepare(rep(1.0, 20L), n_intervals = 5L)
