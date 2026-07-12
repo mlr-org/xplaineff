@@ -12,6 +12,7 @@
 ^\.gitignore$
 ^\.ignore$
 ^\.lintr$
+^\.r-lib$
 ^\.Rproj\.user$
 ^\.vscode$
 ^.*\.Rproj$

@@ -44,7 +44,10 @@ Suggests:
     mlr3,
     mlr3learners,
     ranger,
-    ISLR2
+    ISLR2,
+    rpart,
+    withr,
+    xgboost
 Config/testthat/edition: 3
 Collate:
     'EffectStrategy.R'
