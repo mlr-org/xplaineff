@@ -8,10 +8,7 @@ test_that("track_split_condition formats categorical splits without coercion war
     children = list(left_child = left_child, right_child = list(id = 3L))
   )
   tree = list(list(parent_node), list(left_child))
-  expect_warning(
-    cond <- xplaineff:::track_split_condition(left_child, tree),
-    regexp = NA
-  )
+  cond = expect_warning(xplaineff:::track_split_condition(left_child, tree), regexp = NA)
   expect_equal(cond, "var_Structure = M")
 })
 
