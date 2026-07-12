@@ -461,15 +461,53 @@ compute_ice_cpp = function(
   if (any(col_lens != nrow(dt))) {
     cli::cli_abort("All columns in {.arg data} must have length {.val {nrow(dt)}} for stacked PD prediction.")
   }
+  n_obs = nrow(data)
+  grid_len = length(grid)
+  ranger_grid_chunk_size = pd_ranger_grid_chunk_size(model, predict_fun, grid_len)
+  if (!is.null(ranger_grid_chunk_size) && ranger_grid_chunk_size < grid_len) {
+    return(compute_ice_cpp_grid_chunked(
+      model = model,
+      cols_shared = cols_shared,
+      feature_index = j - 1L,
+      grid = grid_sexp,
+      n_obs = n_obs,
+      grid_len = grid_len,
+      chunk_size = ranger_grid_chunk_size
+    ))
+  }
   stacked_df = cpp_pd_stack_newdata(cols_shared, j - 1L, grid_sexp)
   if (is.null(predict_fun) && has_predict_method(model, "predict_newdata_fast")) {
     data.table::setDT(stacked_df)
   }
   pred = pd_predict(model, stacked_df, predict_fun = predict_fun)
-  n_obs = nrow(data)
-  grid_len = length(grid)
   dim(pred) = c(n_obs, grid_len)
   pred
+}
+
+pd_ranger_grid_chunk_size = function(model, predict_fun, grid_len) {
+  if (!is.null(predict_fun) || is.null(extract_ranger_regression_model(model))) {
+    return(NULL)
+  }
+  chunk_size = getOption("xplaineff.pd.ranger_grid_chunk_size", 5L)
+  if (is.null(chunk_size)) {
+    return(grid_len)
+  }
+  checkmate::assert_integerish(
+    chunk_size, len = 1L, lower = 1L, any.missing = FALSE,
+    .var.name = "xplaineff.pd.ranger_grid_chunk_size"
+  )
+  min(as.integer(chunk_size), grid_len)
+}
+
+compute_ice_cpp_grid_chunked = function(model, cols_shared, feature_index, grid, n_obs, grid_len, chunk_size) {
+  ice = matrix(NA_real_, nrow = n_obs, ncol = grid_len)
+  for (start in seq(1L, grid_len, by = chunk_size)) {
+    idx = start:min(grid_len, start + chunk_size - 1L)
+    stacked_df = cpp_pd_stack_newdata(cols_shared, feature_index, grid[idx])
+    pred = pd_predict(model, stacked_df, predict_fun = NULL)
+    ice[, idx] = matrix(pred, nrow = n_obs, ncol = length(idx))
+  }
+  ice
 }
 
 
