@@ -23,6 +23,13 @@ test_that("native ranger regression fast prediction matches ranger predict", {
   expect_equal(xplaineff:::default_predict_fun(model, x), expected)
 })
 
+test_that("select_newdata_features keeps already aligned feature data", {
+  x = data.frame(x1 = 1:3, x2 = 4:6)
+
+  expect_identical(xplaineff:::select_newdata_features(x, names(x)), x)
+  expect_identical(xplaineff:::select_newdata_features(x, rev(names(x))), x[rev(names(x))])
+})
+
 test_that("mlr3 regr.ranger fast prediction uses the trained ranger model", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")

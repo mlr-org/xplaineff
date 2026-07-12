@@ -7,7 +7,7 @@ The data and CSV results are regenerable and are ignored by git; the publication
 
 - `run_runtime_benchmark.sh` runs the coordinated publication runtime workflow.
   It generates the shared sweep-cell data, runs the global R package benchmark, runs the regional xplaineff/effector
-  benchmark, and runs the ranger layout-sensitivity diagnostic in publication mode.
+  benchmark.
   Each run writes to `results/runtime_runs/<RUN_ID>/` so incomplete or repeated runs do not overwrite earlier output.
   Use `bash simulation/run_runtime_benchmark.sh smoke` for a small wiring check.
 - `run_global_r_runtime.sh` runs the current global R feature-effect benchmark.
@@ -18,8 +18,6 @@ The data and CSV results are regenerable and are ignored by git; the publication
 - `benchmark_regional_runtime_xplaineff.R` and `benchmark_regional_runtime_effector.py` run the regional PDP/ALE runtime
   benchmark.
   They measure precompute time, split-search time, and total time for xplaineff and effector.
-- `benchmark_ranger_layout_sensitivity.R` runs the direct ranger prediction layout diagnostic used to support the
-  interpretation of close PDP/RF timings in the global benchmark.
 - `run_categorical_recovery.sh` runs the categorical level-ordering recovery diagnostic.
   It writes raw CSV files to `results/categorical_recovery/` and categorical recovery figures to
   `results/paper_figures/`.
@@ -31,8 +29,6 @@ The data and CSV results are regenerable and are ignored by git; the publication
 
 - `results/runtime_runs/<RUN_ID>/global_r_runtime/`: raw CSVs and `summary.csv` for a global R package runtime run.
 - `results/runtime_runs/<RUN_ID>/regional_runtime/`: raw CSVs and `summary.csv` for a regional xplaineff/effector run.
-- `results/runtime_runs/<RUN_ID>/ranger_layout_sensitivity/`: raw and summarized timings for the ranger
-  stacked-data layout diagnostic.
 - `results/structural_recovery/`: raw CSVs and `structural_recovery_summary.csv` for the structural-recovery benchmark.
 - `results/categorical_recovery/`: raw CSVs and `categorical_recovery_summary.csv` for the categorical level-ordering
   diagnostic.

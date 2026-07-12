@@ -272,6 +272,9 @@ select_newdata_features = function(newdata, feature_names = NULL) {
   if (is.null(feature_names)) {
     return(newdata)
   }
+  if (identical(names(newdata), feature_names)) {
+    return(newdata)
+  }
   if (!all(feature_names %in% names(newdata))) {
     return(NULL)
   }

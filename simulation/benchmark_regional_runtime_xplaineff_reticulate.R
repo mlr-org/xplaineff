@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript
-# xplaineff regional PDP/ALE runtime benchmark.
-# Measures the regional precompute, split-search, and total timings separately.
+# xplaineff regional runtime benchmark with a reticulate-backed sklearn random forest.
 
 Sys.setenv(
   OMP_NUM_THREADS = Sys.getenv("OMP_NUM_THREADS", "1"),
@@ -50,6 +49,10 @@ if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xpl
 load_xplaineff_for_benchmark()
 options(xplaineff.pd.ranger_fast = FALSE)
 
+if (!requireNamespace("reticulate", quietly = TRUE)) {
+  stop("Install reticulate for the sklearn reticulate benchmark")
+}
+
 library(data.table)
 setDTthreads(1L)
 
@@ -72,15 +75,22 @@ n_quantiles = 19L
 fail_fast = FALSE
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res", "vs_split")
-output_suffix = ""
-ranger_predict_threads = NULL
+output_suffix = "reticulate_sklearn"
+python = Sys.getenv("RETICULATE_PYTHON", unset = "")
+rf_n_jobs = 1L
 
 parse_int_vec = function(x) as.integer(strsplit(x, ",", fixed = TRUE)[[1L]])
 parse_chr_vec = function(x) trimws(strsplit(x, ",", fixed = TRUE)[[1L]])
 parse_nullable_int = function(x) {
   x = tolower(trimws(as.character(x)))
-  if (x %in% c("", "na", "null", "none", "all", "default")) return(NULL)
+  if (x %in% c("", "na", "null", "none", "default")) return(NULL)
   as.integer(x)
+}
+nullable_int_label = function(x) {
+  if (is.null(x)) "None" else as.character(as.integer(x))
+}
+py_nullable_int = function(x) {
+  if (is.null(x)) reticulate::py_none() else as.integer(x)
 }
 
 i = 1L
@@ -114,20 +124,25 @@ while (i <= length(args)) {
   } else if (args[i] == "--fail-fast" && i < length(args)) {
     fail_fast = parse_flag(args[i + 1L]); i = i + 2L
   } else if (args[i] == "--models" && i < length(args)) {
-    model_types = parse_chr_vec(args[i + 1L]); model_types = model_types[nzchar(model_types)]; i = i + 2L
+    model_types = parse_chr_vec(args[i + 1L]); model_types = model_types[nzchar(model_types)]
+    i = i + 2L
   } else if (args[i] == "--sub-experiments" && i < length(args)) {
     sub_experiments = parse_chr_vec(args[i + 1L]); sub_experiments = sub_experiments[nzchar(sub_experiments)]
     i = i + 2L
   } else if (args[i] == "--output-suffix" && i < length(args)) {
     output_suffix = trimws(as.character(args[i + 1L])); i = i + 2L
-  } else if (args[i] == "--ranger-predict-threads" && i < length(args)) {
-    ranger_predict_threads = parse_nullable_int(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--python" && i < length(args)) {
+    python = trimws(as.character(args[i + 1L])); i = i + 2L
+  } else if (args[i] == "--rf-n-jobs" && i < length(args)) {
+    rf_n_jobs = parse_nullable_int(args[i + 1L]); i = i + 2L
   } else {
     i = i + 1L
   }
 }
 
-options(xplaineff.ranger.num_threads = ranger_predict_threads)
+if (nzchar(python)) {
+  reticulate::use_python(python, required = TRUE)
+}
 
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
@@ -136,10 +151,43 @@ if (length(invalid_model_types)) {
   stop("Unsupported regional model type(s): ", paste(invalid_model_types, collapse = ", "), call. = FALSE)
 }
 
+sklearn_ensemble = reticulate::import("sklearn.ensemble", convert = FALSE)
+sklearn = reticulate::import("sklearn", convert = TRUE)
+
 load_data = function(N, D) {
   path = file.path(datadir, sprintf("benchmark_N%d_D%d_seed21.csv", N, D))
   if (!file.exists(path)) return(NULL)
   as.data.frame(fread(path))
+}
+
+fit_sklearn_rf = function(dat) {
+  features = setdiff(names(dat), "y")
+  model = sklearn_ensemble$RandomForestRegressor(
+    n_estimators = as.integer(100L),
+    criterion = "squared_error",
+    max_features = 1.0,
+    max_depth = reticulate::py_none(),
+    min_samples_split = as.integer(2L),
+    min_samples_leaf = as.integer(1L),
+    min_weight_fraction_leaf = 0.0,
+    max_leaf_nodes = reticulate::py_none(),
+    min_impurity_decrease = 0.0,
+    bootstrap = TRUE,
+    max_samples = reticulate::py_none(),
+    ccp_alpha = 0.0,
+    random_state = as.integer(21L),
+    n_jobs = py_nullable_int(rf_n_jobs)
+  )
+  invisible(model$fit(data.matrix(dat[, features, drop = FALSE]), dat[["y"]]))
+  model
+}
+
+make_reticulate_predict_fun = function(py_model) {
+  force(py_model)
+  function(model, newdata) {
+    x = if (is.matrix(newdata)) newdata else data.matrix(newdata)
+    as.numeric(reticulate::py_to_r(py_model$predict(x)))
+  }
 }
 
 toy_pred_fun = function(model, newdata) {
@@ -149,65 +197,16 @@ toy_pred_fun = function(model, newdata) {
   5 * x1 + 5 * x2 + ifelse(x3 > 0, 10 * x1, 0) - ifelse(x3 > 0, 10 * x2, 0)
 }
 
-rf_config = list(
-  num_trees = 100L,
-  min_node_size = 1L,
-  replace = TRUE,
-  sample_fraction = 1.0,
-  splitrule = "variance",
-  respect_unordered_factors = "ignore",
-  num_threads = NULL,
-  seed = 21L
-)
-
-ranger_threads_label = function(num_threads) {
-  if (is.null(num_threads)) "ranger_default" else as.character(as.integer(num_threads))
-}
-
-fit_rf = function(dat) {
-  if (!requireNamespace("ranger", quietly = TRUE)) {
-    stop("Install ranger for the RF benchmark")
-  }
-  p = ncol(dat) - 1L
-  args = list(
-    formula = y ~ .,
-    data = dat,
-    num.trees = rf_config$num_trees,
-    mtry = p,
-    min.node.size = rf_config$min_node_size,
-    replace = rf_config$replace,
-    sample.fraction = rf_config$sample_fraction,
-    splitrule = rf_config$splitrule,
-    respect.unordered.factors = rf_config$respect_unordered_factors,
-    seed = rf_config$seed
-  )
-  if (!is.null(rf_config$num_threads)) {
-    args$num.threads = rf_config$num_threads
-  }
-  do.call(ranger::ranger, args)
-}
-
-rf_pred_fun = function(model, newdata) {
-  args = list(object = model, data = newdata)
-  if (!is.null(rf_config$num_threads)) {
-    args$num.threads = rf_config$num_threads
-  }
-  as.numeric(do.call(stats::predict, args)$predictions)
-}
-
 fit_model = function(dat, model_type) {
-  if (identical(model_type, "rf")) fit_rf(dat) else "toy"
+  if (identical(model_type, "rf")) fit_sklearn_rf(dat) else "toy"
 }
 
-predict_for_model = function(model_type) {
-  if (identical(model_type, "rf")) rf_pred_fun else toy_pred_fun
+predict_for_model = function(model, model_type) {
+  if (identical(model_type, "rf")) make_reticulate_predict_fun(model) else toy_pred_fun
 }
 
-xplaineff_predict_fun = function(model, pred_fun) {
-  if (inherits(model, "ranger")) {
-    return(NULL)
-  }
-  pred_fun
+model_label = function(model_type) {
+  if (identical(model_type, "rf")) "sklearn_rf_reticulate" else "toy"
 }
 
 make_cells = function() {
@@ -248,8 +247,8 @@ make_cells = function() {
   unique(do.call(rbind, rows))
 }
 
-run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
-  pred_fun = xplaineff_predict_fun(model, pred_fun)
+run_regional = function(effect, dat, model_type, pred_fun, resolution, n_split) {
+  model = model_label(model_type)
   if (identical(effect, "pdp")) {
     strat = PdStrategy$new()
     tree = GadgetTree$new(
@@ -291,12 +290,12 @@ run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
   )
 }
 
-record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
-  status = "ok", error_message = NA_character_) {
+record_row = function(rows, model_type, effect, cell, repetition, timing = NULL, status = "ok",
+  error_message = NA_character_) {
   rows[[length(rows) + 1L]] = data.frame(
     module = "regional_runtime",
     package = "xplaineff",
-    impl = "cpp",
+    impl = if (identical(model_type, "rf")) "reticulate_sklearn" else "cpp",
     effect = effect,
     method = sprintf("regional_%s", effect),
     model_type = model_type,
@@ -310,18 +309,10 @@ record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
     n_quantiles = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     n_candidates = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     split_candidate_rule = if (is.null(n_quantiles)) "all_unique" else "quantile",
-    prediction_path = if (identical(model_type, "rf")) "native_ranger_batch" else "custom_predict_fun",
-    pd_ranger_fast = isTRUE(getOption("xplaineff.pd.ranger_fast", FALSE)),
-    ranger_fit_threads = if (identical(model_type, "rf")) {
-      ranger_threads_label(rf_config$num_threads)
-    } else {
-      NA_character_
-    },
-    ranger_predict_threads = if (identical(model_type, "rf")) {
-      ranger_threads_label(getOption("xplaineff.ranger.num_threads", NULL))
-    } else {
-      NA_character_
-    },
+    prediction_path = if (identical(model_type, "rf")) "reticulate_sklearn_batch" else "custom_predict_fun",
+    python = if (identical(model_type, "rf")) reticulate::py_config()$python else NA_character_,
+    sklearn_version = if (identical(model_type, "rf")) as.character(sklearn$`__version__`) else NA_character_,
+    rf_n_jobs = if (identical(model_type, "rf")) nullable_int_label(rf_n_jobs) else NA_character_,
     repetition = repetition,
     precompute_time_sec = if (is.null(timing)) NA_real_ else timing[["precompute"]],
     split_time_sec = if (is.null(timing)) NA_real_ else timing[["split"]],
@@ -338,31 +329,30 @@ run_model = function(model_type) {
   data_keys = unique(cells[, c("N", "D"), drop = FALSE])
   data_cache = list()
   model_cache = list()
+  pred_cache = list()
   for (i in seq_len(nrow(data_keys))) {
     key = sprintf("N%d_D%d", data_keys$N[i], data_keys$D[i])
     dat = load_data(data_keys$N[i], data_keys$D[i])
     if (is.null(dat)) next
     data_cache[[key]] = dat
     model_cache[[key]] = fit_model(dat, model_type)
+    pred_cache[[key]] = predict_for_model(model_cache[[key]], model_type)
   }
 
   rows = list()
-  pred_fun = predict_for_model(model_type)
   for (effect in c("pdp", "ale")) {
     for (i in seq_len(nrow(cells))) {
       cell = cells[i, , drop = FALSE]
       key = sprintf("N%d_D%d", cell$N, cell$D)
       if (!key %in% names(data_cache)) next
-      dat = data_cache[[key]]
-      model = model_cache[[key]]
       log_msg = sprintf(
-        "[%s] xplaineff regional %s %s N=%d D=%d res=%d n_split=%d n_quantiles=%s",
+        "[%s] xplaineff reticulate regional %s %s N=%d D=%d res=%d n_split=%d n_quantiles=%s",
         model_type, effect, cell$sub_experiment, cell$N, cell$D, cell$resolution, cell$n_split,
         if (is.null(n_quantiles)) "NULL" else as.character(n_quantiles)
       )
       message(log_msg, " | start")
       tryCatch(
-        run_regional(effect, dat, model, pred_fun, cell$resolution, cell$n_split),
+        run_regional(effect, data_cache[[key]], model_type, pred_cache[[key]], cell$resolution, cell$n_split),
         error = function(e) {
           if (isTRUE(fail_fast)) stop(e)
           message(log_msg, " | warmup skipped/failed: ", conditionMessage(e))
@@ -371,8 +361,18 @@ run_model = function(model_type) {
       )
       for (r in seq_len(reps)) {
         out = tryCatch(
-          list(ok = TRUE, timing = run_regional(effect, dat, model, pred_fun, cell$resolution, cell$n_split),
-            error = NA_character_),
+          list(
+            ok = TRUE,
+            timing = run_regional(
+              effect,
+              data_cache[[key]],
+              model_type,
+              pred_cache[[key]],
+              cell$resolution,
+              cell$n_split
+            ),
+            error = NA_character_
+          ),
           error = function(e) {
             if (isTRUE(fail_fast)) stop(e)
             list(ok = FALSE, timing = NULL, error = conditionMessage(e))
@@ -399,12 +399,11 @@ out_filename = function(stem) {
   if (nzchar(output_suffix)) sprintf("%s_%s.csv", stem, output_suffix) else sprintf("%s.csv", stem)
 }
 
-all_rows = list()
+rows = list()
 for (model_type in model_types) {
-  all_rows = c(all_rows, run_model(model_type))
+  rows = c(rows, run_model(model_type))
 }
-
-out = if (length(all_rows)) rbindlist(all_rows, fill = TRUE) else data.table()
+out = if (length(rows)) rbindlist(rows, fill = TRUE) else data.table()
 fn = out_filename("regional_runtime_xplaineff")
 fwrite(out, file.path(outdir, fn))
 message("Written: ", fn)

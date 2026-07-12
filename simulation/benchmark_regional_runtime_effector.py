@@ -47,7 +47,7 @@ RF_CONFIG = {
     "max_samples": None,
     "ccp_alpha": 0.0,
     "random_state": 21,
-    "n_jobs": None,
+    "n_jobs": 1,
 }
 
 
@@ -201,7 +201,7 @@ def record(args, model_type, effect, cell, repetition, timing=None, status="ok",
         "numerical_features_grid_size": args.numerical_features_grid_size,
         "n_candidates": args.numerical_features_grid_size - 1,
         "split_candidate_rule": "uniform",
-        "rf_n_jobs": "None" if model_type == "rf" else "",
+        "rf_n_jobs": str(RF_CONFIG["n_jobs"]) if model_type == "rf" else "",
         "repetition": repetition,
         "precompute_time_sec": "" if timing is None else timing["precompute"],
         "split_time_sec": "" if timing is None else timing["split"],
@@ -292,7 +292,7 @@ def main():
     parser.add_argument("--datadir", default="simulation/data/global_r_runtime")
     parser.add_argument("--outdir", default=os.path.join(run_root, "regional_runtime"))
     parser.add_argument("--reps", type=int, default=30)
-    parser.add_argument("--N-vec", default="5000,10000,25000,50000")
+    parser.add_argument("--N-vec", default="1000,5000,10000,20000")
     parser.add_argument("--D-vec", default="10,20,50,100")
     parser.add_argument("--fixed-N", type=int, default=10000)
     parser.add_argument("--fixed-D", type=int, default=20)

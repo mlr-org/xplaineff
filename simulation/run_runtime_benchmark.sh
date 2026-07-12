@@ -48,9 +48,7 @@ if [ "$MODE" = "smoke" ]; then
   MODELS="${BENCHMARK_MODELS:-toy}"
   GLOBAL_OUTDIR="${RUN_ROOT}/global_r_runtime_smoke"
   REGIONAL_OUTDIR="${RUN_ROOT}/regional_runtime_smoke"
-  DIAGNOSTIC_OUTDIR="${RUN_ROOT}/ranger_layout_sensitivity_smoke"
   FIGDIR="${RUN_ROOT}/paper_figures_smoke"
-  RUN_DIAGNOSTIC="${RUN_DIAGNOSTIC:-false}"
 else
   N_VEC="1000,5000,10000,20000"
   D_VEC="10,20,50,100"
@@ -66,9 +64,7 @@ else
   MODELS="${BENCHMARK_MODELS:-rf,toy}"
   GLOBAL_OUTDIR="${RUN_ROOT}/global_r_runtime"
   REGIONAL_OUTDIR="${RUN_ROOT}/regional_runtime"
-  DIAGNOSTIC_OUTDIR="${RUN_ROOT}/ranger_layout_sensitivity"
   FIGDIR="${RUN_ROOT}/paper_figures"
-  RUN_DIAGNOSTIC="${RUN_DIAGNOSTIC:-true}"
 fi
 
 echo "=== Runtime benchmark mode: ${MODE} ==="
@@ -188,17 +184,6 @@ if [ "$PARALLEL_PHASES" = "true" ]; then
 else
   run_global_benchmark
   run_regional_benchmark
-fi
-
-if [ "$RUN_DIAGNOSTIC" = "true" ]; then
-  echo "3. Running ranger layout-sensitivity diagnostic..."
-  Rscript simulation/benchmark_ranger_layout_sensitivity.R \
-    --datadir "${DATADIR}" \
-    --outdir "${DIAGNOSTIC_OUTDIR}" \
-    --reps "${REPS}" \
-    --warmup 2
-  Rscript simulation/summarize_ranger_layout_sensitivity.R \
-    --indir "${DIAGNOSTIC_OUTDIR}"
 fi
 
 if [ "$MODE" = "publication" ] && [ "$SYNC_PAPER_FIGURES" = "true" ]; then
