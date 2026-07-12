@@ -40,19 +40,29 @@ if (nzchar(paper_figdir)) dir.create(paper_figdir, showWarnings = FALSE, recursi
 library(data.table)
 library(ggplot2)
 
+method_order_display_levels = c("raw", "random", "mds", "pca", "exhaustive search")
 method_order_labels = c(
-  "xplaineff_ale|raw" = "ALE (raw)",
-  "xplaineff_ale|random" = "ALE (random)",
-  "xplaineff_ale|mds" = "ALE (mds)",
-  "xplaineff_ale|pca" = "ALE (pca)",
-  "xplaineff_ale|oracle_partition" = "ALE (exhaustive search)"
+  "gadget_ale|raw" = "raw",
+  "gadget_ale|random" = "random",
+  "gadget_ale|mds" = "mds",
+  "gadget_ale|pca" = "pca",
+  "gadget_ale|oracle_partition" = "exhaustive search",
+  "xplaineff_ale|raw" = "raw",
+  "xplaineff_ale|random" = "random",
+  "xplaineff_ale|mds" = "mds",
+  "xplaineff_ale|pca" = "pca",
+  "xplaineff_ale|oracle_partition" = "exhaustive search"
 )
 method_order_levels = names(method_order_labels)
 
 # dgp_prefix is set lazily after the first sweep CSV is loaded; it disambiguates
-# output filenames so that running the summarizer for digit and group DGPs into
+# output filenames so that running the summarizer for binary-slope and group mechanisms into
 # the same figure directory does not overwrite each other.
 dgp_prefix = ""
+plot_prefix = function(dgp_type) {
+  if (identical(dgp_type, "digit")) "binary_slope"
+  else dgp_type
+}
 prefixed = function(stem) {
   if (nzchar(dgp_prefix)) sprintf("categorical_recovery_%s_%s", dgp_prefix, stem)
   else sprintf("categorical_recovery_%s", stem)
@@ -75,10 +85,10 @@ load_sweep = function(name) {
   if (!"dgp_type" %in% names(d)) d[, dgp_type := "digit"]
   if (!nzchar(dgp_prefix)) {
     found = unique(as.character(d$dgp_type))
-    if (length(found) == 1L) dgp_prefix <<- found
+    if (length(found) == 1L) dgp_prefix <<- plot_prefix(found)
   }
   d[, mo := factor(paste(method, order_method, sep = "|"), levels = method_order_levels)]
-  d[, mo_label := factor(method_order_labels[as.character(mo)], levels = unname(method_order_labels))]
+  d[, mo_label := factor(method_order_labels[as.character(mo)], levels = method_order_display_levels)]
   d
 }
 
@@ -159,7 +169,8 @@ paired_t_table = function(d, xvar, baseline = ttest_baseline) {
 
 # A sweep figure: exact recovery (solid) + ARI (dashed) vs the swept axis.
 # subtitle_fixed: describes the non-swept axes held constant at base values.
-sweep_plot = function(d, xvar, xlab, title, subtitle_fixed = "", logx = FALSE) {
+sweep_plot = function(d, xvar, xlab, title, subtitle_fixed = "", logx = FALSE,
+    x_breaks = NULL, x_labels = waiver(), x_text_angle = 0) {
   agg = aggregate_sweep(d, xvar)
   long = melt(agg, id.vars = c("mo", "mo_label", xvar),
     measure.vars = c("exact", "ari"),
@@ -168,14 +179,27 @@ sweep_plot = function(d, xvar, xlab, title, subtitle_fixed = "", logx = FALSE) {
     labels = c("Exact recovery", "Adjusted Rand index"))]
   p = ggplot(long, aes(x = .data[[xvar]], y = value, color = mo_label, linetype = metric)) +
     geom_line(linewidth = 0.8) +
-    geom_point(size = 1.4) +
+    geom_point(size = 2.0) +
     coord_cartesian(ylim = c(0, 1)) +
     labs(title = title, subtitle = subtitle_fixed, x = xlab, y = "Recovery",
-         color = "Method", linetype = "Metric") +
-    theme_bw() +
-    theme(legend.position = "right", legend.box = "vertical",
-          legend.key.width = unit(1.5, "cm"))
-  if (logx) p = p + scale_x_log10()
+         color = NULL, linetype = NULL) +
+    theme_bw(base_size = 10) +
+    theme(
+      legend.position = "bottom",
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5)
+    )
+  if (logx) {
+    p = p + scale_x_log10()
+  } else if (!is.null(x_breaks)) {
+    p = p + scale_x_continuous(
+      breaks = x_breaks, labels = x_labels
+    )
+  }
+  if (x_text_angle != 0) {
+    p = p + theme(axis.text.x = element_text(angle = x_text_angle, hjust = 1, vjust = 1))
+  }
   p
 }
 
@@ -225,31 +249,35 @@ if (nrow(ttest_tbl)) {
 
 if ("leakage" %in% sweeps && !is.null(d_leakage)) {
   p = sweep_plot(d_leakage, "leakage",
-    "Leakage strength (0 = none, 1 = deterministic)",
-    "Level-grouping recovery vs covariate leakage",
-    subtitle_fixed = expression(paste("Sweeping ", lambda, "; fixed M = 6, n = 2000, p = 10, ",
-                                      beta[max], " = 4")))
+    expression(paste("Leakage strength ", lambda["leak"], " (0 = none, 1 = deterministic)")),
+    "Level-ordering diagnostic vs leakage strength",
+    subtitle_fixed = expression(paste("Sweeping ", lambda["leak"], "; fixed M = 6, n = 2000, p = 10, ",
+                                      beta[max], " = 4")),
+    x_breaks = c(0, 0.05, 0.075, 0.10, 0.25, 0.50, 1.00),
+    x_labels = c("0", "0.05", "0.075", "0.10", "0.25", "0.50", "1.00"),
+    x_text_angle = 30)
   save_plot("leakage", p, width = 10, height = 5.5)
 }
 if ("K" %in% sweeps && !is.null(d_K)) {
   p = sweep_plot(d_K, "K", "Number of levels M",
-    "Level-grouping recovery vs cardinality",
-    subtitle_fixed = expression(paste("Sweeping M; fixed n = 2000, p = 10, ", lambda, " = 0.1, ",
-                                      beta[max], " = 4")))
+    "Level-ordering diagnostic vs cardinality",
+    subtitle_fixed = expression(paste("Sweeping M; fixed n = 2000, p = 10, ", lambda["leak"], " = 0.1, ",
+                                      beta[max], " = 4")),
+    x_breaks = c(6, 8, 12, 20))
   save_plot("K", p, width = 10, height = 5.5)
 }
 if ("N" %in% sweeps && !is.null(d_N)) {
   p = sweep_plot(d_N, "N", "Sample size n",
-    "Level-grouping recovery vs sample size",
-    subtitle_fixed = expression(paste("Sweeping n; fixed M = 6, p = 10, ", lambda, " = 0.1, ",
+    "Level-ordering diagnostic vs sample size",
+    subtitle_fixed = expression(paste("Sweeping n; fixed M = 6, p = 10, ", lambda["leak"], " = 0.1, ",
                                       beta[max], " = 4")),
     logx = TRUE)
   save_plot("N", p, width = 10, height = 5.5)
 }
 if ("D" %in% sweeps && !is.null(d_D)) {
   p = sweep_plot(d_D, "D", "Number of features p",
-    "Level-grouping recovery vs noise features",
-    subtitle_fixed = expression(paste("Sweeping p; fixed M = 6, n = 2000, ", lambda, " = 0.1, ",
+    "Level-ordering diagnostic vs noise features",
+    subtitle_fixed = expression(paste("Sweeping p; fixed M = 6, n = 2000, ", lambda["leak"], " = 0.1, ",
                                       beta[max], " = 4")),
     logx = TRUE)
   save_plot("D", p, width = 10, height = 5.5)
@@ -257,16 +285,16 @@ if ("D" %in% sweeps && !is.null(d_D)) {
 if ("slope_mag" %in% sweeps && !is.null(d_slope_mag)) {
   p = sweep_plot(d_slope_mag, "slope_mag",
     expression(paste("Response-side slope magnitude ", beta[max])),
-    "Level-grouping recovery vs response-side SNR",
+    "Level-ordering diagnostic vs slope size",
     subtitle_fixed = expression(paste("Sweeping ", beta[max], "; fixed M = 6, n = 2000, p = 10, ",
-                                      lambda, " = 0.1")))
+                                      lambda["leak"], " = 0.1")))
   save_plot("slope_mag", p, width = 10, height = 5.5)
 }
 if ("group_frac" %in% sweeps && !is.null(d_group_frac)) {
   p = sweep_plot(d_group_frac, "group_frac", "Signal-level fraction",
-    "Level-grouping recovery vs signal-group size",
+    "Level-ordering diagnostic vs signal-group size",
     subtitle_fixed = expression(paste("Sweeping signal fraction; fixed M = 6, n = 2000, p = 10, ",
-                                      lambda, " = 0.1, ", beta[max], " = 4")))
+                                      lambda["leak"], " = 0.1, ", beta[max], " = 4")))
   save_plot("group_frac", p, width = 10, height = 5.5)
 }
 

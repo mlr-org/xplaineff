@@ -156,6 +156,7 @@ $RECYCLE.BIN/
 
 # R
 .Rprofile
+.r-lib/
 README.html
 src/*.o
 src/*.so
