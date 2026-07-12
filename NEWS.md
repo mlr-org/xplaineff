@@ -11,7 +11,6 @@
 - calculate_ale_fast() now uses a ranger-specific C++ prediction path for numeric regression forests when no custom `predict_fun` is supplied (no issue).
 - calculate_pd() keeps the experimental ranger-specific C++ prediction path internal and defaults to ranger batch prediction for numeric regression forests (no issue).
 - calculate_pd() now routes custom `predict_fun` calls through the cached R-side PD stack to avoid slow data-frame reconstruction in the C++ stacker (no issue).
-- calculate_pd() now chunks native ranger batch predictions over PD grid values to reduce high-dimensional PDP precompute time (no issue).
 - compute_ice_r() now preserves fractional grid values for cached integer features in the PD R backend (no issue).
 - default_predict_fun() now uses direct regression prediction paths for native `ranger`, native and mlr3 `rpart`, and native and mlr3 `xgboost` models when no custom `predict_fun` is supplied. Ranger prediction threads can be controlled with the `xplaineff.ranger.num_threads` option (no issue).
 - extract_split_info() keeps categorical split level sets out of the default summary table (no issue).

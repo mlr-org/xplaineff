@@ -158,38 +158,6 @@ test_that("compute_ice cpp matches r (ranger native model, data= predict)", {
   testthat::expect_equal(ice_cpp, ice_r, tolerance = 1e-10)
 })
 
-test_that("compute_ice cpp chunks ranger grid batches without changing predictions", {
-  testthat::skip_if_not_installed("ranger")
-  tryCatch(
-    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
-    error = function(e) {
-      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-        testthat::skip("C++ pd_fast not loaded")
-      }
-      stop(e)
-    }
-  )
-  set.seed(41L)
-  n = 60L
-  d = data.frame(x1 = runif(n), x2 = rnorm(n), x3 = rnorm(n), y = rnorm(n))
-  fit = ranger::ranger(
-    y ~ .,
-    data = d,
-    num.trees = 30L,
-    num.threads = 1L,
-    seed = 41L
-  )
-  x_only = d[, c("x1", "x2", "x3"), drop = FALSE]
-  grid = seq(0.1, 0.9, length.out = 9L)
-
-  withr::local_options(list(xplaineff.pd.ranger_grid_chunk_size = NULL))
-  unchunked = xplaineff:::compute_ice_cpp(fit, x_only, "x1", grid, predict_fun = NULL)
-  withr::local_options(list(xplaineff.pd.ranger_grid_chunk_size = 2L))
-  chunked = xplaineff:::compute_ice_cpp(fit, x_only, "x1", grid, predict_fun = NULL)
-
-  testthat::expect_equal(chunked, unchunked, tolerance = 1e-10)
-})
-
 test_that("ranger fast PD path matches default prediction for native regression forests", {
   testthat::skip_if_not_installed("ranger")
   tryCatch(
