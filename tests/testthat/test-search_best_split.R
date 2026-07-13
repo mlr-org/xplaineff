@@ -109,6 +109,65 @@ test_that("search_best_split_cpp handles categorical split and one-level factor"
   expect_false(result$best_split[2L])
 })
 
+test_that("search_best_split_cpp handles categorical self effect grids", {
+  skip_cpp_if_unavailable()
+  Z = data.frame(cat = factor(c("a", "a", "b", "b", "c", "c")))
+  Y = list(cat = matrix(
+    c(
+      1, 2, 3,
+      2, 3, 4,
+      4, 3, 2,
+      5, 4, 3,
+      3, 5, 7,
+      4, 6, 8
+    ),
+    nrow = 6L,
+    byrow = TRUE,
+    dimnames = list(NULL, c("a", "b", "c"))
+  ))
+
+  result = search_best_split_cpp(Z = Z, Y = Y, min_node_size = 1L)
+
+  expect_true(is.data.frame(result))
+  expect_true(result$is_categorical[1L])
+  expect_true(is.finite(result$split_objective[1L]))
+})
+
+test_that("search_best_split_cpp halves numeric self-effect grids", {
+  skip_cpp_if_unavailable()
+  z = 1:6
+  Y = matrix(
+    c(
+      1, 2, 3, 9, 10, 11,
+      1, 2, 3, 9, 10, 11,
+      1, 2, 3, 9, 10, 11,
+      10, 11, 12, 1, 2, 3,
+      10, 11, 12, 1, 2, 3,
+      10, 11, 12, 1, 2, 3
+    ),
+    nrow = 6L,
+    byrow = TRUE,
+    dimnames = list(NULL, as.character(z))
+  )
+  objective = function(split_value) {
+    grid = as.numeric(colnames(Y))
+    idx_left = z <= split_value
+    grid_left = grid <= split_value
+    left = Y[idx_left, grid_left, drop = FALSE]
+    right = Y[!idx_left, !grid_left, drop = FALSE]
+    parent_ss = sum(colSums(Y^2))
+    sum(colSums(left^2) - colSums(left)^2 / sum(idx_left)) +
+      sum(colSums(right^2) - colSums(right)^2 / sum(!idx_left)) -
+      parent_ss
+  }
+  expected = vapply(z[-length(z)], objective, numeric(1L))
+
+  result = search_best_split_cpp(Z = data.frame(x = z), Y = list(x = Y), min_node_size = 2L)
+
+  expect_equal(as.numeric(result$split_point[1L]), 3.5)
+  expect_equal(result$split_objective[1L], min(expected), tolerance = 1e-10)
+})
+
 test_that("search_best_split_cpp handles character numeric features and quantile candidates", {
   skip_cpp_if_unavailable()
   Z = data.frame(

@@ -66,7 +66,12 @@ inline std::vector<double> grid_from_matrix_colnames(SEXP m) {
   CharacterVector colnames(cn);
   g.reserve(colnames.size());
   for (R_xlen_t k = 0; k < colnames.size(); ++k) {
-    g.push_back(colnames[k] == NA_STRING ? NA_REAL : std::stod(as<std::string>(colnames[k])));
+    if (colnames[k] == NA_STRING) return std::vector<double>();
+    try {
+      g.push_back(std::stod(as<std::string>(colnames[k])));
+    } catch (...) {
+      return std::vector<double>();
+    }
   }
   return g;
 }
@@ -211,10 +216,13 @@ List search_best_split_point_cpp_internal(
 {
   const int Ly = offsets.size() - 1; // p
   const int N = Y_by_obs.n_cols; // n
+  const int split_feat_n_grid = split_feat_effect >= 0 ?
+    offsets[split_feat_effect + 1] - offsets[split_feat_effect] : 0;
   // The split feature's own effect (if any) has its ICE grid divided across the children;
   // its flattened column range comes straight from offsets.
   const bool is_own_effect_halved = split_feat_effect >= 0 &&
-    offsets[split_feat_effect + 1] > offsets[split_feat_effect];
+    split_feat_n_grid > 0 &&
+    split_feat_grid.size() == static_cast<size_t>(split_feat_n_grid);
   const arma::uword sf_start = is_own_effect_halved ? offsets[split_feat_effect] : 0;      // a
   const arma::uword sf_end   = is_own_effect_halved ? offsets[split_feat_effect + 1] : 0;  // b
   // Split feature's parent total sum-of-squares, computed once here (before evaluating any
@@ -575,6 +583,7 @@ DataFrame search_best_split_cpp(
   std::vector<std::vector<double>> feat_grid(p);
   if (has_effect_names) {
     for (int j = 0; j < p; ++j) {
+      if (Rf_isFactor(Z[j])) continue;
       const std::string fname = as<std::string>(feat_names[j]);
       for (int l = 0; l < Ly; ++l) {
         if (!active_effect[l]) continue;
