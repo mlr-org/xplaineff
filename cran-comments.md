@@ -15,7 +15,7 @@ env LC_ALL=C OMP_NUM_THREADS=1 \
 
 - macOS Ventura 13.1, R 4.5.0: `0 errors | 0 warnings | 2 notes`.
 - Windows Server 2022, R-release 4.6.1 (win-builder): `0 errors | 0 warnings | 1 note`.
-- Windows Server 2022, R-devel r90210 (win-builder): `0 errors | 0 warnings | 1 note`.
+- Windows Server 2022, R-devel r90242 (win-builder): `0 errors | 0 warnings | 1 note`.
 - `checking CRAN incoming feasibility ... NOTE`: new submission.
 - `checking HTML version of manual ... NOTE`: package `V8` is unavailable in the local check environment.
 
