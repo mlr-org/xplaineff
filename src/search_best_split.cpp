@@ -8,6 +8,8 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 using namespace Rcpp;
 
@@ -47,6 +49,28 @@ inline arma::mat arma_view(SEXP obj) {
   return arma::mat(M.begin(), M.nrow(), M.ncol(), false);
 }
 
+/* Count of grid points <= x via binary search (O(log n)). Precondition: grid sorted ascending
+   (checked once per feature by the caller, not here, since this runs per split candidate).
+   Mirrors R's findInterval default. */
+inline int find_grid_interval(double x, const std::vector<double>& grid) {
+  return static_cast<int>(std::upper_bound(grid.begin(), grid.end(), x) - grid.begin());
+}
+
+/* Extract the numeric grid (column names) of an R matrix. Empty if names are absent. */
+inline std::vector<double> grid_from_matrix_colnames(SEXP m) {
+  std::vector<double> g;
+  SEXP dn = Rf_getAttrib(m, R_DimNamesSymbol);
+  if (Rf_isNull(dn)) return g;
+  SEXP cn = VECTOR_ELT(dn, 1);
+  if (Rf_isNull(cn)) return g;
+  CharacterVector colnames(cn);
+  g.reserve(colnames.size());
+  for (R_xlen_t k = 0; k < colnames.size(); ++k) {
+    g.push_back(colnames[k] == NA_STRING ? NA_REAL : std::stod(as<std::string>(colnames[k])));
+  }
+  return g;
+}
+
 List child_objectives_from_flat_sums(
     const arma::vec& SL,
     const arma::vec& QL,
@@ -54,7 +78,9 @@ List child_objectives_from_flat_sums(
     const arma::vec& Q_tot,
     const std::vector<int>& offsets,
     int NL,
-    int NR
+    int NR,
+    int split_feat_effect = -1,      // effect index of the split feature's own effect (-1 = none)
+    int split_feat_pos = 0           // # of that feature's grid points <= the split value
 ) {
   const int Ly = offsets.size() - 1;
   NumericVector left_obj(Ly, NA_REAL);
@@ -73,6 +99,27 @@ List child_objectives_from_flat_sums(
     }
     const int start = offsets[l];
     const int end = offsets[l + 1] - 1;
+    // Split feature: its ICE grid is divided across the children, so the left child's
+    // objective covers only grid columns <= split (positions [start, mid)) and the right
+    // child's only columns > split ([mid, end]). See search_best_split_point_cpp_internal.
+    if (l == split_feat_effect) {
+      const int mid = start + split_feat_pos;   // first right-surviving column
+      if (mid > start) {
+        const arma::vec SL_l = SL.subvec(start, mid - 1);
+        const arma::vec QL_l = QL.subvec(start, mid - 1);
+        left_obj[l] = arma::accu(QL_l - SL_l%SL_l / NL);
+      } else {
+        left_obj[l] = 0.0;
+      }
+      if (mid <= end) {
+        const arma::vec SR_l = S_tot.subvec(mid, end) - SL.subvec(mid, end);
+        const arma::vec QR_l = Q_tot.subvec(mid, end) - QL.subvec(mid, end);
+        right_obj[l] = arma::accu(QR_l - SR_l%SR_l / NR);
+      } else {
+        right_obj[l] = 0.0;
+      }
+      continue;
+    }
     const arma::vec SL_l = SL.subvec(start, end);
     const arma::vec QL_l = QL.subvec(start, end);
     const arma::vec SR_l = S_tot.subvec(start, end) - SL_l;
@@ -92,7 +139,9 @@ List child_objectives_numeric_flat(
     const arma::mat& Y_by_obs,
     const arma::vec& S_tot,
     const arma::vec& Q_tot,
-    const std::vector<int>& offsets
+    const std::vector<int>& offsets,
+    int split_feat_effect = -1,
+    int split_feat_pos = 0
 ) {
   const int N = Y_by_obs.n_cols;
   arma::vec SL(Y_by_obs.n_rows, arma::fill::zeros);
@@ -106,7 +155,8 @@ List child_objectives_numeric_flat(
     SL += yi;
     QL += yi % yi;
   }
-  return child_objectives_from_flat_sums(SL, QL, S_tot, Q_tot, offsets, NL, N - NL);
+  return child_objectives_from_flat_sums(SL, QL, S_tot, Q_tot, offsets, NL, N - NL,
+    split_feat_effect, split_feat_pos);
 }
 
 List child_objectives_categorical_flat(
@@ -128,6 +178,8 @@ List child_objectives_categorical_flat(
     SL += yi;
     QL += yi % yi;
   }
+  // TODO: as in the categorical objective above, no split-feature grid halving is applied here
+  // (default -1). The categorical splitting feature's own effect is treated like the others.
   return child_objectives_from_flat_sums(SL, QL, S_tot, Q_tot, offsets, NL, N - NL);
 }
 
@@ -153,10 +205,27 @@ List search_best_split_point_cpp_internal(
     Nullable<int>     n_quantiles   = R_NilValue,
     bool              is_categorical = false,
     int               min_node_size  = 1,
-    bool              compute_child_objectives = true)
+    bool              compute_child_objectives = true,
+    int               split_feat_effect = -1,      // effect index of the split feature's own
+    const std::vector<double>& split_feat_grid = std::vector<double>())  // effect (-1 = none)
 {
   const int Ly = offsets.size() - 1; // p
   const int N = Y_by_obs.n_cols; // n
+  // The split feature's own effect (if any) has its ICE grid divided across the children;
+  // its flattened column range comes straight from offsets.
+  const bool is_own_effect_halved = split_feat_effect >= 0 &&
+    offsets[split_feat_effect + 1] > offsets[split_feat_effect];
+  const arma::uword sf_start = is_own_effect_halved ? offsets[split_feat_effect] : 0;      // a
+  const arma::uword sf_end   = is_own_effect_halved ? offsets[split_feat_effect + 1] : 0;  // b
+  // Split feature's parent total sum-of-squares, computed once here (before evaluating any
+  // split candidate). WHY it is subtracted: for every OTHER feature the SS term cancels
+  // (SS_parent = SS_left + SS_right, so it drops as a constant and only S terms remain). For
+  // the split feature the grid is halved, so its SS does NOT cancel and must be kept -- but
+  // then its objective carries an extra +SS_parent,j that differs per feature. Subtracting
+  // sf_const removes that per-feature offset (leaving only the global constant Sum_k SS_k,
+  // identical for every split choice) so split_objective stays comparable ACROSS features.
+  const double sf_const = is_own_effect_halved ?
+    arma::accu(Q_tot.subvec(sf_start, sf_end - 1)) : 0.0;
 
   double best_obj = R_PosInf, best_split = NA_REAL;
   std::string best_level;
@@ -201,6 +270,12 @@ List search_best_split_point_cpp_internal(
       if (NL < min_node_size || NR < min_node_size) continue;
 
       // Calculate objective function for this split
+      // TODO: split-feature handling for a CATEGORICAL splitting feature is not done here.
+      // For the numeric case, the split feature's own ICE grid is divided across the children,
+      // so its risk uses the true child SSE over each surviving half minus its parent SS
+      // (is_own_effect_halved branch below). The analogous treatment for a categorical splitting
+      // feature is still open (same TODO as in the R reference search_best_split_point_pd.R);
+      // currently its own effect is treated like any other feature (S-only, full grid).
       const arma::vec SL = SumL[k];
       const arma::vec SR = S_tot - SL;
       double obj = arma::accu( - SL%SL / NL - SR%SR / NR );
@@ -285,14 +360,29 @@ List search_best_split_point_cpp_internal(
       _["left_objective_value_j"] = best_left_obj,
       _["right_objective_value_j"] = best_right_obj);
 
+  // Grid must be ascending for find_grid_interval; checked once here, not per candidate.
+  if (is_own_effect_halved && !std::is_sorted(split_feat_grid.begin(), split_feat_grid.end())) {
+    Rcpp::stop("search_best_split: split-feature ICE grid is not sorted ascending.");
+  }
+
   // Stream through split candidates and accumulate left sums (incremental; splits are sorted)
   arma::vec SL(Y_by_obs.n_rows, arma::fill::zeros);
+  // For the split feature, also track the left-child sum-of-squares over its own grid columns
+  // (sf_M = its grid size). This mirrors the SL accumulation but is restricted to that one
+  // feature's columns, so it adds O(sf_M) per candidate -- the same order as the existing
+  // O(M) objective sweep, never a new asymptotic term even when the grid scales with n.
+  const arma::uword sf_M = is_own_effect_halved ? (sf_end - sf_start) : 0;
+  arma::vec QL_split(sf_M, arma::fill::zeros);
 
   int idx = 0;
   for (double sp : splits) {
     while (idx < N && z_sorted[idx] <= sp) {
       int r = ord[idx++];
       SL += Y_by_obs.col(r);
+      if (is_own_effect_halved) {
+        const double* yr = Y_by_obs.colptr(r) + sf_start;  // split feature's own rows for obs r
+        for (arma::uword c = 0; c < sf_M; ++c) QL_split[c] += yr[c] * yr[c];
+      }
     }
     int NL = idx, NR = N - NL;
 
@@ -301,7 +391,42 @@ List search_best_split_point_cpp_internal(
 
     // Calculate objective function for this split
     const arma::vec SR = S_tot - SL;
-    double obj = arma::accu( - SL%SL / NL - SR%SR / NR );
+    double obj;
+    if (!is_own_effect_halved) {
+      obj = arma::accu( - SL%SL / NL - SR%SR / NR );
+    } else {
+      // The split feature's own ICE grid is divided between the children: the left child
+      // keeps grid columns <= sp, the right child keeps columns > sp. Every other feature
+      // keeps its full grid in both children.
+      const arma::uword a = sf_start;   // split feature's first column
+      const arma::uword b = sf_end;     // one past its last column
+      const arma::uword M = SL.n_elem;
+      const arma::uword mid = a + find_grid_interval(sp, split_feat_grid);  // first right-surviving col
+      obj = 0.0;
+      // Other features (columns outside the split feature's block): their sum-of-squares
+      // cancels across split points, so only the S term is needed (both children).
+      if (a > 0) {
+        obj -= arma::dot(SL.head(a), SL.head(a)) / NL;
+        obj -= arma::dot(SR.head(a), SR.head(a)) / NR;
+      }
+      if (b < M) {
+        obj -= arma::dot(SL.tail(M - b), SL.tail(M - b)) / NL;
+        obj -= arma::dot(SR.tail(M - b), SR.tail(M - b)) / NR;
+      }
+      // Split feature: the SS term does NOT cancel here, so use the true child SSE
+      // (Q - S^2/n) over each surviving half. Subtracting sf_const (its parent SS) leaves the
+      // score comparable across features. QL_split is indexed locally (column c -> c - a).
+      if (mid > a) {  // left half, grid <= sp
+        const arma::vec SL_l = SL.subvec(a, mid - 1);
+        obj += arma::accu(QL_split.head(mid - a)) - arma::dot(SL_l, SL_l) / NL;
+      }
+      if (mid < b) {  // right half, grid > sp
+        const arma::vec QR_r = Q_tot.subvec(mid, b - 1) - QL_split.subvec(mid - a, b - 1 - a);
+        const arma::vec SR_r = SR.subvec(mid, b - 1);
+        obj += arma::accu(QR_r) - arma::dot(SR_r, SR_r) / NR;
+      }
+      obj -= sf_const;
+    }
     if (obj < best_obj) {
       best_obj = obj;
       best_split = sp;
@@ -325,7 +450,9 @@ List search_best_split_point_cpp_internal(
   double mid = std::isinf(Rgt) ? Lft : (Lft + Rgt) / 2.0;
 
   if (compute_child_objectives) {
-    List child_obj = child_objectives_numeric_flat(z_num, best_split, Y_by_obs, S_tot, Q_tot, offsets);
+    const int child_pos = is_own_effect_halved ? find_grid_interval(best_split, split_feat_grid) : 0;
+    List child_obj = child_objectives_numeric_flat(z_num, best_split, Y_by_obs, S_tot, Q_tot, offsets,
+      is_own_effect_halved ? split_feat_effect : -1, child_pos);
     best_left_obj = child_obj["left_objective_value_j"];
     best_right_obj = child_obj["right_objective_value_j"];
   }
@@ -441,6 +568,25 @@ DataFrame search_best_split_cpp(
     empty_left_obj.attr("names") = effect_names;
     empty_right_obj.attr("names") = effect_names;
   }
+  // Map each split feature (Z column) to its own (active) effect index and grid. When a
+  // feature is split on, its ICE grid is divided across the children; the effect index locates
+  // its columns in offsets, and the grid tells the point search where to divide.
+  std::vector<int> feat_effect(p, -1);
+  std::vector<std::vector<double>> feat_grid(p);
+  if (has_effect_names) {
+    for (int j = 0; j < p; ++j) {
+      const std::string fname = as<std::string>(feat_names[j]);
+      for (int l = 0; l < Ly; ++l) {
+        if (!active_effect[l]) continue;
+        if (as<std::string>(effect_names[l]) == fname) {
+          feat_effect[j] = l;
+          feat_grid[j] = grid_from_matrix_colnames(Y[l]);
+          break;
+        }
+      }
+    }
+  }
+
   // Evaluate each feature
   for (int j = 0; j < p; ++j) {
     SEXP z_j  = Z[j];
@@ -449,7 +595,8 @@ DataFrame search_best_split_cpp(
     // First pass: find the best split objective for each split feature.
     // Child objective vectors are only needed for the globally selected split and are computed below.
     List res = search_best_split_point_cpp_internal(
-      z_j, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_c, min_node_size, false);
+      z_j, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_c, min_node_size, false,
+      feat_effect[j], feat_grid[j]);
 
     // Store results
     split_feature[j]   = feat_names[j];
@@ -479,7 +626,8 @@ DataFrame search_best_split_cpp(
 
     SEXP z_best = Z[best_idx];
     List best_res = search_best_split_point_cpp_internal(
-      z_best, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_cat_vec[best_idx], min_node_size, true);
+      z_best, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_cat_vec[best_idx], min_node_size, true,
+      feat_effect[best_idx], feat_grid[best_idx]);
     split_obj[best_idx] = best_res["split_objective"];
     split_point_out[best_idx] = as<CharacterVector>(wrap(best_res["split_point"]))[0];
 

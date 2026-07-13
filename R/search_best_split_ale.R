@@ -119,6 +119,14 @@ search_best_split_ale = function(
   active_feature_names = active_ale_effect_features(effect)
   active_effect = effect[active_feature_names]
   st_table = build_ale_interval_stats(active_effect, active_feature_names)
+  # TODO: split-feature grid halving (already fixed for PD). When splitting on a feature, that
+  # feature's own effect grid is divided across the child nodes (each child keeps only
+  # its half of the curves), which changes how its risk enters the split objective and
+  # its child objective values. This is implemented for PD in
+  # src/search_best_split.cpp (search_best_split_point_cpp_internal). It would have to be
+  # implemented analogously in ale_sweep_cpp via split_feat_j, right? Or is this not necessary for
+  # ALE?? Verify that the ALE path handles this equivalently, incl. the case of a 
+  # categorical splitting feature.
   # Per split_feature, compute best split once and capture per-feature vectors
   per_feature_res = lapply(split_feature_names, function(split_feat) {
     res = search_best_split_point_ale(
