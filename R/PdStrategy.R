@@ -195,8 +195,18 @@ PdStrategy = R6::R6Class(
           left_objective_value_j[split_feature] = self$heterogeneity(y_left)[[1L]]
           right_objective_value_j[split_feature] = self$heterogeneity(y_right)[[1L]]
         }
-        names(left_objective_value_j) = NULL
-        names(right_objective_value_j) = NULL
+        # Features in Y not covered by the search result (selective early stopping filters the
+        # split search to the still-interacting features): recompute so all features are reported.
+        missing_features = setdiff(names(Y), names(left_objective_value_j))
+        if (length(missing_features) > 0L) {
+          y_left_m = self$node_transform(Y = Y[missing_features], idx = idx_left, grid = grid_left[missing_features])
+          y_right_m = self$node_transform(Y = Y[missing_features], idx = idx_right, grid = grid_right[missing_features])
+          left_objective_value_j[missing_features] = self$heterogeneity(y_left_m)
+          right_objective_value_j[missing_features] = self$heterogeneity(y_right_m)
+        }
+        # Return in Y order, names retained (create_children aligns per feature by name).
+        left_objective_value_j = left_objective_value_j[names(Y)]
+        right_objective_value_j = right_objective_value_j[names(Y)]
       } else {
         y_left = self$node_transform(Y = Y, idx = idx_left, grid = grid_left)
         y_right = self$node_transform(Y = Y, idx = idx_right, grid = grid_right)

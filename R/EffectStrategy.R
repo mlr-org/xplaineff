@@ -37,14 +37,16 @@ EffectStrategy = R6::R6Class(
   private = list(
     fit_tree_internal = function(tree, Z, Y, grid, objective_value_root_j, objective_value_root,
       verbose, vecb_remaining_features = NULL, early_stopping_goal = NULL) {
-      # Create new tree. objective_value_root stays the full-tree normalizer; when selective
-      # early stopping already dropped features at the root, the root node's own objective is
-      # the summed risk over its remaining features (keeps its int_imp numerator consistent).
+      # Create new tree. The root objective is the total risk over all features; when selective
+      # early stopping is on, objective_value_remaining additionally holds the risk over just the
+      # features still flagged as interacting at the root.
+      root_objective_value_remaining = if (is.null(vecb_remaining_features)) NA_real_ else
+        sum(objective_value_root_j[vecb_remaining_features], na.rm = TRUE)
       tree$root = Node$new(
         id = 1, depth = 1, subset_idx = seq_len(nrow(Z)), grid = grid,
         objective_value_parent = NA, int_imp_j = NULL,
-        objective_value = if (is.null(vecb_remaining_features)) objective_value_root else
-          sum(objective_value_root_j[vecb_remaining_features], na.rm = TRUE),
+        objective_value = objective_value_root,
+        objective_value_remaining = root_objective_value_remaining,
         objective_value_j = objective_value_root_j, improvement_met = FALSE, int_imp = NULL,
         vecb_remaining_features = vecb_remaining_features, strategy = self
       )

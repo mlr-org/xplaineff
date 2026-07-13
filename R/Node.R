@@ -22,7 +22,9 @@
 #' @field split (`list()` or `NULL`) \cr
 #'   Split info: feature, value. NULL for terminal nodes.
 #' @field objective (`list()`) \cr
-#'   Objective: value (scalar), value_j (per-feature vector).
+#'   Objective: value (scalar total risk over all features), value_j (per-feature vector),
+#'   value_remaining (total risk over only the still-interacting features; \code{NA} when
+#'   selective early stopping is off).
 #' @field importance (`list()` or `NULL`) \cr
 #'   Importance: imp (scalar), imp_j (per-feature). NULL for root and unsplit nodes.
 #' @field children (`list()` or `NULL`) \cr
@@ -83,7 +85,9 @@ Node = R6::R6Class("Node", public = list(
   #' @param objective_value_j (`numeric()` or `NULL`) \cr
   #'   Objective values per feature.
   #' @param objective_value (`numeric(1)` or `NULL`) \cr
-  #'   Total objective value.
+  #'   Total objective value (over all features).
+  #' @param objective_value_remaining (`numeric(1)`) \cr
+  #'   Objective value over only the still-interacting features; \code{NA} when off.
   #' @param improvement_met (`logical(1)`) \cr
   #'   Whether improvement threshold was met.
   #' @param int_imp (`numeric(1)` or `NULL`) \cr
@@ -94,8 +98,8 @@ Node = R6::R6Class("Node", public = list(
   #'   Strategy; \code{NULL} not used in practice.
   initialize = function(id, depth = NULL, subset_idx, grid, id_parent = NULL,
     child_type = NULL, objective_value_parent = NULL, objective_value_j = NULL,
-    objective_value = NULL, improvement_met = FALSE, int_imp = NULL, int_imp_j = NULL,
-    vecb_remaining_features = NULL, strategy = NULL) {
+    objective_value = NULL, objective_value_remaining = NA_real_, improvement_met = FALSE,
+    int_imp = NULL, int_imp_j = NULL, vecb_remaining_features = NULL, strategy = NULL) {
 
     checkmate::assert_numeric(id, len = 1)
     checkmate::assert_numeric(depth, len = 1, null.ok = TRUE)
@@ -118,7 +122,8 @@ Node = R6::R6Class("Node", public = list(
       int_imp = NULL
     )
     self$split = NULL
-    self$objective = list(value = objective_value, value_j = objective_value_j)
+    self$objective = list(value = objective_value, value_j = objective_value_j,
+      value_remaining = objective_value_remaining)
     self$importance = if (is.null(int_imp) && is.null(int_imp_j)) NULL else list(imp = int_imp, imp_j = int_imp_j)
     self$stop_criterion_met = FALSE
     self$improvement_met = improvement_met
@@ -338,23 +343,17 @@ Node = R6::R6Class("Node", public = list(
     }
 
     grid_info = self$create_child_grids(split_feature, split_value, is_categorical)
-    # Selective early stopping: compute child risks only over the still-interacting features.
-    # get_child_objectives only reads grid entries for features present in Y, so the subset Y
-    # together with the full child grids is enough (dropped features are never looked at).
-    Y_active = if (is.null(self$vecb_remaining_features)) Y else Y[self$vecb_remaining_features]
+    # Child risks are computed over ALL features (get_child_objectives recomputes any that the
+    # filtered split search dropped), so the reported objective and int_imp stay total.
     obj = self$strategy$get_child_objectives(
-      Z, Y_active, split_info, idx_left, idx_right,
+      Z, Y, split_info, idx_left, idx_right,
       grid_info$grid_left, grid_info$grid_right
     )
-    left_objective_value_j = obj$left_objective_value_j
+    left_objective_value_j = obj$left_objective_value_j    # named, all features
     right_objective_value_j = obj$right_objective_value_j
-    left_objective_value = obj$left_objective_value
+    left_objective_value = obj$left_objective_value        # total over all features
     right_objective_value = obj$right_objective_value
-    # get_child_objectives returns the per-feature risks unnamed, ordered like the (possibly
-    # filtered) Y; name them so parent/root risks can be aligned to the assessed features.
-    feat_names = names(Y_active)
-    names(left_objective_value_j) = feat_names
-    names(right_objective_value_j) = feat_names
+    feat_names = names(left_objective_value_j)
     int_imp_j = (self$objective$value_j[feat_names] - left_objective_value_j - right_objective_value_j) /
       objective_value_root_j[feat_names]
     int_imp_j[!is.finite(int_imp_j)] = NA_real_
@@ -373,24 +372,28 @@ Node = R6::R6Class("Node", public = list(
       return(NULL)
     }
 
-    # Selective early stopping: decide which features stay interacting in each child (Method 1
-    # criterion: normalized child risk R_j / ((|A_g| - 1) * m_{j,g}) must exceed early_stopping_goal).
-    # A child's objective is then the summed risk over only the features it still tracks.
+    # Selective early stopping: decide which still-interacting features remain in each child
+    # (Method 1 criterion: normalized child risk R_j / ((|A_g| - 1) * m_{j,g}) > early_stopping_goal).
+    # objective$value stays total; objective$value_remaining tracks the summed risk over only
+    # the features a node still considers interacting (NA when the option is off).
     vecb_remaining_left = self$vecb_remaining_features
     vecb_remaining_right = self$vecb_remaining_features
-    left_child_value = left_objective_value
-    right_child_value = right_objective_value
+    left_child_value_remaining = NA_real_
+    right_child_value_remaining = NA_real_
     if (!is.null(self$vecb_remaining_features)) {
-      m_left = vapply(grid_info$grid_left[feat_names], length, NA_integer_)
-      m_right = vapply(grid_info$grid_right[feat_names], length, NA_integer_)
-      normalized_left = left_objective_value_j / ((length(idx_left) - 1) * m_left)
-      normalized_right = right_objective_value_j / ((length(idx_right) - 1) * m_right)
+      rem = names(self$vecb_remaining_features)[self$vecb_remaining_features]
+      m_left = vapply(grid_info$grid_left[rem], length, NA_integer_)
+      m_right = vapply(grid_info$grid_right[rem], length, NA_integer_)
+      normalized_left = left_objective_value_j[rem] / ((length(idx_left) - 1) * m_left)
+      normalized_right = right_objective_value_j[rem] / ((length(idx_right) - 1) * m_right)
       keep_left = is.finite(normalized_left) & (normalized_left > early_stopping_goal)
       keep_right = is.finite(normalized_right) & (normalized_right > early_stopping_goal)
-      vecb_remaining_left[feat_names] = keep_left
-      vecb_remaining_right[feat_names] = keep_right
-      left_child_value = sum(left_objective_value_j[keep_left], na.rm = TRUE)
-      right_child_value = sum(right_objective_value_j[keep_right], na.rm = TRUE)
+      vecb_remaining_left[rem] = keep_left
+      vecb_remaining_right[rem] = keep_right
+      rem_left = names(vecb_remaining_left)[vecb_remaining_left]
+      rem_right = names(vecb_remaining_right)[vecb_remaining_right]
+      left_child_value_remaining = sum(left_objective_value_j[rem_left], na.rm = TRUE)
+      right_child_value_remaining = sum(right_objective_value_j[rem_right], na.rm = TRUE)
     }
 
     # Create child nodes
@@ -403,7 +406,8 @@ Node = R6::R6Class("Node", public = list(
         "<="
       },
       objective_value_parent = self$objective$value,
-      objective_value = left_child_value,
+      objective_value = left_objective_value,
+      objective_value_remaining = left_child_value_remaining,
       objective_value_j = left_objective_value_j,
       int_imp = NULL, int_imp_j = NULL,
       improvement_met = self$improvement_met,
@@ -419,7 +423,8 @@ Node = R6::R6Class("Node", public = list(
         ">"
       },
       objective_value_parent = self$objective$value,
-      objective_value = right_child_value,
+      objective_value = right_objective_value,
+      objective_value_remaining = right_child_value_remaining,
       objective_value_j = right_objective_value_j,
       int_imp = NULL, int_imp_j = NULL,
       improvement_met = self$improvement_met,
