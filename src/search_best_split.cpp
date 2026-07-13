@@ -8,6 +8,9 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
 #include <algorithm>
+#include <cerrno>
+#include <cctype>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -56,6 +59,20 @@ inline int find_grid_interval(double x, const std::vector<double>& grid) {
   return static_cast<int>(std::upper_bound(grid.begin(), grid.end(), x) - grid.begin());
 }
 
+inline bool parse_double_strict(const std::string& s, double& out) {
+  if (s.empty()) return false;
+  const char* start = s.c_str();
+  char* end = NULL;
+  errno = 0;
+  out = std::strtod(start, &end);
+  if (start == end || errno == ERANGE || !R_finite(out)) return false;
+  while (*end != '\0') {
+    if (!std::isspace(static_cast<unsigned char>(*end))) return false;
+    ++end;
+  }
+  return true;
+}
+
 /* Extract the numeric grid (column names) of an R matrix. Empty if names are absent. */
 inline std::vector<double> grid_from_matrix_colnames(SEXP m) {
   std::vector<double> g;
@@ -67,11 +84,9 @@ inline std::vector<double> grid_from_matrix_colnames(SEXP m) {
   g.reserve(colnames.size());
   for (R_xlen_t k = 0; k < colnames.size(); ++k) {
     if (colnames[k] == NA_STRING) return std::vector<double>();
-    try {
-      g.push_back(std::stod(as<std::string>(colnames[k])));
-    } catch (...) {
-      return std::vector<double>();
-    }
+    double value = NA_REAL;
+    if (!parse_double_strict(as<std::string>(colnames[k]), value)) return std::vector<double>();
+    g.push_back(value);
   }
   return g;
 }
@@ -325,7 +340,11 @@ List search_best_split_point_cpp_internal(
       if (z_char[i] == NA_STRING) {
         z_num[i] = NA_REAL;
       } else {
-        z_num[i] = std::stod(as<std::string>(z_char[i]));
+        double value = NA_REAL;
+        if (!parse_double_strict(as<std::string>(z_char[i]), value)) {
+          Rcpp::stop("search_best_split: character split feature contains non-numeric values.");
+        }
+        z_num[i] = value;
       }
     }
   } else {
