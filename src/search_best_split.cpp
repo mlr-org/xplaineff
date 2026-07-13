@@ -435,24 +435,24 @@ List search_best_split_point_cpp_internal(
       // Other features (columns outside the split feature's block): their sum-of-squares
       // cancels across split points, so only the S term is needed (both children).
       if (a > 0) {
-        obj -= arma::accu(SL.head(a) % SL.head(a)) / NL;
-        obj -= arma::accu(SR.head(a) % SR.head(a)) / NR;
+        obj -= arma::dot(SL.head(a), SL.head(a)) / NL;
+        obj -= arma::dot(SR.head(a), SR.head(a)) / NR;
       }
       if (b < M) {
-        obj -= arma::accu(SL.tail(M - b) % SL.tail(M - b)) / NL;
-        obj -= arma::accu(SR.tail(M - b) % SR.tail(M - b)) / NR;
+        obj -= arma::dot(SL.tail(M - b), SL.tail(M - b)) / NL;
+        obj -= arma::dot(SR.tail(M - b), SR.tail(M - b)) / NR;
       }
       // Split feature: the SS term does NOT cancel here, so use the true child SSE
       // (Q - S^2/n) over each surviving half. Subtracting sf_const (its parent SS) leaves the
       // score comparable across features. QL_split is indexed locally (column c -> c - a).
       if (mid > a) {  // left half, grid <= sp
         const arma::vec SL_l = SL.subvec(a, mid - 1);
-        obj += arma::accu(QL_split.head(mid - a)) - arma::accu(SL_l % SL_l) / NL;
+        obj += arma::accu(QL_split.head(mid - a)) - arma::dot(SL_l, SL_l) / NL;
       }
       if (mid < b) {  // right half, grid > sp
         const arma::vec QR_r = Q_tot.subvec(mid, b - 1) - QL_split.subvec(mid - a, b - 1 - a);
         const arma::vec SR_r = SR.subvec(mid, b - 1);
-        obj += arma::accu(QR_r) - arma::accu(SR_r % SR_r) / NR;
+        obj += arma::accu(QR_r) - arma::dot(SR_r, SR_r) / NR;
       }
       obj -= sf_const;
     }
