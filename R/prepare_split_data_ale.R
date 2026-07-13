@@ -71,14 +71,30 @@ prepare_split_data_ale = function(
   }
   Z = data.table::setDT(take_cols(data, split_feature))
   effect = if (ale_engine == "cpp") {
-    calculate_ale_fast(
-      model = model,
-      data = data,
-      target_feature_name = target_feature_name,
-      feature_set = feature_set,
-      n_intervals = n_intervals,
-      predict_fun = predict_fun
-    )
+    compact_effect = if (isTRUE(getOption("xplaineff.ale.compact", FALSE))) {
+      calculate_ale_fast_compact(
+        model = model,
+        data = data,
+        target_feature_name = target_feature_name,
+        feature_set = feature_set,
+        n_intervals = n_intervals,
+        predict_fun = predict_fun
+      )
+    } else {
+      NULL
+    }
+    if (is.null(compact_effect)) {
+      calculate_ale_fast(
+        model = model,
+        data = data,
+        target_feature_name = target_feature_name,
+        feature_set = feature_set,
+        n_intervals = n_intervals,
+        predict_fun = predict_fun
+      )
+    } else {
+      compact_effect
+    }
   } else {
     calculate_ale(
       model = model,

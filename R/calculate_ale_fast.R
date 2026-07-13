@@ -70,6 +70,78 @@ calculate_ale_fast = function(
   })
 }
 
+calculate_ale_fast_compact = function(
+  model, data, feature_set, target_feature_name, n_intervals = 10, predict_fun = NULL
+) {
+  X = if (data.table::is.data.table(data)) {
+    data[, setdiff(colnames(data), target_feature_name), with = FALSE]
+  } else {
+    data[, setdiff(colnames(data), target_feature_name), drop = FALSE]
+  }
+  x_features_dt = data.table::as.data.table(X)
+  feature_cols = x_features_dt[, feature_set, with = FALSE]
+  is_supported_col = vapply(feature_cols, function(x) is.numeric(x) || is.integer(x), logical(1L))
+  if (!all(is_supported_col)) {
+    return(NULL)
+  }
+
+  if (is.null(predict_fun)) {
+    predict_fun = default_predict_fun
+  }
+  n_intervals = as.integer(n_intervals)
+  predictor = make_predictor(model = model, predict_fun = predict_fun)
+
+  n_rows = nrow(X)
+  p = length(feature_set)
+  stacked = data.table::rbindlist(list(X, X), use.names = TRUE)
+  idx_lower = seq_len(n_rows)
+  idx_upper = seq.int(n_rows + 1L, 2L * n_rows)
+
+  d_l_mat = matrix(0.0, nrow = p, ncol = n_rows, dimnames = list(feature_set, NULL))
+  interval_idx_mat = matrix(1L, nrow = p, ncol = n_rows, dimnames = list(feature_set, NULL))
+  feature_value_mat = matrix(NA_real_, nrow = p, ncol = n_rows, dimnames = list(feature_set, NULL))
+
+  for (j in seq_along(feature_set)) {
+    feat = feature_set[[j]]
+    x_num = data[[feat]]
+    feature_value_mat[j, ] = as.numeric(x_num)
+    if (length(unique(na.omit(x_num))) <= 1L) {
+      next
+    }
+
+    prep = cpp_ale_numeric_prepare(x = as.numeric(x_num), n_intervals = n_intervals)
+    if (isTRUE(prep$zero_effect)) {
+      next
+    }
+
+    original = data.table::copy(stacked[[feat]])
+    if (is.integer(original)) {
+      data.table::set(stacked, j = feat, value = as.numeric(original))
+    }
+    data.table::set(stacked, i = idx_lower, j = feat, value = prep$x_left)
+    data.table::set(stacked, i = idx_upper, j = feat, value = prep$x_right)
+    preds_all = predictor$predict(stacked) + 0
+    data.table::set(stacked, j = feat, value = original)
+
+    d_l = preds_all[idx_upper] - preds_all[idx_lower]
+    d_l[!is.finite(d_l)] = 0.0
+    interval_index = as.integer(prep$interval_index)
+    interval_index[is.na(interval_index) | interval_index < 1L] = 1L
+    d_l_mat[j, ] = d_l
+    interval_idx_mat[j, ] = interval_index
+  }
+
+  structure(
+    list(
+      feature_names = feature_set,
+      d_l_mat = d_l_mat,
+      interval_idx_mat = interval_idx_mat,
+      feature_value_mat = feature_value_mat
+    ),
+    class = "xplaineff_ale_compact"
+  )
+}
+
 
 ale_ranger_fast_info = function(model, x_features_dt, feature_set, predict_fun) {
   if (!is.null(predict_fun)) {

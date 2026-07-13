@@ -17,6 +17,9 @@
 #'
 node_transform_ale = function(Y, idx, is_child = FALSE) {
   idx = as.integer(idx)
+  if (is_ale_compact(Y)) {
+    return(node_transform_ale_compact(Y, idx, is_child = is_child))
+  }
   if (!is_child && is_full_ale_node(Y, idx)) {
     return(Y)
   }
@@ -43,7 +46,30 @@ node_transform_ale = function(Y, idx, is_child = FALSE) {
   }
 }
 
+node_transform_ale_compact = function(Y, idx, is_child = FALSE) {
+  if (!is_child && is_full_ale_node(Y, idx)) {
+    return(Y)
+  }
+  out = Y
+  out$d_l_mat = Y$d_l_mat[, idx, drop = FALSE]
+  out$interval_idx_mat = Y$interval_idx_mat[, idx, drop = FALSE]
+  out$feature_value_mat = Y$feature_value_mat[, idx, drop = FALSE]
+  if (is_child) {
+    for (j in seq_len(nrow(out$feature_value_mat))) {
+      feat_val = out$feature_value_mat[j, ]
+      if (length(unique(feat_val[!is.na(feat_val)])) <= 1L) {
+        out$d_l_mat[j, ] = 0.0
+      }
+    }
+  }
+  out
+}
+
 is_full_ale_node = function(Y, idx) {
+  if (is_ale_compact(Y)) {
+    n_rows = ncol(Y$d_l_mat)
+    return(length(idx) == n_rows && identical(idx, seq_len(n_rows)))
+  }
   if (length(Y) == 0L) {
     return(FALSE)
   }

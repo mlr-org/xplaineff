@@ -75,11 +75,77 @@ build_ale_interval_stats = function(effect, features) {
     d_l_mat = d_l_mat, interval_idx_mat = interval_idx_mat)
 }
 
+is_ale_compact = function(effect) {
+  inherits(effect, "xplaineff_ale_compact")
+}
+
+build_ale_interval_stats_compact = function(effect, features) {
+  pos = match(features, effect$feature_names)
+  if (anyNA(pos)) {
+    cli::cli_abort("Compact ALE effect does not contain requested features.")
+  }
+  d_l_mat = effect$d_l_mat[pos, , drop = FALSE]
+  interval_idx_mat = effect$interval_idx_mat[pos, , drop = FALSE]
+  p = length(features)
+  K = integer(p)
+  stats_list = vector("list", p)
+  for (j in seq_len(p)) {
+    interval_index = as.integer(interval_idx_mat[j, ])
+    d_l = d_l_mat[j, ]
+    K[j] = max(interval_index, na.rm = TRUE)
+    agg = cpp_ale_interval_aggregate(d_l, interval_index)
+    stats_list[[j]] = data.table::data.table(
+      interval_index = seq_len(K[j]),
+      n = agg$interval_n,
+      s1 = agg$interval_s1,
+      s2 = agg$interval_s2
+    )
+  }
+  offsets = c(0L, cumsum(K))
+  M = offsets[length(offsets)]
+  offsets = offsets[-length(offsets)]
+
+  tot_n = numeric(M)
+  tot_s1 = numeric(M)
+  tot_s2 = numeric(M)
+  r_n = numeric(M)
+  r_s1 = numeric(M)
+  r_s2 = numeric(M)
+  r_risks = numeric(p)
+  pos_flat = 1L
+  for (j in seq_len(p)) {
+    m = K[j]
+    S = stats_list[[j]]
+    rng = pos_flat:(pos_flat + m - 1L)
+    tot_n[rng] = S$n
+    tot_s1[rng] = S$s1
+    tot_s2[rng] = S$s2
+    r_n[rng] = S$n
+    r_s1[rng] = S$s1
+    r_s2[rng] = S$s2
+    r_risks[j] = sum(risk_from_stats(S$n, S$s1, S$s2))
+    pos_flat = pos_flat + m
+  }
+  list(K = K, offsets = offsets,
+    tot_n = tot_n, tot_s1 = tot_s1, tot_s2 = tot_s2,
+    r_n = r_n, r_s1 = r_s1, r_s2 = r_s2, r_risks = r_risks,
+    d_l_mat = d_l_mat, interval_idx_mat = interval_idx_mat)
+}
+
+ale_compact_heterogeneity = function(effect) {
+  stats = build_ale_interval_stats_compact(effect, effect$feature_names)
+  stats::setNames(stats$r_risks, effect$feature_names)
+}
+
 active_ale_effect_features = function(effect, tolerance = 1e-10) {
-  objective_value_j = unlist(calculate_ale_heterogeneity_cpp(effect), use.names = TRUE)
+  objective_value_j = if (is_ale_compact(effect)) {
+    ale_compact_heterogeneity(effect)
+  } else {
+    unlist(calculate_ale_heterogeneity_cpp(effect), use.names = TRUE)
+  }
   active = is.finite(objective_value_j) & objective_value_j > tolerance
   if (!any(active)) {
-    names(effect)
+    if (is_ale_compact(effect)) effect$feature_names else names(effect)
   } else {
     names(objective_value_j)[active]
   }
@@ -115,17 +181,22 @@ search_best_split_ale = function(
 ) {
   split_feature_names = colnames(Z)
   if (is.null(split_feature_names)) cli::cli_abort("Z (split features) must have column names.")
-  full_feature_names = names(effect)
+  full_feature_names = if (is_ale_compact(effect)) effect$feature_names else names(effect)
   active_feature_names = active_ale_effect_features(effect)
-  active_effect = effect[active_feature_names]
-  st_table = build_ale_interval_stats(active_effect, active_feature_names)
+  if (is_ale_compact(effect)) {
+    active_effect = stats::setNames(vector("list", length(active_feature_names)), active_feature_names)
+    st_table = build_ale_interval_stats_compact(effect, active_feature_names)
+  } else {
+    active_effect = effect[active_feature_names]
+    st_table = build_ale_interval_stats(active_effect, active_feature_names)
+  }
   # TODO: split-feature grid halving (already fixed for PD). When splitting on a feature, that
   # feature's own effect grid is divided across the child nodes (each child keeps only
   # its half of the curves), which changes how its risk enters the split objective and
   # its child objective values. This is implemented for PD in
   # src/search_best_split.cpp (search_best_split_point_cpp_internal). It would have to be
   # implemented analogously in ale_sweep_cpp via split_feat_j, right? Or is this not necessary for
-  # ALE?? Verify that the ALE path handles this equivalently, incl. the case of a 
+  # ALE?? Verify that the ALE path handles this equivalently, incl. the case of a
   # categorical splitting feature.
   # Per split_feature, compute best split once and capture per-feature vectors
   per_feature_res = lapply(split_feature_names, function(split_feat) {

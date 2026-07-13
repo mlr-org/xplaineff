@@ -129,7 +129,9 @@ AleStrategy = R6::R6Class(
     #' @return (`list()`) \cr
     #'   Transformed ALE data.tables.
     node_transform = function(Y, idx, grid = NULL, is_child = FALSE) {
-      assert_ale_effect_list(Y)
+      if (!is_ale_compact(Y)) {
+        assert_ale_effect_list(Y)
+      }
       checkmate::assert_integerish(idx, min.len = 1, .var.name = "idx")
       checkmate::assert_list(grid, null.ok = TRUE, .var.name = "grid")
       checkmate::assert_flag(is_child, .var.name = "is_child")
@@ -149,8 +151,12 @@ AleStrategy = R6::R6Class(
     #'   Heterogeneity per feature.
     #' @seealso \code{\link{calculate_ale_heterogeneity_cpp}}
     heterogeneity = function(Y) {
-      assert_ale_effect_list(Y)
-      unlist(calculate_ale_heterogeneity_cpp(Y))
+      if (is_ale_compact(Y)) {
+        ale_compact_heterogeneity(Y)
+      } else {
+        assert_ale_effect_list(Y)
+        unlist(calculate_ale_heterogeneity_cpp(Y))
+      }
     },
 
     #' @description
@@ -205,7 +211,9 @@ AleStrategy = R6::R6Class(
     #'   Best split info: \code{split_feature}, \code{split_point}, etc.
     find_best_split = function(Z, Y, min_node_size, n_quantiles) {
       checkmate::assert_true(data.table::is.data.table(Z) || is.data.frame(Z), .var.name = "Z")
-      assert_ale_effect_list(Y)
+      if (!is_ale_compact(Y)) {
+        assert_ale_effect_list(Y)
+      }
       checkmate::assert_integerish(min_node_size, len = 1, lower = 1, any.missing = FALSE, .var.name = "min_node_size")
       checkmate::assert_integerish(n_quantiles, len = 1, lower = 1, null.ok = TRUE, .var.name = "n_quantiles")
 
