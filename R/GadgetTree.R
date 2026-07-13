@@ -112,6 +112,13 @@ GadgetTree = R6::R6Class(
     #'   Features for effect; \code{NULL} = all.
     #' @param split_feature (`character()` or `NULL`) \cr
     #'   Features for splitting; \code{NULL} = all.
+    #' @param gadget_improvements (`character(1)` or `NULL`) \cr
+    #'   Optional algorithmic improvement to enable. Currently only \code{"plain_risk"}
+    #'   (selective early stopping, Method 1: dynamically drop non-interacting features from the
+    #'   split-candidate set Z and the risk set S). \code{NULL} disables it. PD strategy only.
+    #' @param gadget_impr_args (`list()`) \cr
+    #'   Named list of method-specific arguments for \code{gadget_improvements}. For
+    #'   \code{"plain_risk"}: \code{tau} (`numeric(1)`, default 0.05).
     #' @param ... (`list()`) \cr
     #'   Strategy-specific arguments passed to \code{$fit()}.
     #'   For [AleStrategy]: \code{model} or \code{effect}, plus optional
@@ -121,10 +128,16 @@ GadgetTree = R6::R6Class(
     #'   \code{predict_fun}, \code{n_grid}, and \code{pd_engine}.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
-    fit = function(data, target_feature_name, feature_set = NULL, split_feature = NULL, verbose = 0, ...) {
+    fit = function(data, target_feature_name, feature_set = NULL, split_feature = NULL,
+      gadget_improvements = NULL, gadget_impr_args = NULL, verbose = 0, ...) {
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
       checkmate::assert_subset(target_feature_name, colnames(data), .var.name = "target_feature_name")
+      checkmate::assert_choice(gadget_improvements, "plain_risk", null.ok = TRUE, .var.name = "gadget_improvements")
+      checkmate::assert_list(gadget_impr_args, names = "unique", null.ok = TRUE, .var.name = "gadget_impr_args")
+      if (!is.null(gadget_improvements) && !inherits(self$strategy, "PdStrategy")) {
+        cli::cli_abort("{.arg gadget_improvements} is currently only implemented for {.cls PdStrategy}.")
+      }
       self$split_benchmark = list()
       self$tree_list_cache = NULL
       if (verbose > 0) {
@@ -141,6 +154,8 @@ GadgetTree = R6::R6Class(
         target_feature_name = target_feature_name,
         feature_set = feature_set,
         split_feature = split_feature,
+        gadget_improvements = gadget_improvements,
+        gadget_impr_args = gadget_impr_args,
         verbose = verbose,
         ...
       )

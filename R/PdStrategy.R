@@ -287,12 +287,20 @@ PdStrategy = R6::R6Class(
     #' @param pd_engine (`character(1)`) \cr
     #'   When computing ICE/PD from \code{model}: \code{"cpp"} (column-wise stacked \code{newdata},
     #'   xplaineff-style) or \code{"r"} (\code{data.table::rbindlist}).
+    #' @param gadget_improvements (`character()` or `NULL`) \cr
+    #'   Selective early stopping methods to enable; currently only \code{"plain_risk"}
+    #'   (Method 1: drop a feature once its normalized node risk falls below \code{tau} times the
+    #'   root's mean normalized risk). \code{NULL} disables all improvements.
+    #' @param gadget_impr_args (`list()`) \cr
+    #'   Method-specific arguments. For \code{"plain_risk"}: \code{tau} (`numeric(1)`, default 0.05),
+    #'   the relative-risk threshold below which a feature is dropped from Z and S.
     #' @param ... Ignored.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
     fit = function(tree, effect = NULL, model = NULL, data, target_feature_name,
       feature_set = NULL, split_feature = NULL, predict_fun = NULL,
-      n_grid = 20L, pd_engine = c("cpp", "r"), verbose = 0, ...) {
+      n_grid = 20L, pd_engine = c("cpp", "r"),
+      gadget_improvements = NULL, gadget_impr_args = NULL, verbose = 0, ...) {
       checkmate::assert_r6(tree, classes = "GadgetTree", .var.name = "tree")
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
@@ -306,6 +314,14 @@ PdStrategy = R6::R6Class(
       checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
       checkmate::assert_integerish(n_grid, len = 1L, lower = 2L, .var.name = "n_grid")
       pd_engine = match.arg(pd_engine)
+
+      # Selective early stopping. Currently the only method is Method 1 ("plain_risk").
+      checkmate::assert_choice(gadget_improvements, "plain_risk", null.ok = TRUE, .var.name = "gadget_improvements")
+      use_plain_risk = identical(gadget_improvements, "plain_risk")
+      tau = if (is.null(gadget_impr_args$tau)) 0.05 else gadget_impr_args$tau
+      if (use_plain_risk) {
+        checkmate::assert_number(tau, lower = 0, finite = TRUE, .var.name = "gadget_impr_args$tau")
+      }
 
       # After checks: same coercion as prepare_split_data_common (ICE + Z use factor categoricals).
       feat_cols = setdiff(colnames(data), target_feature_name)
@@ -345,10 +361,28 @@ PdStrategy = R6::R6Class(
         Y_split = split_search_data$Y
         objective_value_root_j_split = split_search_data$objective_value_j
         objective_value_root_split = split_search_data$objective_value
+        # objective_value_root = sum(objective_value_root_j, na.rm = TRUE) # TODO: Do we still need this? Or is this resolved by the objective_value_root_split ??
+
+        # Method 1 ("plain_risk"): sort out features already at the root and set the threshold
+        # early_stopping_goal for the child criterion in Node$create_children. The normalized
+        # root risk is R_j / (|A_g| * m_j); the shared |A_g| = nrow(Z) cancels in the root
+        # comparison and is folded (as |A_g| - 1) into early_stopping_goal for the children.
+        vecb_remaining_features = NULL
+        early_stopping_goal = NULL
+        if (use_plain_risk) {
+          grid_lengths = vapply(grid, length, NA_integer_)
+          checkmate::assert_true(all(grid_lengths > 0))
+          normalized_root_risk_j = objective_value_root_j / grid_lengths
+          early_stopping_goal = max(tau * mean(normalized_root_risk_j, na.rm = TRUE), 1e-12)
+          vecb_remaining_features = normalized_root_risk_j >= early_stopping_goal
+          vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
+          early_stopping_goal = early_stopping_goal / (nrow(Z) - 1)
+        }
       })[["elapsed"]]
 
       t_regional = private$fit_tree_internal(
-        tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split, verbose
+        tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split, verbose,
+        vecb_remaining_features = vecb_remaining_features, early_stopping_goal = early_stopping_goal
       )
       self$fit_timing = list(global = t_global, regional = t_regional)
       invisible(tree)

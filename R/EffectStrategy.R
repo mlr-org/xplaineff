@@ -35,13 +35,18 @@ EffectStrategy = R6::R6Class(
     }
   ),
   private = list(
-    fit_tree_internal = function(tree, Z, Y, grid, objective_value_root_j, objective_value_root, verbose) {
-      # Create new tree
+    fit_tree_internal = function(tree, Z, Y, grid, objective_value_root_j, objective_value_root,
+      verbose, vecb_remaining_features = NULL, early_stopping_goal = NULL) {
+      # Create new tree. objective_value_root stays the full-tree normalizer; when selective
+      # early stopping already dropped features at the root, the root node's own objective is
+      # the summed risk over its remaining features (keeps its int_imp numerator consistent).
       tree$root = Node$new(
         id = 1, depth = 1, subset_idx = seq_len(nrow(Z)), grid = grid,
-        objective_value_parent = NA, objective_value = objective_value_root, int_imp_j = NULL,
+        objective_value_parent = NA, int_imp_j = NULL,
+        objective_value = if (is.null(vecb_remaining_features)) objective_value_root else
+          sum(objective_value_root_j[vecb_remaining_features], na.rm = TRUE),
         objective_value_j = objective_value_root_j, improvement_met = FALSE, int_imp = NULL,
-        strategy = self
+        vecb_remaining_features = vecb_remaining_features, strategy = self
       )
       t_regional = system.time({
         tree$root$split_node(
@@ -53,6 +58,7 @@ EffectStrategy = R6::R6Class(
           impr_par = tree$impr_par,
           depth = 1,
           max_depth = tree$n_split + 1,
+          early_stopping_goal = early_stopping_goal,
           verbose = verbose
         )
       })[["elapsed"]]

@@ -303,6 +303,10 @@ AleStrategy = R6::R6Class(
       checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
       checkmate::assert_choice(order_method, c("mds", "pca", "random", "raw"), .var.name = "order_method")
       ale_engine = match.arg(ale_engine)
+      # TODO: selective early stopping (gadget_improvements, e.g. "plain_risk") is implemented
+      # for PD only (see PdStrategy$fit and Node$create_children). The ALE analogue needs an
+      # interval-based normalization of the risk (R_j / ((|A_g| - 1) * n_intervals_j) rather than
+      # grid lengths); GadgetTree$fit currently aborts if gadget_improvements is set for ALE.
       if (is.null(model)) {
         cli::cli_abort("AleStrategy requires {.arg model} to be passed.")
       }
