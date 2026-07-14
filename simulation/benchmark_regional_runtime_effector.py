@@ -105,30 +105,67 @@ def make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
     )
 
 
+def set_internal_points(resolution):
+    try:
+        import effector.helpers as helpers
+        helpers.NOF_INTERNAL_POINTS = int(resolution)
+    except Exception:
+        pass
+
+
+def make_regional_heterogeneity(regional, feature, min_points, resolution=None):
+    try:
+        if resolution is not None:
+            return regional._create_heterogeneity_function(feature, min_points, resolution)
+        return regional._create_heterogeneity_function(feature, min_points)
+    except TypeError:
+        return regional._create_heterogeneity_function(feature, min_points)
+
+
+def fit_global_pdp(pdp, feature, resolution):
+    try:
+        pdp.fit(features=feature, centering=True, points_for_centering=resolution, use_vectorized=True)
+    except TypeError:
+        try:
+            pdp.fit(features=feature, centering=True, points_for_centering=resolution)
+        except TypeError:
+            pdp.fit(features=feature)
+
+
+def predict_centered_ice(pdp, feature, xs):
+    try:
+        y_ice = pdp._predict(pdp.data, xs, feature, True)
+        norm_const = pdp.feature_effect["feature_" + str(feature)]["norm_const"]
+        return y_ice - norm_const[np.newaxis, :]
+    except Exception:
+        return pdp.eval(feature=feature, xs=xs, heterogeneity=True, centering=True, return_all=True)
+
+
 def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
+    set_internal_points(resolution)
     axis_limits = np.array([[-1.0] * d, [1.0] * d])
     space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
     features = list(range(d))
     regional = effector.RegionalPDP(data=x, model=predict, axis_limits=axis_limits, nof_instances="all")
     regional.y_ice = {}
+    regional.heter_grid = {}
 
     tic = time.time()
     for feat in features:
         pdp = effector.PDP(data=x, model=predict, axis_limits=axis_limits, nof_instances="all")
-        try:
-            pdp.fit(features=feat, centering=True, points_for_centering=resolution)
-        except TypeError:
-            pdp.fit(features=feat)
         xs = quantile_points(x[:, feat], resolution)
-        y_ice = pdp.eval(feature=feat, xs=xs, heterogeneity=True, centering=True, return_all=True)
+        fit_global_pdp(pdp, feat, resolution)
+        y_ice = predict_centered_ice(pdp, feat, xs)
         regional.y_ice["feature_" + str(feat)] = y_ice.T
+        regional.heter_grid["feature_" + str(feat)] = xs
     precompute = time.time() - tic
 
     tic = time.time()
     for feat in features:
-        heterogeneity = regional._create_heterogeneity_function(
-            foi=feat,
-            min_points=space_partitioner.min_points_per_subregion,
+        heterogeneity = make_regional_heterogeneity(
+            regional,
+            feat,
+            space_partitioner.min_points_per_subregion,
         )
         regional._fit_feature(feat, heterogeneity, space_partitioner, "all")
     split = time.time() - tic
@@ -136,6 +173,7 @@ def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size, nume
 
 
 def measure_regional_ale(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
+    set_internal_points(resolution)
     axis_limits = np.array([[-1.0] * d, [1.0] * d])
     space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
     binning = effector.axis_partitioning.Fixed(nof_bins=resolution, min_points_per_bin=0)
@@ -155,7 +193,8 @@ def measure_regional_ale(x, predict, d, resolution, n_split, min_node_size, nume
 
     tic = time.time()
     for feat in features:
-        heterogeneity = regional._create_heterogeneity_function(
+        heterogeneity = make_regional_heterogeneity(
+            regional,
             feat,
             space_partitioner.min_points_per_subregion,
             resolution,

@@ -57,14 +57,6 @@ cpp_pd_stack_newdata <- function(data_cols, feature_index, grid) {
     .Call(`_xplaineff_cpp_pd_stack_newdata`, data_cols, feature_index, grid)
 }
 
-ranger_pd_numeric_cpp <- function(forest, X, feature_indices, grids) {
-    .Call(`_xplaineff_ranger_pd_numeric_cpp`, forest, X, feature_indices, grids)
-}
-
-ranger_ale_numeric_cpp <- function(forest, X, feature_indices, x_left, x_right) {
-    .Call(`_xplaineff_ranger_ale_numeric_cpp`, forest, X, feature_indices, x_left, x_right)
-}
-
 re_mean_center_ice_cpp <- function(Y, grid, idx) {
     .Call(`_xplaineff_re_mean_center_ice_cpp`, Y, grid, idx)
 }

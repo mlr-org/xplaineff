@@ -13,7 +13,7 @@ RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 RUN_ROOT="${RUN_ROOT:-simulation/results/runtime_runs/${RUN_ID}}"
 
 # Keep non-model BLAS/OpenMP libraries single-threaded and avoid Intel/OpenMP shared-memory failures in sandboxed shells.
-# Model backends keep their package defaults unless the benchmark script passes an explicit backend option.
+# Model backend threads are controlled inside the benchmark script when needed.
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export OMP_THREAD_LIMIT="${OMP_THREAD_LIMIT:-1}"
 export OMP_PROC_BIND="${OMP_PROC_BIND:-FALSE}"
@@ -29,6 +29,7 @@ export XPLAINEFF_BENCH_LOAD_ALL="${XPLAINEFF_BENCH_LOAD_ALL:-true}"
 CORES="${CORES:-1}"
 PARALLEL_SUB="${PARALLEL_SUB:-true}"
 GENERATE_DATA="${GENERATE_DATA:-true}"
+GLOBAL_PACKAGES="${GLOBAL_PACKAGES:-}"
 GLOBAL_SUB_JOBS="${GLOBAL_SUB_JOBS:-3}"
 case "${GLOBAL_SUB_JOBS}" in
   ''|*[!0-9]*) GLOBAL_SUB_JOBS=3 ;;
@@ -97,9 +98,15 @@ echo "    global_models=${MODELS}"
 echo "    threads: OMP_NUM_THREADS=${OMP_NUM_THREADS}  OMP_THREAD_LIMIT=${OMP_THREAD_LIMIT}"
 echo "    openmp: KMP_INIT_AT_FORK=${KMP_INIT_AT_FORK}  KMP_AFFINITY=${KMP_AFFINITY}"
 echo "    R: DATATABLE_NUM_THREADS=${DATATABLE_NUM_THREADS}  XPLAINEFF_BENCH_LOAD_ALL=${XPLAINEFF_BENCH_LOAD_ALL}"
-echo "    model backend: native ranger num.threads uses package default; mlr3 keeps its learner default"
+echo "    model backend: xplaineff uses default_predict_fun dispatch for native R models"
 echo "    DATADIR=${DATADIR}  OUTDIR=${OUTDIR}  FIGDIR=${FIGDIR}"
 echo "    PARALLEL_SUB=${PARALLEL_SUB}  GLOBAL_SUB_JOBS=${GLOBAL_SUB_JOBS}  GENERATE_DATA=${GENERATE_DATA}"
+echo "    GLOBAL_PACKAGES=${GLOBAL_PACKAGES:-all}"
+
+GLOBAL_PACKAGE_ARGS=()
+if [ -n "${GLOBAL_PACKAGES}" ]; then
+  GLOBAL_PACKAGE_ARGS=(--packages "${GLOBAL_PACKAGES}")
+fi
 
 if [ "$GENERATE_DATA" = "true" ]; then
   echo "1. Generating benchmark data..."
@@ -149,6 +156,7 @@ if [ "$PARALLEL_SUB" = "true" ]; then
       --n-grid-vec "${N_GRID_VEC}" \
       --n-intervals-vec "${N_INTERVALS_VEC}" \
       --models "${MODELS}" \
+      "${GLOBAL_PACKAGE_ARGS[@]}" \
       --cores 1 \
       --sub-experiments "${SUB}" \
       --output-suffix "${SUB}" \
@@ -194,6 +202,7 @@ else
     --n-grid-vec "${N_GRID_VEC}" \
     --n-intervals-vec "${N_INTERVALS_VEC}" \
     --models "${MODELS}" \
+    "${GLOBAL_PACKAGE_ARGS[@]}" \
     --cores "${CORES}"
 fi
 

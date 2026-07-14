@@ -47,7 +47,6 @@ if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xpl
 }
 
 load_xplaineff_for_benchmark()
-options(xplaineff.pd.ranger_fast = FALSE)
 
 if (!requireNamespace("reticulate", quietly = TRUE)) {
   stop("Install reticulate for the sklearn reticulate benchmark")

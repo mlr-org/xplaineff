@@ -30,17 +30,6 @@ calculate_ale_fast = function(
     data[, setdiff(colnames(data), target_feature_name), drop = FALSE]
   }
   x_features_dt = data.table::as.data.table(X)
-  ranger_fast = ale_ranger_fast_info(model, x_features_dt, feature_set, predict_fun)
-  if (!is.null(ranger_fast)) {
-    return(calculate_ale_ranger_numeric(
-      forest = ranger_fast$forest,
-      x_features_dt = x_features_dt,
-      forest_features = ranger_fast$forest_features,
-      feature_indices = ranger_fast$feature_indices,
-      feature_set = feature_set,
-      n_intervals = n_intervals
-    ))
-  }
 
   if (is.null(predict_fun)) {
     predict_fun = default_predict_fun
@@ -140,88 +129,6 @@ calculate_ale_fast_compact = function(
     ),
     class = "xplaineff_ale_compact"
   )
-}
-
-
-ale_ranger_fast_info = function(model, x_features_dt, feature_set, predict_fun) {
-  if (!is.null(predict_fun)) {
-    return(NULL)
-  }
-  ranger_model = pd_extract_ranger_model(model)
-  if (is.null(ranger_model) || is.null(ranger_model$forest)) {
-    return(NULL)
-  }
-  forest = ranger_model$forest
-  required = c("num.trees", "child.nodeIDs", "split.varIDs", "split.values", "independent.variable.names", "treetype")
-  if (!all(required %in% names(forest)) || !identical(forest$treetype, "Regression")) {
-    return(NULL)
-  }
-  forest_features = forest$independent.variable.names
-  if (!is.character(forest_features) || !all(forest_features %in% names(x_features_dt))) {
-    return(NULL)
-  }
-  if (!all(feature_set %in% forest_features)) {
-    return(NULL)
-  }
-  x_cols = x_features_dt[, forest_features, with = FALSE]
-  is_supported_col = vapply(x_cols, function(x) is.numeric(x) || is.integer(x), logical(1L))
-  if (!all(is_supported_col)) {
-    return(NULL)
-  }
-  has_nonfinite = vapply(x_cols, function(x) any(!is.finite(x)), logical(1L))
-  if (any(has_nonfinite)) {
-    return(NULL)
-  }
-  list(
-    forest = forest,
-    forest_features = forest_features,
-    feature_indices = as.integer(match(feature_set, forest_features) - 1L)
-  )
-}
-
-
-calculate_ale_ranger_numeric = function(forest, x_features_dt, forest_features, feature_indices, feature_set,
-  n_intervals) {
-  x_mat = as.matrix(x_features_dt[, forest_features, with = FALSE])
-  storage.mode(x_mat) = "double"
-
-  preps = mlr3misc::map(setNames(nm = feature_set), function(feat) {
-    cpp_ale_numeric_prepare(x = x_features_dt[[feat]], n_intervals = as.integer(n_intervals))
-  })
-  zero_effect = vapply(preps, function(x) isTRUE(x$zero_effect), logical(1L))
-  active_features = feature_set[!zero_effect]
-  out = vector("list", length(feature_set))
-  names(out) = feature_set
-
-  if (length(active_features)) {
-    active_pos = match(active_features, feature_set)
-    preds = ranger_ale_numeric_cpp(
-      forest = forest,
-      X = x_mat,
-      feature_indices = feature_indices[active_pos],
-      x_left = unname(mlr3misc::map(active_features, function(feat) preps[[feat]]$x_left)),
-      x_right = unname(mlr3misc::map(active_features, function(feat) preps[[feat]]$x_right))
-    )
-    names(preds) = active_features
-  } else {
-    preds = list()
-  }
-
-  for (feat in feature_set) {
-    if (isTRUE(zero_effect[[feat]])) {
-      out[[feat]] = ale_zero(feat_val = x_features_dt[[feat]])
-    } else {
-      out[[feat]] = data.table::as.data.table(cpp_ale_numeric_effect_table(
-        feat_val = as.numeric(x_features_dt[[feat]]),
-        x_left = preps[[feat]]$x_left,
-        x_right = preps[[feat]]$x_right,
-        interval_index = preps[[feat]]$interval_index,
-        preds_lower = preds[[feat]]$lower,
-        preds_upper = preds[[feat]]$upper
-      ))
-    }
-  }
-  out
 }
 
 

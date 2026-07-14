@@ -49,8 +49,6 @@ if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xpl
 }
 
 load_xplaineff_for_benchmark()
-options(xplaineff.pd.ranger_fast = FALSE)
-options(xplaineff.ranger.num_threads = NULL)
 
 library(data.table)
 setDTthreads(1L)
@@ -74,6 +72,7 @@ use_checkpoints = TRUE
 resume_checkpoints = TRUE
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res")
+packages = character()
 cores = 1L
 output_suffix = ""
 checkpoint_dir = ""
@@ -123,6 +122,10 @@ while (i <= length(args)) {
     sub_experiments = parse_chr_vec(args[i + 1L])
     sub_experiments = sub_experiments[nzchar(sub_experiments)]
     i = i + 2L
+  } else if (args[i] == "--packages" && i < length(args)) {
+    packages = parse_chr_vec(args[i + 1L])
+    packages = packages[nzchar(packages)]
+    i = i + 2L
   } else if (args[i] == "--cores" && i < length(args)) {
     cores = max(1L, as.integer(args[i + 1L])); i = i + 2L
   } else if (args[i] == "--output-suffix" && i < length(args)) {
@@ -163,7 +166,7 @@ rf_config = list(
   sample_fraction = 1.0,
   splitrule = "variance",
   respect_unordered_factors = "ignore",
-  num_threads = NULL,
+  num_threads = 1L,
   seed = 21L
 )
 
@@ -171,7 +174,7 @@ ranger_threads_label = function(num_threads) {
   if (is.null(num_threads)) "ranger_default" else as.character(as.integer(num_threads))
 }
 
-ranger_fit_threads_label = function(model_type) {
+ranger_num_threads_label = function(model_type) {
   if (identical(model_type, "mlr3_rf")) {
     return("mlr3_default")
   }
@@ -493,6 +496,13 @@ method_specs = list(
     runner = function(dat, model, pred_fun, cell) run_effectplots_ale(dat, model, pred_fun, cell$n_intervals))
 )
 
+if (length(packages)) {
+  method_specs = Filter(function(spec) spec$package %in% packages, method_specs)
+  if (!length(method_specs)) {
+    stop(sprintf("No method specs match --packages=%s", paste(packages, collapse = ",")), call. = FALSE)
+  }
+}
+
 make_cells = function(spec) {
   is_pdp = grepl("pdp", spec$method)
   res_vec = if (is_pdp) n_grid_vec else n_intervals_vec
@@ -540,12 +550,7 @@ record_row = function(
     n_grid = cell$n_grid,
     n_intervals = cell$n_intervals,
     prediction_backend = if (model_type %in% c("rf", "mlr3_rf")) "ranger" else "custom_predict_fun",
-    ranger_fit_threads = ranger_fit_threads_label(model_type),
-    ranger_predict_threads = if (model_type %in% c("rf", "mlr3_rf")) {
-      ranger_threads_label(getOption("xplaineff.ranger.num_threads", NULL))
-    } else {
-      NA_character_
-    },
+    ranger_num_threads = ranger_num_threads_label(model_type),
     repetition = repetition,
     time_sec = time_sec,
     status = status,

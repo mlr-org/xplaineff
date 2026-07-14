@@ -18,7 +18,6 @@ test_that("native ranger regression fast prediction matches ranger predict", {
   expect_s3_class(info$model, "ranger")
   expected = as.numeric(predict(model, data = x, num.threads = 1L)$predictions)
 
-  withr::local_options(list(xplaineff.ranger.num_threads = 1L))
   expect_equal(xplaineff:::predict_ranger_regression_fast(model, x), expected)
   expect_equal(xplaineff:::default_predict_fun(model, x), expected)
 })
@@ -37,7 +36,7 @@ test_that("mlr3 regr.ranger fast prediction uses the trained ranger model", {
   set.seed(30L)
   data = data.frame(x1 = runif(80L), x2 = rnorm(80L), x3 = runif(80L))
   data$y = sin(data$x1) + data$x2 * (data$x3 > 0.5)
-  task = mlr3::TaskRegr$new("ranger_fast", backend = data, target = "y")
+  task = mlr3::TaskRegr$new("ranger_predict", backend = data, target = "y")
   learner = mlr3::lrn("regr.ranger", num.trees = 30L, mtry = 3L, min.node.size = 2L, num.threads = 1L)
   learner$train(task)
   x = data[, c("x1", "x2", "x3")]

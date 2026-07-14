@@ -199,35 +199,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// ranger_pd_numeric_cpp
-List ranger_pd_numeric_cpp(List forest, NumericMatrix X, IntegerVector feature_indices, List grids);
-RcppExport SEXP _xplaineff_ranger_pd_numeric_cpp(SEXP forestSEXP, SEXP XSEXP, SEXP feature_indicesSEXP, SEXP gridsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type forest(forestSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type X(XSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type feature_indices(feature_indicesSEXP);
-    Rcpp::traits::input_parameter< List >::type grids(gridsSEXP);
-    rcpp_result_gen = Rcpp::wrap(ranger_pd_numeric_cpp(forest, X, feature_indices, grids));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ranger_ale_numeric_cpp
-List ranger_ale_numeric_cpp(List forest, NumericMatrix X, IntegerVector feature_indices, List x_left, List x_right);
-RcppExport SEXP _xplaineff_ranger_ale_numeric_cpp(SEXP forestSEXP, SEXP XSEXP, SEXP feature_indicesSEXP, SEXP x_leftSEXP, SEXP x_rightSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type forest(forestSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type X(XSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type feature_indices(feature_indicesSEXP);
-    Rcpp::traits::input_parameter< List >::type x_left(x_leftSEXP);
-    Rcpp::traits::input_parameter< List >::type x_right(x_rightSEXP);
-    rcpp_result_gen = Rcpp::wrap(ranger_ale_numeric_cpp(forest, X, feature_indices, x_left, x_right));
-    return rcpp_result_gen;
-END_RCPP
-}
 // re_mean_center_ice_cpp
 List re_mean_center_ice_cpp(List Y, List grid, IntegerVector idx);
 RcppExport SEXP _xplaineff_re_mean_center_ice_cpp(SEXP YSEXP, SEXP gridSEXP, SEXP idxSEXP) {
@@ -271,8 +242,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_xplaineff_calculate_ale_heterogeneity_list_cpp", (DL_FUNC) &_xplaineff_calculate_ale_heterogeneity_list_cpp, 1},
     {"_xplaineff_node_heterogeneity_cpp", (DL_FUNC) &_xplaineff_node_heterogeneity_cpp, 1},
     {"_xplaineff_cpp_pd_stack_newdata", (DL_FUNC) &_xplaineff_cpp_pd_stack_newdata, 3},
-    {"_xplaineff_ranger_pd_numeric_cpp", (DL_FUNC) &_xplaineff_ranger_pd_numeric_cpp, 4},
-    {"_xplaineff_ranger_ale_numeric_cpp", (DL_FUNC) &_xplaineff_ranger_ale_numeric_cpp, 5},
     {"_xplaineff_re_mean_center_ice_cpp", (DL_FUNC) &_xplaineff_re_mean_center_ice_cpp, 3},
     {"_xplaineff_search_best_split_cpp", (DL_FUNC) &_xplaineff_search_best_split_cpp, 4},
     {NULL, NULL, 0}

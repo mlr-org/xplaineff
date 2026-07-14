@@ -48,7 +48,6 @@ if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xpl
 }
 
 load_xplaineff_for_benchmark()
-options(xplaineff.pd.ranger_fast = FALSE)
 
 library(data.table)
 setDTthreads(1L)
@@ -73,7 +72,6 @@ fail_fast = FALSE
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res", "vs_split")
 output_suffix = ""
-ranger_predict_threads = NULL
 
 parse_int_vec = function(x) as.integer(strsplit(x, ",", fixed = TRUE)[[1L]])
 parse_chr_vec = function(x) trimws(strsplit(x, ",", fixed = TRUE)[[1L]])
@@ -120,14 +118,10 @@ while (i <= length(args)) {
     i = i + 2L
   } else if (args[i] == "--output-suffix" && i < length(args)) {
     output_suffix = trimws(as.character(args[i + 1L])); i = i + 2L
-  } else if (args[i] == "--ranger-predict-threads" && i < length(args)) {
-    ranger_predict_threads = parse_nullable_int(args[i + 1L]); i = i + 2L
   } else {
     i = i + 1L
   }
 }
-
-options(xplaineff.ranger.num_threads = ranger_predict_threads)
 
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
@@ -156,7 +150,7 @@ rf_config = list(
   sample_fraction = 1.0,
   splitrule = "variance",
   respect_unordered_factors = "ignore",
-  num_threads = NULL,
+  num_threads = 1L,
   seed = 21L
 )
 
@@ -310,15 +304,9 @@ record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
     n_quantiles = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     n_candidates = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     split_candidate_rule = if (is.null(n_quantiles)) "all_unique" else "quantile",
-    prediction_path = if (identical(model_type, "rf")) "native_ranger_batch" else "custom_predict_fun",
-    pd_ranger_fast = isTRUE(getOption("xplaineff.pd.ranger_fast", FALSE)),
-    ranger_fit_threads = if (identical(model_type, "rf")) {
+    prediction_path = if (identical(model_type, "rf")) "default_predict_fun" else "custom_predict_fun",
+    ranger_num_threads = if (identical(model_type, "rf")) {
       ranger_threads_label(rf_config$num_threads)
-    } else {
-      NA_character_
-    },
-    ranger_predict_threads = if (identical(model_type, "rf")) {
-      ranger_threads_label(getOption("xplaineff.ranger.num_threads", NULL))
     } else {
       NA_character_
     },
