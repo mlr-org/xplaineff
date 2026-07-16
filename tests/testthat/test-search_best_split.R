@@ -92,6 +92,23 @@ test_that("search_best_split_cpp prunes numerically inactive effect matrices", {
   expect_equal(unname(result$right_objective_value_j[[best]]["inactive"]), 0)
 })
 
+test_that("search_best_split_cpp prunes weak active effects by relative root heterogeneity", {
+  skip_cpp_if_unavailable()
+  Z = data.frame(x = 1:10)
+  Y = list(
+    signal = matrix(c(rep(2, 5L), rep(-2, 5L)), ncol = 1L),
+    weak = matrix(seq(-0.02, 0.02, length.out = 10L), ncol = 1L)
+  )
+
+  pruned = search_best_split_cpp(Z = Z, Y = Y, min_node_size = 2L, active_effect_rel_tol = 1e-4)
+  unpruned = search_best_split_cpp(Z = Z, Y = Y, min_node_size = 2L, active_effect_rel_tol = 0)
+
+  best_pruned = which(pruned$best_split)[1L]
+  best_unpruned = which(unpruned$best_split)[1L]
+  expect_equal(unname(pruned$left_objective_value_j[[best_pruned]]["weak"]), 0)
+  expect_gt(unname(unpruned$left_objective_value_j[[best_unpruned]]["weak"]), 0)
+})
+
 test_that("search_best_split_cpp handles categorical split and one-level factor", {
   skip_cpp_if_unavailable()
   Z = data.frame(

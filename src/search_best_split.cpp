@@ -507,7 +507,8 @@ DataFrame search_best_split_cpp(
     DataFrame       Z,
     List            Y,
     int             min_node_size,
-    Nullable<int>   n_quantiles = R_NilValue)
+    Nullable<int>   n_quantiles = R_NilValue,
+    double          active_effect_rel_tol = 1e-14)
 {
   // Initialize output vectors
   const int p = Z.size();
@@ -544,17 +545,35 @@ DataFrame search_best_split_cpp(
       total_effect_objective += effect_objective[l];
     }
   }
-  const double active_effect_tol = total_effect_objective * 1e-14;
+  const double rel_tol = std::max(0.0, active_effect_rel_tol);
+  const double active_effect_tol = total_effect_objective * rel_tol;
 
   int M = 0;
   int n_active_effects = 0;
   int single_active_effect = -1;
   for (int l = 0; l < Ly; ++l) {
-    offsets[l] = M;
     active_effect[l] = effect_objective[l] > active_effect_tol;
     if (active_effect[l]) {
       ++n_active_effects;
       single_active_effect = l;
+    }
+  }
+  if (n_active_effects == 0 && Ly > 0) {
+    int best_effect = 0;
+    double best_effect_objective = effect_objective[0];
+    for (int l = 1; l < Ly; ++l) {
+      if (effect_objective[l] > best_effect_objective) {
+        best_effect = l;
+        best_effect_objective = effect_objective[l];
+      }
+    }
+    active_effect[best_effect] = true;
+    n_active_effects = 1;
+    single_active_effect = best_effect;
+  }
+  for (int l = 0; l < Ly; ++l) {
+    offsets[l] = M;
+    if (active_effect[l]) {
       M += Ym[l].n_cols;
     }
   }

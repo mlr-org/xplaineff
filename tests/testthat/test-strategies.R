@@ -27,6 +27,39 @@ test_that("PdStrategy find_best_split returns expected structure", {
         "split_objective", "best_split") %in% names(res)))
 })
 
+test_that("fit-time active-effect hidden option keeps PD grids full", {
+  tryCatch({
+    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
+  }, error = function(e) {
+    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+      testthat::skip("C++ symbols not loaded (install package with compile)")
+    }
+  })
+  n = 10L
+  signal = c(rep(2, 5L), rep(-2, 5L))
+  weak = seq(-0.02, 0.02, length.out = n)
+  Y = list(
+    signal = cbind(left = signal, right = -signal),
+    weak = cbind(left = weak, right = -weak)
+  )
+  effect = structure(
+    list(Y = Y, grid = list(signal = c("left", "right"), weak = c("left", "right"))),
+    class = "xplaineff_pd_matrix"
+  )
+  data = data.frame(signal = seq_len(n), weak = seq_len(n), y = 0)
+
+  withr::local_options(list(xplaineff.active_effect_rel_tol = 1e-4))
+  tree = GadgetTree$new(strategy = PdStrategy$new(), n_split = 0L, min_node_size = 2L)
+  tree$fit(data = data, target_feature_name = "y", effect = effect)
+  expect_named(tree$root$objective$value_j, "signal")
+  expect_named(tree$root$grid, c("signal", "weak"))
+
+  withr::local_options(list(xplaineff.active_effect_rel_tol = 0))
+  unpruned_tree = GadgetTree$new(strategy = PdStrategy$new(), n_split = 0L, min_node_size = 2L)
+  unpruned_tree$fit(data = data, target_feature_name = "y", effect = effect)
+  expect_named(unpruned_tree$root$objective$value_j, c("signal", "weak"))
+})
+
 test_that("PdStrategy heterogeneity returns numeric vector", {
   Y = list(matrix(rnorm(20), ncol = 2), matrix(rnorm(20), ncol = 2))
   strategy = PdStrategy$new()

@@ -4,6 +4,7 @@
 - AleStrategy categorical splits now apply ordered-prefix partitions consistently in fitted trees and display category sets for those splits (no issue).
 - AleStrategy now accepts a bare prediction function as `model` in the default ALE prediction path (no issue).
 - AleStrategy split search now skips ALE effect components with numerically zero heterogeneity while keeping all split candidate features available (no issue).
+- AleStrategy and PdStrategy now prune negligible effect components during split search while preserving all split candidate features and full effect grids (no issue).
 - AleStrategy split search now uses the bias-corrected self-gain ranking objective for ALE self-feature splits (no issue).
 - AleStrategy now uses only the selected split's objective rows when multiple ALE split candidates tie (no issue).
 - calculate_ale() and calculate_ale_fast() now preserve fractional interval bounds for integer features and restore shared prediction scratch data between features (no issue).

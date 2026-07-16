@@ -137,18 +137,14 @@ ale_compact_heterogeneity = function(effect) {
   stats::setNames(stats$r_risks, effect$feature_names)
 }
 
-active_ale_effect_features = function(effect, tolerance = 1e-10) {
+active_ale_effect_features = function(effect, rel_tol = active_effect_rel_tol()) {
   objective_value_j = if (is_ale_compact(effect)) {
     ale_compact_heterogeneity(effect)
   } else {
     unlist(calculate_ale_heterogeneity_cpp(effect), use.names = TRUE)
   }
-  active = is.finite(objective_value_j) & objective_value_j > tolerance
-  if (!any(active)) {
-    if (is_ale_compact(effect)) effect$feature_names else names(effect)
-  } else {
-    names(objective_value_j)[active]
-  }
+  effect_names = if (is_ale_compact(effect)) effect$feature_names else names(effect)
+  active_effect_names(objective_value_j, effect_names = effect_names, rel_tol = rel_tol)
 }
 
 pad_ale_objective_values = function(values, active_features, full_features) {
@@ -170,6 +166,8 @@ pad_ale_objective_values = function(values, active_features, full_features) {
 #'   Minimum observations per node.
 #' @param n_quantiles (`integer(1)` or `NULL`) \cr
 #'   Quantiles for numeric split candidates.
+#' @param active_effect_tol (`numeric(1)`) \cr
+#'   Relative threshold used to skip negligible effect components in this split search.
 #'
 #' @return (`data.frame()`) \cr
 #'   Best split info with per-feature objective values.
@@ -177,12 +175,13 @@ pad_ale_objective_values = function(values, active_features, full_features) {
 search_best_split_ale = function(
   Z, effect,
   min_node_size = 1L,
-  n_quantiles = NULL
+  n_quantiles = NULL,
+  active_effect_tol = active_effect_rel_tol()
 ) {
   split_feature_names = colnames(Z)
   if (is.null(split_feature_names)) cli::cli_abort("Z (split features) must have column names.")
   full_feature_names = if (is_ale_compact(effect)) effect$feature_names else names(effect)
-  active_feature_names = active_ale_effect_features(effect)
+  active_feature_names = active_ale_effect_features(effect, rel_tol = active_effect_tol)
   if (is_ale_compact(effect)) {
     active_effect = stats::setNames(vector("list", length(active_feature_names)), active_feature_names)
     st_table = build_ale_interval_stats_compact(effect, active_feature_names)

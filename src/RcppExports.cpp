@@ -213,8 +213,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // search_best_split_cpp
-DataFrame search_best_split_cpp(DataFrame Z, List Y, int min_node_size, Nullable<int> n_quantiles);
-RcppExport SEXP _xplaineff_search_best_split_cpp(SEXP ZSEXP, SEXP YSEXP, SEXP min_node_sizeSEXP, SEXP n_quantilesSEXP) {
+DataFrame search_best_split_cpp(DataFrame Z, List Y, int min_node_size, Nullable<int> n_quantiles, double active_effect_rel_tol);
+RcppExport SEXP _xplaineff_search_best_split_cpp(SEXP ZSEXP, SEXP YSEXP, SEXP min_node_sizeSEXP, SEXP n_quantilesSEXP, SEXP active_effect_rel_tolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -222,7 +222,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< List >::type Y(YSEXP);
     Rcpp::traits::input_parameter< int >::type min_node_size(min_node_sizeSEXP);
     Rcpp::traits::input_parameter< Nullable<int> >::type n_quantiles(n_quantilesSEXP);
-    rcpp_result_gen = Rcpp::wrap(search_best_split_cpp(Z, Y, min_node_size, n_quantiles));
+    Rcpp::traits::input_parameter< double >::type active_effect_rel_tol(active_effect_rel_tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(search_best_split_cpp(Z, Y, min_node_size, n_quantiles, active_effect_rel_tol));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -243,7 +244,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_xplaineff_node_heterogeneity_cpp", (DL_FUNC) &_xplaineff_node_heterogeneity_cpp, 1},
     {"_xplaineff_cpp_pd_stack_newdata", (DL_FUNC) &_xplaineff_cpp_pd_stack_newdata, 3},
     {"_xplaineff_re_mean_center_ice_cpp", (DL_FUNC) &_xplaineff_re_mean_center_ice_cpp, 3},
-    {"_xplaineff_search_best_split_cpp", (DL_FUNC) &_xplaineff_search_best_split_cpp, 4},
+    {"_xplaineff_search_best_split_cpp", (DL_FUNC) &_xplaineff_search_best_split_cpp, 5},
     {NULL, NULL, 0}
 };
 

@@ -2,6 +2,79 @@
 
 risk_from_stats = function(n, s1, s2) ifelse(n <= 1L, 0.0, s2 - (s1 * s1) / n)
 
+active_effect_rel_tol = function(default = 1e-4) {
+  tol = getOption("xplaineff.active_effect_rel_tol", default)
+  if (!is.numeric(tol) || length(tol) != 1L || !is.finite(tol) || tol < 0 || tol > 1) {
+    return(default)
+  }
+  tol
+}
+
+active_effect_indices = function(objective_value_j, rel_tol = active_effect_rel_tol()) {
+  values = as.numeric(objective_value_j)
+  if (length(values) == 0L || rel_tol <= 0) {
+    return(seq_along(values))
+  }
+  finite_positive = is.finite(values) & values > 0
+  total = sum(values[finite_positive], na.rm = TRUE)
+  if (!is.finite(total) || total <= 0) {
+    return(seq_along(values))
+  }
+
+  active = finite_positive & values > total * rel_tol
+  if (any(active)) {
+    return(which(active))
+  }
+
+  finite_values = values
+  finite_values[!is.finite(finite_values)] = -Inf
+  which.max(finite_values)
+}
+
+active_effect_names = function(objective_value_j, effect_names = names(objective_value_j),
+  rel_tol = active_effect_rel_tol()) {
+  idx = active_effect_indices(objective_value_j = objective_value_j, rel_tol = rel_tol)
+  if (is.null(effect_names) || length(effect_names) != length(objective_value_j)) {
+    return(as.character(idx))
+  }
+  effect_names[idx]
+}
+
+subset_ale_compact_features = function(effect, features) {
+  pos = match(features, effect$feature_names)
+  if (anyNA(pos)) {
+    cli::cli_abort("Compact ALE effect does not contain requested features.")
+  }
+  out = effect
+  out$feature_names = effect$feature_names[pos]
+  out$d_l_mat = effect$d_l_mat[pos, , drop = FALSE]
+  out$interval_idx_mat = effect$interval_idx_mat[pos, , drop = FALSE]
+  out$feature_value_mat = effect$feature_value_mat[pos, , drop = FALSE]
+  out
+}
+
+prune_effects_for_split_search = function(Y, objective_value_j, rel_tol = active_effect_rel_tol()) {
+  effect_names = if (is_ale_compact(Y)) Y$feature_names else names(Y)
+  if (!is.null(effect_names) && length(effect_names) == length(objective_value_j)) {
+    names(objective_value_j) = effect_names
+  }
+  active_idx = active_effect_indices(objective_value_j = objective_value_j, rel_tol = rel_tol)
+  active_objective_value_j = objective_value_j[active_idx]
+  active_names = if (is.null(effect_names)) names(active_objective_value_j) else effect_names[active_idx]
+  Y_active = if (is_ale_compact(Y)) {
+    subset_ale_compact_features(Y, active_names)
+  } else {
+    Y[active_idx]
+  }
+
+  list(
+    Y = Y_active,
+    objective_value_j = active_objective_value_j,
+    objective_value = sum(active_objective_value_j, na.rm = TRUE),
+    active_features = active_names
+  )
+}
+
 assert_ale_effect_list = function(Y, var_name = "Y") {
   required_cols = c("row_id", "interval_index", "d_l", "int_n", "int_s1", "int_s2")
   checkmate::assert_list(Y, min.len = 1, .var.name = var_name)
@@ -327,6 +400,7 @@ wrap_tree_label = function(text, width = 34L) {
 #'   extract_xgboost_regression_model xgboost_booster_is_regression
 #'   extract_mlr3_native_model extract_mlr3_feature_names select_newdata_features numeric_matrix_for_prediction
 #'   extract_numeric_prediction has_predict_method cpp_pd_stack_newdata risk_from_stats assert_ale_effect_list
-#'   d_l interval_index level x x_grid x_left x_right y
+#'   active_effect_rel_tol active_effect_indices active_effect_names subset_ale_compact_features
+#'   prune_effects_for_split_search d_l interval_index level x x_grid x_left x_right y
 #' @keywords internal
 NULL

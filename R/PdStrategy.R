@@ -329,10 +329,15 @@ PdStrategy = R6::R6Class(
         Y = prepared_data$Y
         grid = prepared_data$grid
         objective_value_root_j = self$heterogeneity(Y)
-        objective_value_root = sum(objective_value_root_j, na.rm = TRUE)
+        split_search_data = prune_effects_for_split_search(Y = Y, objective_value_j = objective_value_root_j)
+        Y_split = split_search_data$Y
+        objective_value_root_j_split = split_search_data$objective_value_j
+        objective_value_root_split = split_search_data$objective_value
       })[["elapsed"]]
 
-      t_regional = private$fit_tree_internal(tree, Z, Y, grid, objective_value_root_j, objective_value_root)
+      t_regional = private$fit_tree_internal(
+        tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split
+      )
       self$fit_timing = list(global = t_global, regional = t_regional)
       invisible(tree)
     },

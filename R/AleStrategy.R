@@ -221,7 +221,8 @@ AleStrategy = R6::R6Class(
         Z = Z,
         effect = Y,
         min_node_size = min_node_size,
-        n_quantiles = n_quantiles
+        n_quantiles = n_quantiles,
+        active_effect_tol = 0
       )
     },
 
@@ -333,10 +334,15 @@ AleStrategy = R6::R6Class(
         grid = vector("list", length(names(Z)))
         names(grid) = names(Z)
         objective_value_root_j = self$heterogeneity(Y)
-        objective_value_root = sum(objective_value_root_j, na.rm = TRUE)
+        split_search_data = prune_effects_for_split_search(Y = Y, objective_value_j = objective_value_root_j)
+        Y_split = split_search_data$Y
+        objective_value_root_j_split = split_search_data$objective_value_j
+        objective_value_root_split = split_search_data$objective_value
       })[["elapsed"]]
 
-      t_regional = private$fit_tree_internal(tree, Z, Y, grid, objective_value_root_j, objective_value_root)
+      t_regional = private$fit_tree_internal(
+        tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split
+      )
       self$fit_timing = list(global = t_global, regional = t_regional)
       invisible(tree)
     },

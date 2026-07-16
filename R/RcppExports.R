@@ -61,7 +61,7 @@ re_mean_center_ice_cpp <- function(Y, grid, idx) {
     .Call(`_xplaineff_re_mean_center_ice_cpp`, Y, grid, idx)
 }
 
-search_best_split_cpp <- function(Z, Y, min_node_size, n_quantiles = NULL) {
-    .Call(`_xplaineff_search_best_split_cpp`, Z, Y, min_node_size, n_quantiles)
+search_best_split_cpp <- function(Z, Y, min_node_size, n_quantiles = NULL, active_effect_rel_tol = 1e-14) {
+    .Call(`_xplaineff_search_best_split_cpp`, Z, Y, min_node_size, n_quantiles, active_effect_rel_tol)
 }
 
