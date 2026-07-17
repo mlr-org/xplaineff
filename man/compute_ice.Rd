@@ -14,7 +14,8 @@ compute_ice(
   base_data_dt = NULL,
   cols_list = NULL,
   feature_index = NULL,
-  stacked_pd_cache = NULL
+  stacked_pd_cache = NULL,
+  predictor = NULL
 )
 }
 \arguments{
@@ -47,6 +48,10 @@ Pre-extracted column list of \code{base_data_dt}; used by the C++ path.}
 
 \item{stacked_pd_cache}{(`list()` or `NULL`) \cr
 Pre-allocated stacked data.table cache for the R path; \code{NULL} disables caching.}
+
+\item{predictor}{(`list()` or `NULL`) \cr
+Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
+\code{model} and \code{predict_fun}.}
 }
 \value{
 (`matrix`) \cr

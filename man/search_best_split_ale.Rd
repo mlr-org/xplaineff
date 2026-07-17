@@ -4,7 +4,13 @@
 \alias{search_best_split_ale}
 \title{Find best ALE split across features.}
 \usage{
-search_best_split_ale(Z, effect, min_node_size = 1L, n_quantiles = NULL)
+search_best_split_ale(
+  Z,
+  effect,
+  min_node_size = 1L,
+  n_quantiles = NULL,
+  active_effect_tol = active_effect_rel_tol()
+)
 }
 \arguments{
 \item{Z}{(`data.frame()` or `data.table()`) \cr
@@ -18,6 +24,9 @@ Minimum observations per node.}
 
 \item{n_quantiles}{(`integer(1)` or `NULL`) \cr
 Quantiles for numeric split candidates.}
+
+\item{active_effect_tol}{(`numeric(1)`) \cr
+Relative threshold used to skip negligible effect components in this split search.}
 }
 \value{
 (`data.frame()`) \cr

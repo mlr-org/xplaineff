@@ -12,7 +12,8 @@ compute_ice_cpp(
   predict_fun = NULL,
   base_data_dt = NULL,
   cols_list = NULL,
-  feature_index = NULL
+  feature_index = NULL,
+  predictor = NULL
 )
 }
 \arguments{
@@ -39,14 +40,18 @@ Pre-extracted column list of \code{base_data_dt}.}
 
 \item{feature_index}{(`integer(1)` or `NULL`) \cr
 1-based column index of \code{feature} in \code{base_data_dt}.}
+
+\item{predictor}{(`list()` or `NULL`) \cr
+Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
+\code{model} and \code{predict_fun}.}
 }
 \value{
 (`matrix`) \cr
   Numeric matrix of shape \code{n_obs x length(grid)}.
 }
 \description{
-Uses \code{cpp_pd_stack_newdata} to build the stacked prediction table in C++,
-then runs \code{pd_predict}. Falls back to \code{compute_ice_r} for
-character or logical feature columns.
+Uses \code{cpp_pd_stack_newdata} to build the stacked prediction table in C++.
+Prediction still runs through the shared predictor wrapper.
+Character and logical focal feature columns are unsupported in this path.
 }
 \keyword{internal}

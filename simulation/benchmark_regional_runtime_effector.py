@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from datetime import datetime
+from importlib.metadata import PackageNotFoundError, version
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OMP_THREAD_LIMIT", "1")
@@ -21,6 +22,8 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 os.environ.setdefault("PYTHONHASHSEED", "21")
+os.environ.setdefault("MPLCONFIGDIR", os.path.join("/tmp", "effector_matplotlib_cache"))
+os.makedirs(os.environ["MPLCONFIGDIR"], exist_ok=True)
 
 import numpy as np
 import pandas as pd
@@ -31,6 +34,13 @@ try:
 except ImportError:
     sys.stderr.write("effector not installed. Run: pip install effector\n")
     sys.exit(1)
+
+try:
+    EFFECTOR_VERSION = version("effector")
+except PackageNotFoundError:
+    EFFECTOR_VERSION = "unknown"
+
+HAS_REGIONAL_CLASSES = hasattr(effector, "RegionalPDP") and hasattr(effector, "RegionalALE")
 
 
 RF_CONFIG = {
@@ -142,6 +152,17 @@ def predict_centered_ice(pdp, feature, xs):
 
 
 def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
+    if not HAS_REGIONAL_CLASSES:
+        return measure_regional_pdp_v050(
+            x,
+            predict,
+            d,
+            resolution,
+            n_split,
+            min_node_size,
+            numerical_features_grid_size,
+        )
+
     set_internal_points(resolution)
     axis_limits = np.array([[-1.0] * d, [1.0] * d])
     space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
@@ -172,7 +193,36 @@ def measure_regional_pdp(x, predict, d, resolution, n_split, min_node_size, nume
     return {"precompute": precompute, "split": split, "total": precompute + split}
 
 
+def measure_regional_pdp_v050(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
+    set_internal_points(resolution)
+    axis_limits = np.array([[-1.0] * d, [1.0] * d])
+    features = list(range(d))
+    pdp = effector.PDP(data=x, model=predict, axis_limits=axis_limits, nof_instances="all")
+
+    tic = time.time()
+    pdp.fit(features=features, centering=True, use_vectorized=True)
+    precompute = time.time() - tic
+
+    space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
+    tic = time.time()
+    for feat in features:
+        pdp.find_regions(feat, finder=space_partitioner, candidate_conditioning_features="all")
+    split = time.time() - tic
+    return {"precompute": precompute, "split": split, "total": precompute + split}
+
+
 def measure_regional_ale(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
+    if not HAS_REGIONAL_CLASSES:
+        return measure_regional_ale_v050(
+            x,
+            predict,
+            d,
+            resolution,
+            n_split,
+            min_node_size,
+            numerical_features_grid_size,
+        )
+
     set_internal_points(resolution)
     axis_limits = np.array([[-1.0] * d, [1.0] * d])
     space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
@@ -200,6 +250,25 @@ def measure_regional_ale(x, predict, d, resolution, n_split, min_node_size, nume
             resolution,
         )
         regional._fit_feature(feat, heterogeneity, space_partitioner, "all")
+    split = time.time() - tic
+    return {"precompute": precompute, "split": split, "total": precompute + split}
+
+
+def measure_regional_ale_v050(x, predict, d, resolution, n_split, min_node_size, numerical_features_grid_size):
+    set_internal_points(resolution)
+    axis_limits = np.array([[-1.0] * d, [1.0] * d])
+    features = list(range(d))
+    binning = effector.axis_partitioning.Fixed(nof_bins=resolution, min_points_per_bin=0)
+    ale = effector.ALE(data=x, model=predict, axis_limits=axis_limits, nof_instances="all")
+
+    tic = time.time()
+    ale.fit(features=features, binning_method=binning, centering=False)
+    precompute = time.time() - tic
+
+    space_partitioner = make_space_partitioner(n_split, min_node_size, numerical_features_grid_size)
+    tic = time.time()
+    for feat in features:
+        ale.find_regions(feat, finder=space_partitioner, candidate_conditioning_features="all")
     split = time.time() - tic
     return {"precompute": precompute, "split": split, "total": precompute + split}
 
@@ -250,7 +319,7 @@ def record(args, model_type, effect, cell, repetition, timing=None, status="ok",
     }
 
 
-def run_model(args, model_type):
+def run_model(args, model_type, writer=None, handle=None):
     cells = make_cells(args)
     data_cache = {}
     model_cache = {}
@@ -265,6 +334,13 @@ def run_model(args, model_type):
         model_cache[key] = fit_rf(x, y) if model_type == "rf" else None
 
     rows = []
+    def emit(row):
+        if writer is None:
+            rows.append(row)
+        else:
+            writer.writerow(row)
+            handle.flush()
+
     for effect in ["pdp", "ale"]:
         runner = measure_regional_pdp if effect == "pdp" else measure_regional_ale
         for cell in cells:
@@ -307,11 +383,11 @@ def run_model(args, model_type):
                         args.min_node_size,
                         args.numerical_features_grid_size,
                     )
-                    rows.append(record(args, model_type, effect, cell, repetition, timing=timing))
+                    emit(record(args, model_type, effect, cell, repetition, timing=timing))
                 except Exception as exc:
                     if args.fail_fast:
                         raise
-                    rows.append(record(
+                    emit(record(
                         args,
                         model_type,
                         effect,
@@ -359,10 +435,13 @@ def main():
     if invalid_models:
         raise ValueError("Unsupported regional model type(s): {}".format(", ".join(invalid_models)))
     os.makedirs(args.outdir, exist_ok=True)
-
-    rows = []
-    for model_type in args.models:
-        rows.extend(run_model(args, model_type))
+    print(
+        "effector version: {}; regional API: {}".format(
+            EFFECTOR_VERSION,
+            "legacy" if HAS_REGIONAL_CLASSES else "find_regions",
+        ),
+        flush=True,
+    )
 
     filename = "regional_runtime_effector"
     if args.output_suffix:
@@ -378,7 +457,9 @@ def main():
     with open(out, "w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
-        writer.writerows(rows)
+        handle.flush()
+        for model_type in args.models:
+            run_model(args, model_type, writer=writer, handle=handle)
     print("Written: {}".format(out), flush=True)
 
 

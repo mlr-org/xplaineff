@@ -50,6 +50,12 @@ subset_ale_compact_features = function(effect, features) {
   out$d_l_mat = effect$d_l_mat[pos, , drop = FALSE]
   out$interval_idx_mat = effect$interval_idx_mat[pos, , drop = FALSE]
   out$feature_value_mat = effect$feature_value_mat[pos, , drop = FALSE]
+  if (!is.null(effect$feature_types)) {
+    out$feature_types = effect$feature_types[pos]
+  }
+  if (!is.null(effect$feature_levels)) {
+    out$feature_levels = effect$feature_levels[pos]
+  }
   out
 }
 
@@ -97,6 +103,22 @@ default_predict_fun = function(model, data) {
     return(extract_numeric_prediction(fast_pred, expected_n = nrow(data)))
   }
   predict_newdata_fast_dispatch(model, data)
+}
+
+make_effect_predictor = function(model, predict_fun = NULL) {
+  checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
+  prefer_data_table = is.null(predict_fun) && has_predict_method(model, "predict_newdata_fast")
+  predict = if (is.null(predict_fun)) {
+    function(newdata) default_predict_fun(model, newdata)
+  } else {
+    function(newdata) {
+      extract_numeric_prediction(predict_fun(model, newdata), expected_n = nrow(newdata))
+    }
+  }
+  list(
+    predict = predict,
+    prefer_data_table = prefer_data_table
+  )
 }
 
 has_predict_method = function(model, method) {
@@ -207,6 +229,9 @@ predict_ranger_regression_fast = function(model, newdata) {
     return(NULL)
   }
   predict_args = list(object = info$model, data = as.data.frame(newdata_selected))
+  if (!is.null(info$num_threads)) {
+    predict_args$num.threads = info$num_threads
+  }
   pred = tryCatch(
     do.call(stats::predict, predict_args)$predictions,
     error = function(e) NULL
@@ -220,12 +245,30 @@ predict_ranger_regression_fast = function(model, newdata) {
 extract_ranger_regression_model = function(model) {
   if (inherits(model, "ranger") && identical(model$treetype, "Regression")) {
     feature_names = tryCatch(model$forest$independent.variable.names, error = function(e) NULL)
-    return(list(model = model, feature_names = feature_names))
+    return(list(model = model, feature_names = feature_names, num_threads = extract_ranger_num_threads(model)))
   }
   if (inherits(model, "LearnerRegr")) {
     ranger_model = extract_mlr3_native_model(model)
     if (inherits(ranger_model, "ranger") && identical(ranger_model$treetype, "Regression")) {
-      return(list(model = ranger_model, feature_names = extract_mlr3_feature_names(model)))
+      return(list(
+        model = ranger_model,
+        feature_names = extract_mlr3_feature_names(model),
+        num_threads = extract_ranger_num_threads(ranger_model, learner = model)
+      ))
+    }
+  }
+  NULL
+}
+
+extract_ranger_num_threads = function(model, learner = NULL) {
+  num_threads = tryCatch(model$call$num.threads, error = function(e) NULL)
+  if (is.numeric(num_threads) && length(num_threads) == 1L && is.finite(num_threads)) {
+    return(as.integer(num_threads))
+  }
+  if (!is.null(learner)) {
+    num_threads = tryCatch(learner$param_set$values[["num.threads"]], error = function(e) NULL)
+    if (is.numeric(num_threads) && length(num_threads) == 1L && is.finite(num_threads)) {
+      return(as.integer(num_threads))
     }
   }
   NULL
@@ -391,11 +434,11 @@ wrap_tree_label = function(text, width = 34L) {
 #' Functions and symbols used internally by the package. Not intended for direct use.
 #'
 #' @name xplaineff_internal
-#' @aliases ale_sweep_cpp calculate_ale_heterogeneity_list_cpp
+#' @aliases ale_sweep_cpp calculate_ale_matrix calculate_ale_heterogeneity_list_cpp
 #'   calculate_ale_heterogeneity_single_cpp re_mean_center_ice_cpp
-#'   search_best_split_cpp default_predict_fun predict_newdata_fast_dispatch
+#'   search_best_split_cpp default_predict_fun make_effect_predictor predict_newdata_fast_dispatch
 #'   fast_predict_regression_model predict_ranger_regression_fast extract_ranger_regression_model
-#'   predict_rpart_regression_fast
+#'   extract_ranger_num_threads predict_rpart_regression_fast
 #'   extract_rpart_regression_model predict_xgboost_regression_fast
 #'   extract_xgboost_regression_model xgboost_booster_is_regression
 #'   extract_mlr3_native_model extract_mlr3_feature_names select_newdata_features numeric_matrix_for_prediction

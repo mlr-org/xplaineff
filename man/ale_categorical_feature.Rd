@@ -12,7 +12,8 @@ ale_categorical_feature(
   predict_fun = NULL,
   stacked = NULL,
   idx_lower = NULL,
-  idx_upper = NULL
+  idx_upper = NULL,
+  predictor = NULL
 )
 }
 \arguments{
@@ -36,6 +37,10 @@ Shared \code{2n}-row design matrix for batched categorical ALE (see numeric bran
 
 \item{idx_lower, }{idx_upper (`integer()` or \code{NULL}) \cr
 Row halves in \code{stacked}: plus-vector / minus-vector predictions respectively.}
+
+\item{predictor}{(`list()` or `NULL`) \cr
+Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
+\code{model} and \code{predict_fun}.}
 }
 \value{
 (`data.table()`) \cr

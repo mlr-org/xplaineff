@@ -16,6 +16,7 @@ test_that("native ranger regression fast prediction matches ranger predict", {
 
   info = xplaineff:::extract_ranger_regression_model(model)
   expect_s3_class(info$model, "ranger")
+  expect_equal(info$num_threads, 1L)
   expected = as.numeric(predict(model, data = x, num.threads = 1L)$predictions)
 
   expect_equal(xplaineff:::predict_ranger_regression_fast(model, x), expected)
@@ -44,10 +45,19 @@ test_that("mlr3 regr.ranger fast prediction uses the trained ranger model", {
   info = xplaineff:::extract_ranger_regression_model(learner)
   expect_s3_class(info$model, "ranger")
   expect_equal(info$feature_names, c("x1", "x2", "x3"))
+  expect_equal(info$num_threads, 1L)
   expected = as.numeric(learner$predict_newdata(x)$response)
 
   expect_equal(xplaineff:::predict_ranger_regression_fast(learner, x), expected)
   expect_equal(xplaineff:::default_predict_fun(learner, x), expected)
+})
+
+test_that("ranger thread extraction does not invent a default", {
+  model = list(call = quote(ranger::ranger(y ~ ., data = dat)))
+  learner = list(param_set = list(values = list()))
+
+  expect_null(xplaineff:::extract_ranger_num_threads(model))
+  expect_null(xplaineff:::extract_ranger_num_threads(model, learner = learner))
 })
 
 test_that("rpart regression fast prediction matches native predict", {

@@ -585,6 +585,64 @@ test_that("compact ALE split search matches data.table ALE on numeric data", {
   expect_equal(compact_split$right_objective_value_j, regular_split$right_objective_value_j, tolerance = 1e-10)
 })
 
+test_that("ALE matrix split search matches data.table ALE on mixed data", {
+  skip_ale_cpp_if_unavailable()
+  set.seed(20260716)
+  n = 150L
+  data = data.frame(
+    x1 = runif(n, -1, 1),
+    x2 = factor(sample(c("a", "b", "c"), n, replace = TRUE)),
+    x3 = runif(n, -1, 1)
+  )
+  predict_fun = function(model, newdata) {
+    2 * newdata$x1 + ifelse(newdata$x2 == "b", 3, ifelse(newdata$x2 == "c", -2, 0)) +
+      ifelse(newdata$x3 > 0, newdata$x1, -newdata$x1)
+  }
+  data$y = predict_fun(NULL, data)
+
+  regular = withr::with_options(
+    list(xplaineff.ale.compact = FALSE),
+    xplaineff:::prepare_split_data_ale(
+      model = list(),
+      data = data,
+      target_feature_name = "y",
+      n_intervals = 8L,
+      predict_fun = predict_fun,
+      ale_engine = "cpp"
+    )
+  )
+  compact = withr::with_options(
+    list(xplaineff.ale.compact = TRUE),
+    xplaineff:::prepare_split_data_ale(
+      model = list(),
+      data = data,
+      target_feature_name = "y",
+      n_intervals = 8L,
+      predict_fun = predict_fun,
+      ale_engine = "cpp"
+    )
+  )
+
+  regular_split = xplaineff:::search_best_split_ale(
+    Z = regular$Z,
+    effect = regular$Y,
+    min_node_size = 10L
+  )
+  compact_split = xplaineff:::search_best_split_ale(
+    Z = compact$Z,
+    effect = compact$Y,
+    min_node_size = 10L
+  )
+
+  expect_s3_class(compact$Y, "xplaineff_ale_compact")
+  expect_equal(compact$Y$feature_types, c("numeric", "factor", "numeric"))
+  expect_equal(compact_split$split_feature, regular_split$split_feature)
+  expect_equal(compact_split$split_point, regular_split$split_point)
+  expect_equal(compact_split$split_objective, regular_split$split_objective, tolerance = 1e-10)
+  expect_equal(compact_split$left_objective_value_j, regular_split$left_objective_value_j, tolerance = 1e-10)
+  expect_equal(compact_split$right_objective_value_j, regular_split$right_objective_value_j, tolerance = 1e-10)
+})
+
 test_that("ALE split keeps x3 as the first split on the example-style synthetic DGP", {
   skip_ale_cpp_if_unavailable()
   set.seed(1)

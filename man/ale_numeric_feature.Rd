@@ -13,7 +13,8 @@ ale_numeric_feature(
   predict_fun = NULL,
   stacked = NULL,
   idx_lower = NULL,
-  idx_upper = NULL
+  idx_upper = NULL,
+  predictor = NULL
 )
 }
 \arguments{
@@ -40,6 +41,10 @@ Shared \code{2n}-row design matrix; omit to allocate internally.}
 
 \item{idx_lower, }{idx_upper (`integer()` or \code{NULL}) \cr
 Lower/upper half row indices inside \code{stacked}.}
+
+\item{predictor}{(`list()` or `NULL`) \cr
+Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
+\code{model} and \code{predict_fun}.}
 }
 \value{
 (`data.table()`) \cr

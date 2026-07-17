@@ -72,7 +72,7 @@ prepare_split_data_ale = function(
   Z = data.table::setDT(take_cols(data, split_feature))
   effect = if (ale_engine == "cpp") {
     compact_effect = if (isTRUE(getOption("xplaineff.ale.compact", FALSE))) {
-      calculate_ale_fast_compact(
+      calculate_ale_matrix(
         model = model,
         data = data,
         target_feature_name = target_feature_name,

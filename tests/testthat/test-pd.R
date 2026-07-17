@@ -162,8 +162,18 @@ test_that("custom predict_fun PD cpp engine uses the same values as the R backen
   set.seed(10L)
   data = data.frame(x1 = runif(40L), x2 = rnorm(40L), x3 = runif(40L))
   data$y = data$x1 + data$x2
+  seen_cpp_data_table = logical()
+  seen_r_data_table = logical()
   pred_fun = function(model, newdata) {
     newdata$x1 - 0.5 * newdata$x2 + ifelse(newdata$x3 > 0.5, newdata$x1, 0)
+  }
+  pred_fun_cpp = function(model, newdata) {
+    seen_cpp_data_table <<- c(seen_cpp_data_table, data.table::is.data.table(newdata))
+    pred_fun(model, newdata)
+  }
+  pred_fun_r = function(model, newdata) {
+    seen_r_data_table <<- c(seen_r_data_table, data.table::is.data.table(newdata))
+    pred_fun(model, newdata)
   }
 
   cpp = xplaineff:::calculate_pd_matrix(
@@ -171,7 +181,7 @@ test_that("custom predict_fun PD cpp engine uses the same values as the R backen
     data = data,
     target_feature_name = "y",
     feature_set = c("x1", "x2"),
-    predict_fun = pred_fun,
+    predict_fun = pred_fun_cpp,
     n_grid = 5L,
     pd_engine = "cpp"
   )
@@ -180,13 +190,33 @@ test_that("custom predict_fun PD cpp engine uses the same values as the R backen
     data = data,
     target_feature_name = "y",
     feature_set = c("x1", "x2"),
-    predict_fun = pred_fun,
+    predict_fun = pred_fun_r,
     n_grid = 5L,
     pd_engine = "r"
   )
 
   testthat::expect_equal(cpp$Y, r$Y)
   testthat::expect_equal(cpp$grid, r$grid)
+  testthat::expect_false(any(seen_cpp_data_table))
+  testthat::expect_true(all(seen_r_data_table))
+})
+
+test_that("PD cpp engine does not silently fall back for unsupported focal types", {
+  data = data.frame(x1 = c("a", "b", "a", "c"), x2 = 1:4, y = 1:4)
+  pred_fun = function(model, newdata) as.numeric(newdata$x2)
+
+  testthat::expect_error(
+    xplaineff:::calculate_pd_matrix(
+      model = "toy",
+      data = data,
+      target_feature_name = "y",
+      feature_set = "x1",
+      predict_fun = pred_fun,
+      n_grid = 3L,
+      pd_engine = "cpp"
+    ),
+    regexp = "pd_engine|cpp|factor"
+  )
 })
 
 test_that("PdStrategy fit aborts when target column is missing from data", {
@@ -369,7 +399,7 @@ test_that("calculate_pd_matrix matches long-format PD preprocessing", {
   testthat::expect_equal(matrix_prepared$Y$x2, as.matrix(long_prepared$Y$x2), tolerance = 1e-10)
 })
 
-test_that("PdStrategy model path caches matrix-native effects", {
+test_that("PdStrategy model path caches matrix-form effects", {
   tryCatch(
     xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
     error = function(e) {

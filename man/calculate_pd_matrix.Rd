@@ -41,7 +41,7 @@ Backend: \code{"cpp"} (default) or \code{"r"}.}
   Object of class \code{xplaineff_pd_matrix} with \code{Y} and \code{grid}.
 }
 \description{
-Internal matrix-native variant used by \code{PdStrategy} when effects are
+Internal matrix-form variant used by \code{PdStrategy} when effects are
 computed from a model.
 It avoids converting ICE matrices to long tables only to pivot them back to
 matrices before split search.

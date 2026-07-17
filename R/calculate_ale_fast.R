@@ -31,11 +31,8 @@ calculate_ale_fast = function(
   }
   x_features_dt = data.table::as.data.table(X)
 
-  if (is.null(predict_fun)) {
-    predict_fun = default_predict_fun
-  }
   n_intervals = as.integer(n_intervals)
-  predictor = make_predictor(model = model, predict_fun = predict_fun)
+  predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
 
   # Pre-allocate stacked once: avoids p x 2 x (n*p) copies inside the feature loop.
   # Each ale_feature call modifies only the current feature's column in-place, then restores it,
@@ -59,7 +56,7 @@ calculate_ale_fast = function(
   })
 }
 
-calculate_ale_fast_compact = function(
+calculate_ale_matrix = function(
   model, data, feature_set, target_feature_name, n_intervals = 10, predict_fun = NULL
 ) {
   X = if (data.table::is.data.table(data)) {
@@ -69,16 +66,13 @@ calculate_ale_fast_compact = function(
   }
   x_features_dt = data.table::as.data.table(X)
   feature_cols = x_features_dt[, feature_set, with = FALSE]
-  is_supported_col = vapply(feature_cols, function(x) is.numeric(x) || is.integer(x), logical(1L))
+  is_supported_col = vapply(feature_cols, function(x) is.numeric(x) || is.integer(x) || is.factor(x), logical(1L))
   if (!all(is_supported_col)) {
     return(NULL)
   }
 
-  if (is.null(predict_fun)) {
-    predict_fun = default_predict_fun
-  }
   n_intervals = as.integer(n_intervals)
-  predictor = make_predictor(model = model, predict_fun = predict_fun)
+  predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
 
   n_rows = nrow(X)
   p = length(feature_set)
@@ -89,16 +83,50 @@ calculate_ale_fast_compact = function(
   d_l_mat = matrix(0.0, nrow = p, ncol = n_rows, dimnames = list(feature_set, NULL))
   interval_idx_mat = matrix(1L, nrow = p, ncol = n_rows, dimnames = list(feature_set, NULL))
   feature_value_mat = matrix(NA_real_, nrow = p, ncol = n_rows, dimnames = list(feature_set, NULL))
+  feature_types = character(p)
+  feature_levels = vector("list", p)
+  names(feature_levels) = feature_set
 
   for (j in seq_along(feature_set)) {
     feat = feature_set[[j]]
-    x_num = data[[feat]]
-    feature_value_mat[j, ] = as.numeric(x_num)
-    if (length(unique(na.omit(x_num))) <= 1L) {
+    x = data[[feat]]
+    if (is.factor(x)) {
+      x_cat = droplevels(x)
+      k = nlevels(x_cat)
+      levels_id = as.integer(x_cat)
+      levels_orig = levels(x_cat)
+      interval_index = levels_id
+      interval_index[is.na(interval_index) | interval_index < 1L] = 1L
+      feature_types[j] = "factor"
+      feature_levels[[j]] = levels_orig
+      feature_value_mat[j, ] = levels_id
+      interval_idx_mat[j, ] = interval_index
+      if (k <= 1L) {
+        next
+      }
+
+      prep = cpp_ale_categorical_prepare(levels_id = levels_id, n_levels = k)
+      original = data.table::copy(stacked[[feat]])
+      data.table::set(stacked, i = idx_lower, j = feat,
+        value = factor(levels_orig[prep$right_id], levels = levels_orig))
+      data.table::set(stacked, i = idx_upper, j = feat,
+        value = factor(levels_orig[prep$left_id], levels = levels_orig))
+      preds_all = predictor$predict(stacked) + 0
+      data.table::set(stacked, j = feat, value = original)
+
+      d_l = preds_all[idx_lower] - preds_all[idx_upper]
+      d_l[!is.finite(d_l)] = 0.0
+      d_l_mat[j, ] = d_l
       next
     }
 
-    prep = cpp_ale_numeric_prepare(x = as.numeric(x_num), n_intervals = n_intervals)
+    feature_types[j] = "numeric"
+    feature_value_mat[j, ] = as.numeric(x)
+    if (length(unique(na.omit(x))) <= 1L) {
+      next
+    }
+
+    prep = cpp_ale_numeric_prepare(x = as.numeric(x), n_intervals = n_intervals)
     if (isTRUE(prep$zero_effect)) {
       next
     }
@@ -125,9 +153,24 @@ calculate_ale_fast_compact = function(
       feature_names = feature_set,
       d_l_mat = d_l_mat,
       interval_idx_mat = interval_idx_mat,
-      feature_value_mat = feature_value_mat
+      feature_value_mat = feature_value_mat,
+      feature_types = feature_types,
+      feature_levels = feature_levels
     ),
     class = "xplaineff_ale_compact"
+  )
+}
+
+calculate_ale_fast_compact = function(
+  model, data, feature_set, target_feature_name, n_intervals = 10, predict_fun = NULL
+) {
+  calculate_ale_matrix(
+    model = model,
+    data = data,
+    feature_set = feature_set,
+    target_feature_name = target_feature_name,
+    n_intervals = n_intervals,
+    predict_fun = predict_fun
   )
 }
 
@@ -149,7 +192,7 @@ calculate_ale_fast_compact = function(
 #' @param n_intervals (`integer(1)`) \cr
 #'   Number of intervals.
 #' @param predictor (`list()`) \cr
-#'   Prediction function wrapper from \code{make_predictor}.
+#'   Prediction function wrapper from \code{make_effect_predictor}.
 #'
 #' @return (`data.table()`) \cr
 #'   ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
@@ -246,9 +289,7 @@ ale_zero = function(feat_val, interval_index = 1L) {
 
 make_predictor = function(model, predict_fun) {
   if (identical(predict_fun, default_predict_fun)) {
-    return(list(predict = function(newdata) default_predict_fun(model, newdata)))
+    predict_fun = NULL
   }
-  list(predict = function(newdata) {
-    extract_numeric_prediction(predict_fun(model, newdata), expected_n = nrow(newdata))
-  })
+  make_effect_predictor(model = model, predict_fun = predict_fun)
 }

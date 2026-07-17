@@ -38,7 +38,7 @@ Feature name.}
 Number of intervals.}
 
 \item{predictor}{(`list()`) \cr
-Prediction function wrapper from \code{make_predictor}.}
+Prediction function wrapper from \code{make_effect_predictor}.}
 }
 \value{
 (`data.table()`) \cr

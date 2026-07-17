@@ -92,6 +92,18 @@ PdStrategy = R6::R6Class(
       checkmate::assert_list(Y, .var.name = "Y")
       checkmate::assert_list(grid, .var.name = "grid")
       checkmate::assert_integerish(idx, min.len = 1, .var.name = "idx")
+      is_full_pd_node = function(Y, idx, grid) {
+        if (length(Y) == 0L || length(grid) == 0L) {
+          return(FALSE)
+        }
+        n_rows = nrow(Y[[1L]])
+        if (length(idx) != n_rows || !identical(as.integer(idx), seq_len(n_rows))) {
+          return(FALSE)
+        }
+        all(vapply(names(Y), function(feat) {
+          !is.null(grid[[feat]]) && identical(as.character(colnames(Y[[feat]])), as.character(grid[[feat]]))
+        }, TRUE))
+      }
       if (is_full_pd_node(Y, idx, grid)) {
         return(Y)
       }
@@ -349,16 +361,3 @@ PdStrategy = R6::R6Class(
     }
   )
 )
-
-is_full_pd_node = function(Y, idx, grid) {
-  if (length(Y) == 0L || length(grid) == 0L) {
-    return(FALSE)
-  }
-  n_rows = nrow(Y[[1L]])
-  if (length(idx) != n_rows || !identical(as.integer(idx), seq_len(n_rows))) {
-    return(FALSE)
-  }
-  all(vapply(names(Y), function(feat) {
-    !is.null(grid[[feat]]) && identical(as.character(colnames(Y[[feat]])), as.character(grid[[feat]]))
-  }, TRUE))
-}

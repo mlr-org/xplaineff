@@ -18,6 +18,16 @@ The data and CSV results are regenerable and are ignored by git; the publication
 - `benchmark_regional_runtime_xplaineff.R` and `benchmark_regional_runtime_effector.py` run the regional PDP/ALE runtime
   benchmark.
   They measure precompute time, split-search time, and total time for xplaineff and effector.
+- `plot_regional_runtime_paperformat.R` regenerates the paper-format regional runtime comparison plots from a completed
+  regional runtime run.
+  From the repository root, use:
+
+  ```sh
+  Rscript simulation/plot_regional_runtime_paperformat.R \
+    --run-dir simulation/results/runtime_runs/server_effector040_vs_xplaineff_compact_20260714
+  ```
+
+  It writes the figures to that run's `figures/` directory and syncs publication copies to `paper/figures/`.
 - `run_categorical_recovery.sh` runs the categorical level-ordering recovery diagnostic.
   It writes raw CSV files to `results/categorical_recovery/` and categorical recovery figures to
   `results/paper_figures/`.

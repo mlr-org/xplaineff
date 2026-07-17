@@ -54,7 +54,7 @@ calculate_ale = function(model, data, feature_set, target_feature_name, n_interv
   checkmate::assert_subset(feature_set, colnames(data), .var.name = "feature_set")
   checkmate::assert_integerish(n_intervals, len = 1, lower = 1, any.missing = FALSE, .var.name = "n_intervals")
   checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
-  if (is.null(predict_fun)) predict_fun = default_predict_fun
+  predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
   if (data.table::is.data.table(data)) {
     X = data[, setdiff(colnames(data), target_feature_name), with = FALSE]
   } else {
@@ -69,11 +69,11 @@ calculate_ale = function(model, data, feature_set, target_feature_name, n_interv
   eff_list = lapply(feature_set, function(feat) {
     if (is.factor(data[[feat]])) {
       ale_categorical_feature(model = model, data = data, X = X,
-        feature = feat, predict_fun = predict_fun,
+        feature = feat, predict_fun = predict_fun, predictor = predictor,
         stacked = stacked_shared, idx_lower = idx_lower, idx_upper = idx_upper)
     } else {
       ale_numeric_feature(model = model, data = data, X = X,
-        feature = feat, n_intervals = n_intervals, predict_fun = predict_fun,
+        feature = feat, n_intervals = n_intervals, predict_fun = predict_fun, predictor = predictor,
         stacked = stacked_shared, idx_lower = idx_lower, idx_upper = idx_upper)
     }
   })
@@ -102,9 +102,15 @@ calculate_ale = function(model, data, feature_set, target_feature_name, n_interv
 #'   Shared \code{2n}-row design matrix; omit to allocate internally.
 #' @param idx_lower, idx_upper (`integer()` or \code{NULL}) \cr
 #'   Lower/upper half row indices inside \code{stacked}.
+#' @param predictor (`list()` or `NULL`) \cr
+#'   Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
+#'   \code{model} and \code{predict_fun}.
 #' @keywords internal
 ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predict_fun = NULL,
-  stacked = NULL, idx_lower = NULL, idx_upper = NULL) {
+  stacked = NULL, idx_lower = NULL, idx_upper = NULL, predictor = NULL) {
+  if (is.null(predictor)) {
+    predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
+  }
   x_num = data[[feature]]
   n_rows = nrow(data)
   if (is.null(stacked)) {
@@ -131,8 +137,7 @@ ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predic
   }
   data.table::set(stacked, i = idx_lower, j = feature, value = q[interval_index])
   data.table::set(stacked, i = idx_upper, j = feature, value = q[interval_index + 1L])
-  pred_raw = predict_fun(model, stacked)
-  pred = extract_numeric_prediction(pred_raw, expected_n = 2L * n_rows)
+  pred = predictor$predict(stacked)
   pred = pred + 0
   d_l = pred[idx_upper] - pred[idx_lower]
   data.table::set(stacked, j = feature, value = original)
@@ -172,9 +177,15 @@ ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predic
 #'   Shared \code{2n}-row design matrix for batched categorical ALE (see numeric branch).
 #' @param idx_lower, idx_upper (`integer()` or \code{NULL}) \cr
 #'   Row halves in \code{stacked}: plus-vector / minus-vector predictions respectively.
+#' @param predictor (`list()` or `NULL`) \cr
+#'   Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
+#'   \code{model} and \code{predict_fun}.
 #' @keywords internal
 ale_categorical_feature = function(model, data, X, feature, predict_fun = NULL,
-  stacked = NULL, idx_lower = NULL, idx_upper = NULL) {
+  stacked = NULL, idx_lower = NULL, idx_upper = NULL, predictor = NULL) {
+  if (is.null(predictor)) {
+    predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
+  }
   x_cat = droplevels(data[[feature]])
   K = nlevels(x_cat)
   n_rows = nrow(data)
@@ -201,10 +212,7 @@ ale_categorical_feature = function(model, data, X, feature, predict_fun = NULL,
   data.table::set(stacked, i = idx_lower, j = feature, value = cp)
   data.table::set(stacked, i = idx_upper, j = feature, value = cn)
 
-  pred_cat = extract_numeric_prediction(
-    predict_fun(model, stacked),
-    expected_n = 2L * n_rows
-  )
+  pred_cat = predictor$predict(stacked)
   pred_cat = pred_cat + 0
   delta = pred_cat[idx_lower] - pred_cat[idx_upper]
   data.table::set(stacked, j = feature, value = original)

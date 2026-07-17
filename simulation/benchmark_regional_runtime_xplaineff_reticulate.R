@@ -73,6 +73,7 @@ min_node_size = 50L
 n_quantiles = 19L
 fail_fast = FALSE
 model_types = c("rf", "toy")
+effects = c("pdp", "ale")
 sub_experiments = c("vs_N", "vs_D", "vs_res", "vs_split")
 output_suffix = "reticulate_sklearn"
 python = Sys.getenv("RETICULATE_PYTHON", unset = "")
@@ -125,6 +126,9 @@ while (i <= length(args)) {
   } else if (args[i] == "--models" && i < length(args)) {
     model_types = parse_chr_vec(args[i + 1L]); model_types = model_types[nzchar(model_types)]
     i = i + 2L
+  } else if (args[i] == "--effects" && i < length(args)) {
+    effects = parse_chr_vec(args[i + 1L]); effects = effects[nzchar(effects)]
+    i = i + 2L
   } else if (args[i] == "--sub-experiments" && i < length(args)) {
     sub_experiments = parse_chr_vec(args[i + 1L]); sub_experiments = sub_experiments[nzchar(sub_experiments)]
     i = i + 2L
@@ -148,6 +152,10 @@ dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 invalid_model_types = setdiff(model_types, c("rf", "toy"))
 if (length(invalid_model_types)) {
   stop("Unsupported regional model type(s): ", paste(invalid_model_types, collapse = ", "), call. = FALSE)
+}
+invalid_effects = setdiff(effects, c("pdp", "ale"))
+if (length(invalid_effects)) {
+  stop("Unsupported regional effect(s): ", paste(invalid_effects, collapse = ", "), call. = FALSE)
 }
 
 sklearn_ensemble = reticulate::import("sklearn.ensemble", convert = FALSE)
@@ -339,7 +347,7 @@ run_model = function(model_type) {
   }
 
   rows = list()
-  for (effect in c("pdp", "ale")) {
+  for (effect in effects) {
     for (i in seq_len(nrow(cells))) {
       cell = cells[i, , drop = FALSE]
       key = sprintf("N%d_D%d", cell$N, cell$D)
