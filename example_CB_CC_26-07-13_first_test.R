@@ -53,3 +53,62 @@ for (tau in c(0.005, 0.05, 0.5)) {
   cat("remaining_features per node:\n")
   walk_remaining(tr$root)
 }
+
+
+
+## Test 3: effect-pruning threshold warning -----------------------------------
+### prune_effects_for_split_search() drops every feature whose root risk falls below
+### rel_tol * (total root risk). With p features the average share is only about 1/p,
+### so a fixed rel_tol gets more aggressive as p grows. A warning is therefore issued
+### once p * rel_tol >= 0.1 (e.g. p = 1000 at the default rel_tol = 1e-4).
+### Here we force it with 5 features x rel_tol = 0.05 -> 0.25 >= 0.1.
+
+cat("\n===== Test 3: effect-pruning threshold warning =====\n")
+old_rel_tol = getOption("xplaineff.active_effect_rel_tol")
+options(xplaineff.active_effect_rel_tol = 0.05)
+
+tr_warn = withCallingHandlers(
+  fit_tree(dat2, eff2, "plain_risk", tau = 0.05),
+  warning = function(w) {
+    cat("  caught warning: ", conditionMessage(w), "\n", sep = "")
+    invokeRestart("muffleWarning")
+  }
+)
+
+# The fit must still succeed: the early-stopping bookkeeping is aligned with the pruned
+# feature set, so vecb_remaining_features matches the (shorter) pruned Y.
+cat("fit succeeded; nodes =", nrow(tr_warn$extract_split_info()), "\n")
+cat("features kept after pruning:", length(tr_warn$root$vecb_remaining_features), "\n")
+cat("still interacting at root:",
+  paste(names(tr_warn$root$vecb_remaining_features)[tr_warn$root$vecb_remaining_features],
+    collapse = ","), "\n")
+
+options(xplaineff.active_effect_rel_tol = old_rel_tol)
+
+
+
+## Test 4: all early-stopping modes run and report the expected columns --------
+### Smoke test over the implemented selective early stopping methods (Section 5.1):
+###   - disabled          : no early stopping (baseline)
+###   - "plain_risk"      : Method 1, absolute normalized risk (drops already at the root)
+###   - "risk_reduction"  : Method 2, relative risk reduction (drops only after a split)
+### Every mode must fit, and extract_split_info() must carry both the total and the
+### remaining-only objective / relative improvement. An unknown method must be rejected.
+
+cat("\n===== Test 4: modes, reporting columns, and validation =====\n")
+
+report_cols = c("node_objective", "node_objective_remaining", "int_imp", "int_imp_remaining")
+for (method in list(NULL, "plain_risk", "risk_reduction")) {
+  tr = fit_tree(dat1, eff1, method, tau = 0.05)
+  si = tr$extract_split_info()
+  method_label = if (is.null(method)) "disabled" else method
+  cols_present = all(report_cols %in% colnames(si))
+  cat(sprintf("  %-16s nodes=%d  all report columns present: %s\n", method_label, nrow(si), cols_present))
+}
+
+# An unknown improvement method must be rejected rather than silently ignored.
+unknown_rejected = tryCatch({
+  fit_tree(dat1, eff1, "nonsense", tau = 0.05)
+  FALSE
+}, error = function(e) TRUE)
+cat("  unknown method rejected:", unknown_rejected, "\n")

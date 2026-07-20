@@ -113,12 +113,18 @@ GadgetTree = R6::R6Class(
     #' @param split_feature (`character()` or `NULL`) \cr
     #'   Features for splitting; \code{NULL} = all.
     #' @param gadget_improvements (`character(1)` or `NULL`) \cr
-    #'   Optional algorithmic improvement to enable. Currently only \code{"plain_risk"}
-    #'   (selective early stopping, Method 1: dynamically drop non-interacting features from the
-    #'   split-candidate set Z and the risk set S). \code{NULL} disables it. PD strategy only.
+    #'   Optional selective early stopping method, which dynamically drops non-interacting
+    #'   features from the split-candidate set Z and the risk set S. One of
+    #'   \code{"plain_risk"} (Method 1: absolute normalized risk),
+    #'   \code{"risk_reduction"} (Method 2: relative risk reduction of the split; being
+    #'   reduction-based it cannot drop features before the first split), or
+    #'   \code{"interaction_fraction"} (Method 3: interaction share
+    #'   \eqn{R_j / (R_j + B_j + \delta)} of the feature's own local-effect variance).
+    #'   \code{NULL} disables it. PD strategy only.
     #' @param gadget_impr_args (`list()`) \cr
-    #'   Named list of method-specific arguments for \code{gadget_improvements}. For
-    #'   \code{"plain_risk"}: \code{tau} (`numeric(1)`, default 0.05).
+    #'   Named list of method-specific arguments for \code{gadget_improvements}:
+    #'   \code{tau} (`numeric(1)`, default 0.05) for all methods, and \code{delta}
+    #'   (`numeric(1)`, default 1e-12) regularizing the denominator of Method 3.
     #' @param ... (`list()`) \cr
     #'   Strategy-specific arguments passed to \code{$fit()}.
     #'   For [AleStrategy]: \code{model} or \code{effect}, plus optional
@@ -133,7 +139,9 @@ GadgetTree = R6::R6Class(
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
       checkmate::assert_subset(target_feature_name, colnames(data), .var.name = "target_feature_name")
-      checkmate::assert_choice(gadget_improvements, "plain_risk", null.ok = TRUE, .var.name = "gadget_improvements")
+      checkmate::assert_choice(gadget_improvements,
+        c("plain_risk", "risk_reduction", "interaction_fraction"),
+        null.ok = TRUE, .var.name = "gadget_improvements")
       checkmate::assert_list(gadget_impr_args, names = "unique", null.ok = TRUE, .var.name = "gadget_impr_args")
       if (!is.null(gadget_improvements) && !inherits(self$strategy, "PdStrategy")) {
         cli::cli_abort("{.arg gadget_improvements} is currently only implemented for {.cls PdStrategy}.")

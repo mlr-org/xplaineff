@@ -10,6 +10,11 @@
 #'   Reference to the fitted tree; set after \code{$fit()}.
 #' @field fit_timing (`numeric()` or `NULL`) \cr
 #'   Fit timing (seconds) for global/regional fits.
+#' @field early_stopping (`list()` or `NULL`) \cr
+#'   Selective early stopping settings, set by \code{$fit()} and read by \code{Node$create_children}:
+#'   \code{method} (the \code{gadget_improvements} identifier), \code{tau} (threshold), and
+#'   \code{goal} (method-specific precomputed reference; used by \code{"plain_risk"}).
+#'   \code{NULL} when selective early stopping is disabled.
 #'
 #' @keywords internal
 EffectStrategy = R6::R6Class(
@@ -18,6 +23,7 @@ EffectStrategy = R6::R6Class(
     name = NULL,
     tree_ref = NULL,
     fit_timing = NULL,
+    early_stopping = NULL,
 
     #' @description
     #' Create an EffectStrategy instance.
@@ -36,7 +42,7 @@ EffectStrategy = R6::R6Class(
   ),
   private = list(
     fit_tree_internal = function(tree, Z, Y, grid, objective_value_root_j, objective_value_root,
-      verbose, vecb_remaining_features = NULL, early_stopping_goal = NULL) {
+      verbose, vecb_remaining_features = NULL) {
       # Create new tree. The root objective is the total risk over all features; when selective
       # early stopping is on, objective_value_remaining additionally holds the risk over just the
       # features still flagged as interacting at the root.
@@ -60,7 +66,6 @@ EffectStrategy = R6::R6Class(
           impr_par = tree$impr_par,
           depth = 1,
           max_depth = tree$n_split + 1,
-          early_stopping_goal = early_stopping_goal,
           verbose = verbose
         )
       })[["elapsed"]]

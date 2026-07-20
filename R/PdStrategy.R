@@ -325,12 +325,20 @@ PdStrategy = R6::R6Class(
       checkmate::assert_integerish(n_grid, len = 1L, lower = 2L, .var.name = "n_grid")
       pd_engine = match.arg(pd_engine)
 
-      # Selective early stopping. Currently the only method is Method 1 ("plain_risk").
-      checkmate::assert_choice(gadget_improvements, "plain_risk", null.ok = TRUE, .var.name = "gadget_improvements")
+      # Selective early stopping: Method 1 ("plain_risk"), Method 2 ("risk_reduction"),
+      # Method 3 ("interaction_fraction").
+      checkmate::assert_choice(gadget_improvements,
+        c("plain_risk", "risk_reduction", "interaction_fraction"),
+        null.ok = TRUE, .var.name = "gadget_improvements")
+      use_early_stopping = !is.null(gadget_improvements)
       use_plain_risk = identical(gadget_improvements, "plain_risk")
       tau = if (is.null(gadget_impr_args$tau)) 0.05 else gadget_impr_args$tau
-      if (use_plain_risk) {
+      # Regularizer for the interaction fraction (Method 3); only guards the degenerate
+      # "no effect at all" case, where R_j and the total sum of squares both vanish.
+      delta = if (is.null(gadget_impr_args$delta)) 1e-12 else gadget_impr_args$delta
+      if (use_early_stopping) {
         checkmate::assert_number(tau, lower = 0, finite = TRUE, .var.name = "gadget_impr_args$tau")
+        checkmate::assert_number(delta, lower = 0, finite = TRUE, .var.name = "gadget_impr_args$delta")
       }
 
       # After checks: same coercion as prepare_split_data_common (ICE + Z use factor categoricals).
@@ -371,28 +379,53 @@ PdStrategy = R6::R6Class(
         Y_split = split_search_data$Y
         objective_value_root_j_split = split_search_data$objective_value_j
         objective_value_root_split = split_search_data$objective_value
-        # objective_value_root = sum(objective_value_root_j, na.rm = TRUE) # TODO: Do we still need this? Or is this resolved by the objective_value_root_split ??
 
-        # Method 1 ("plain_risk"): sort out features already at the root and set the threshold
-        # early_stopping_goal for the child criterion in Node$create_children. The normalized
-        # root risk is R_j / (|A_g| * m_j); the shared |A_g| = nrow(Z) cancels in the root
-        # comparison and is folded (as |A_g| - 1) into early_stopping_goal for the children.
+        # Selective early stopping: initialise the per-node feature set at the root. Must be
+        # aligned with the pruned split-search feature set (Y_split), since that is what the tree
+        # is grown on: vecb_remaining_features is used as a logical index into Y/grid inside the
+        # nodes, so a full-length vector would mis-subset the pruned Y.
         vecb_remaining_features = NULL
         early_stopping_goal = NULL
-        if (use_plain_risk) {
-          grid_lengths = vapply(grid, length, NA_integer_)
-          checkmate::assert_true(all(grid_lengths > 0))
-          normalized_root_risk_j = objective_value_root_j / grid_lengths
-          early_stopping_goal = max(tau * mean(normalized_root_risk_j, na.rm = TRUE), 1e-12)
-          vecb_remaining_features = normalized_root_risk_j >= early_stopping_goal
-          vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
-          early_stopping_goal = early_stopping_goal / (nrow(Z) - 1)
+        if (use_early_stopping) {
+          split_feature_names = names(objective_value_root_j_split)
+          if (use_plain_risk) {
+            # Method 1: sort out features already at the root from their absolute normalized risk,
+            # and derive early_stopping_goal for the child criterion in Node$create_children. The
+            # normalized root risk is R_j / (|A_g| * m_j); the shared |A_g| = nrow(Z) cancels in
+            # the root comparison and is folded (as |A_g| - 1) into the goal for the children.
+            grid_lengths = vapply(grid[split_feature_names], length, NA_integer_)
+            checkmate::assert_true(all(grid_lengths > 0))
+            normalized_root_risk_j = objective_value_root_j_split / grid_lengths
+            early_stopping_goal = max(tau * mean(normalized_root_risk_j, na.rm = TRUE), 1e-12)
+            vecb_remaining_features = normalized_root_risk_j >= early_stopping_goal
+            vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
+            early_stopping_goal = early_stopping_goal / (nrow(Z) - 1)
+          } else if (identical(gadget_improvements, "interaction_fraction")) {
+            # Method 3: interaction fraction q_j = R_j / (R_j + B_j + delta), where R_j + B_j is
+            # the total local-effect sum of squares. Being a risk *value* (not a reduction), it
+            # can already sort out features at the root.
+            total_ss_root = total_effect_sum_of_squares(Y_split)
+            interaction_fraction_root = objective_value_root_j_split / (total_ss_root + delta)
+            vecb_remaining_features = interaction_fraction_root >= tau
+            vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
+          } else {
+            # Method 2 ("risk_reduction") is reduction-based, so it cannot drop anything before
+            # the first split has been computed: all features start out as still interacting.
+            vecb_remaining_features = rep(TRUE, length(split_feature_names))
+            names(vecb_remaining_features) = split_feature_names
+          }
+        }
+        # Read by Node$create_children to dispatch the per-method drop criterion.
+        self$early_stopping = if (use_early_stopping) {
+          list(method = gadget_improvements, tau = tau, goal = early_stopping_goal, delta = delta)
+        } else {
+          NULL
         }
       })[["elapsed"]]
 
       t_regional = private$fit_tree_internal(
         tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split, verbose,
-        vecb_remaining_features = vecb_remaining_features, early_stopping_goal = early_stopping_goal
+        vecb_remaining_features = vecb_remaining_features
       )
       self$fit_timing = list(global = t_global, regional = t_regional)
       invisible(tree)

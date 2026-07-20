@@ -60,6 +60,20 @@ subset_ale_compact_features = function(effect, features) {
 }
 
 prune_effects_for_split_search = function(Y, objective_value_j, rel_tol = active_effect_rel_tol()) {
+  # With p features, each one's expected share of the total risk is only about 1/p, so a fixed
+  # relative threshold gets more aggressive as p grows: once p * rel_tol approaches 0.1, even
+  # features of merely average importance are at risk of being pruned. Warn so that rel_tol can
+  # be adapted to the number of features rather than silently dropping relevant effects.
+  n_features = length(objective_value_j)
+  if (rel_tol > 0 && n_features * rel_tol >= 0.1) {
+    cli::cli_warn(c(
+      "Effect-pruning threshold may be too aggressive for {n_features} feature{?s}.",
+      "i" = "{.arg rel_tol} = {rel_tol} drops effects below that share of the total root risk,
+        but the average share is only about {signif(1 / n_features, 3)}.",
+      "i" = "Consider lowering it, e.g. to
+        {.code options(xplaineff.active_effect_rel_tol = {signif(0.01 / n_features, 3)})}."
+    ))
+  }
   effect_names = if (is_ale_compact(Y)) Y$feature_names else names(Y)
   if (!is.null(effect_names) && length(effect_names) == length(objective_value_j)) {
     names(objective_value_j) = effect_names

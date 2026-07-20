@@ -49,6 +49,8 @@ extract_split_info = function(tree, split_benchmark = NULL) {
       node_objective = if (is.null(node$objective$value)) NA else node$objective$value,
       node_objective_remaining = if (is.null(node$objective$value_remaining)) NA else node$objective$value_remaining,
       int_imp = if (is.null(node$importance)) NA else round(node$importance$imp, 2),
+      int_imp_remaining = if (is.null(node$importance) || is.null(node$importance$imp_remaining))
+        NA else round(node$importance$imp_remaining, 2),
       split_feature_parent = if (is.null(node$parent) || is.null(node$parent$split_feature))
         NA_character_ else as.character(node$parent$split_feature),
       split_value_parent = if (is.null(node$parent) || is.null(node$parent$split_value))
