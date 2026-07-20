@@ -326,9 +326,9 @@ PdStrategy = R6::R6Class(
       pd_engine = match.arg(pd_engine)
 
       # Selective early stopping: Method 1 ("plain_risk"), Method 2 ("risk_reduction"),
-      # Method 3 ("interaction_fraction").
+      # Method 3 ("interaction_fraction"), Method 4 ("interaction_fraction_total").
       checkmate::assert_choice(gadget_improvements,
-        c("plain_risk", "risk_reduction", "interaction_fraction"),
+        c("plain_risk", "risk_reduction", "interaction_fraction", "interaction_fraction_total"),
         null.ok = TRUE, .var.name = "gadget_improvements")
       use_early_stopping = !is.null(gadget_improvements)
       use_plain_risk = identical(gadget_improvements, "plain_risk")
@@ -386,6 +386,7 @@ PdStrategy = R6::R6Class(
         # nodes, so a full-length vector would mis-subset the pruned Y.
         vecb_remaining_features = NULL
         early_stopping_goal = NULL
+        node_predictions = NULL
         if (use_early_stopping) {
           split_feature_names = names(objective_value_root_j_split)
           if (use_plain_risk) {
@@ -408,6 +409,21 @@ PdStrategy = R6::R6Class(
             interaction_fraction_root = objective_value_root_j_split / (total_ss_root + delta)
             vecb_remaining_features = interaction_fraction_root >= tau
             vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
+          } else if (identical(gadget_improvements, "interaction_fraction_total")) {
+            # Method 4: like Method 3, but the denominator is the model's output variance in the
+            # node, which is the same for all features and does not vanish when x_j has no effect.
+            node_predictions = approx_predictions_from_ice(effect, Z, split_feature_names)
+            if (is.null(node_predictions)) {
+              cli::cli_abort(paste(
+                "{.val interaction_fraction_total} needs per-observation predictions, which could",
+                "not be recovered from the ICE curves (no usable numeric feature grid)."
+              ))
+            }
+            grid_lengths = vapply(grid[split_feature_names], length, NA_integer_)
+            mean_risk_root = objective_value_root_j_split / (nrow(Z) * grid_lengths)
+            fraction_total_root = mean_risk_root / (stats::var(node_predictions) + delta)
+            vecb_remaining_features = fraction_total_root >= tau
+            vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
           } else {
             # Method 2 ("risk_reduction") is reduction-based, so it cannot drop anything before
             # the first split has been computed: all features start out as still interacting.
@@ -417,7 +433,8 @@ PdStrategy = R6::R6Class(
         }
         # Read by Node$create_children to dispatch the per-method drop criterion.
         self$early_stopping = if (use_early_stopping) {
-          list(method = gadget_improvements, tau = tau, goal = early_stopping_goal, delta = delta)
+          list(method = gadget_improvements, tau = tau, goal = early_stopping_goal, delta = delta,
+            predictions = node_predictions)
         } else {
           NULL
         }

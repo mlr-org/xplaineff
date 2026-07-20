@@ -140,7 +140,7 @@ GadgetTree = R6::R6Class(
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
       checkmate::assert_subset(target_feature_name, colnames(data), .var.name = "target_feature_name")
       checkmate::assert_choice(gadget_improvements,
-        c("plain_risk", "risk_reduction", "interaction_fraction"),
+        c("plain_risk", "risk_reduction", "interaction_fraction", "interaction_fraction_total"),
         null.ok = TRUE, .var.name = "gadget_improvements")
       checkmate::assert_list(gadget_impr_args, names = "unique", null.ok = TRUE, .var.name = "gadget_impr_args")
       if (!is.null(gadget_improvements) && !inherits(self$strategy, "PdStrategy")) {

@@ -106,3 +106,41 @@ mean_center_ice = function(effect, feature_set = NULL, mean_center = TRUE) {
     grid = mlr3misc::map(res, "grid")
   )
 }
+
+#' Approximate per-observation model predictions from the uncentered ICE curves
+#'
+#' Selective early stopping Method 4 normalizes the mean risk by the model's output variance
+#' within a node, \eqn{\widehat{Var}(\hat f \mid A_g)}. The GADGET pipeline retains only the
+#' mean-centered ICE curves, not the raw predictions, so we recover \eqn{\hat f(x^{(i)})}
+#' approximately: for each observation we read its ICE value at the grid point closest to that
+#' observation's own value of the feature. This is exact only when grid values coincide with the
+#' observation values; otherwise it carries a discretization error that shrinks as the grid is
+#' refined. Note that the \emph{uncentered} curves are required: centering subtracts a different
+#' constant per curve, which changes the variance across observations.
+#'
+#' @param effect (R6 or `list()`) \cr
+#'   Effect object, as passed to \code{mean_center_ice}.
+#' @param Z (`data.frame()` or `data.table()`) \cr
+#'   Split features, supplying each observation's own feature value.
+#' @param feature_set (`character()`) \cr
+#'   Candidate features; the first usable one determines the predictions.
+#'
+#' @return (`numeric()` or `NULL`) \cr
+#'   Approximate prediction per observation, or \code{NULL} if no feature is usable.
+#' @keywords internal
+approx_predictions_from_ice = function(effect, Z, feature_set) {
+  for (feat in intersect(feature_set, colnames(Z))) {
+    uncentered = tryCatch(
+      mean_center_ice(effect = effect, feature_set = feat, mean_center = FALSE),
+      error = function(e) NULL
+    )
+    if (is.null(uncentered) || is.null(uncentered$Y[[feat]])) next
+    mat = as.matrix(uncentered$Y[[feat]])
+    grid_values = suppressWarnings(as.numeric(colnames(mat)))
+    x_values = suppressWarnings(as.numeric(Z[[feat]]))
+    if (anyNA(grid_values) || anyNA(x_values) || nrow(mat) != length(x_values)) next
+    nearest = max.col(-abs(outer(x_values, grid_values, "-")), ties.method = "first")
+    return(mat[cbind(seq_along(nearest), nearest)])
+  }
+  NULL
+}

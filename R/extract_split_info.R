@@ -59,6 +59,9 @@ extract_split_info = function(tree, split_benchmark = NULL) {
         NA else node$parent$objective_value,
       int_imp_parent = if (is.null(node$parent) || is.null(node$parent$int_imp)) NA else round(node$parent$int_imp, 2),
       is_final = is_final,
+      # Selective early stopping: features still considered interacting in this node.
+      remaining_features = if (is.null(node$vecb_remaining_features)) NA_character_ else
+        paste(names(node$vecb_remaining_features)[node$vecb_remaining_features], collapse = ","),
       stringsAsFactors = FALSE
     )
     # Ensure all int_imp.* fields exist
@@ -66,6 +69,13 @@ extract_split_info = function(tree, split_benchmark = NULL) {
       row[[paste0("int_imp_", nm)]] =
         if (!is.null(node$importance$imp_j) && nm %in% names(node$importance$imp_j))
           round(node$importance$imp_j[[nm]], 2) else NA
+    }
+    # Per-feature value of the early stopping test statistic that decided this node's own
+    # remaining set (method-specific; NA when selective early stopping is off).
+    for (nm in all_intimp_names) {
+      row[[paste0("early_stopping_stat_", nm)]] =
+        if (!is.null(node$early_stopping_stat_j) && nm %in% names(node$early_stopping_stat_j))
+          signif(node$early_stopping_stat_j[[nm]], 4) else NA
     }
     row
   })

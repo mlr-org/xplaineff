@@ -15,6 +15,10 @@
 #'   the risk set S). Monotonically shrinks down the tree. The specific criterion for
 #'   dropping a feature depends on the chosen early-stopping method (see \code{gadget_improvements}).
 #'   \code{NULL} when selective early stopping is disabled (no filtering).
+#' @field early_stopping_stat_j (`numeric()` or `NULL`) \cr
+#'   Per-feature value of the selective early stopping test statistic that decided this node's
+#'   own remaining set (method-specific: normalized risk for "plain_risk", relative improvement
+#'   for "risk_reduction", interaction fraction for "interaction_fraction"). \code{NULL} when off.
 #' @field grid (`list()`) \cr
 #'   Grid values for each feature in this node.
 #' @field parent (`list()` or `NULL`) \cr
@@ -53,6 +57,7 @@ Node = R6::R6Class("Node", public = list(
   depth = NULL,
   subset_idx = NULL,
   vecb_remaining_features = NULL,
+  early_stopping_stat_j = NULL,
   grid = NULL,
   parent = NULL,
   split = NULL,
@@ -74,6 +79,8 @@ Node = R6::R6Class("Node", public = list(
   #'   Row indices of data in this node.
   #' @param vecb_remaining_features (`logical()` or `NULL`) \cr
   #'   Named logical of features still interacting (selective early stopping); \code{NULL} disables it.
+  #' @param early_stopping_stat_j (`numeric()` or `NULL`) \cr
+  #'   Per-feature early stopping test statistic for this node; \code{NULL} when off.
   #' @param grid (`list()`) \cr
   #'   Grid values for each feature.
   #' @param id_parent (`integer(1)` or `NULL`) \cr
@@ -99,7 +106,8 @@ Node = R6::R6Class("Node", public = list(
   initialize = function(id, depth = NULL, subset_idx, grid, id_parent = NULL,
     child_type = NULL, objective_value_parent = NULL, objective_value_j = NULL,
     objective_value = NULL, objective_value_remaining = NA_real_, improvement_met = FALSE,
-    int_imp = NULL, int_imp_j = NULL, vecb_remaining_features = NULL, strategy = NULL) {
+    int_imp = NULL, int_imp_j = NULL, vecb_remaining_features = NULL,
+    early_stopping_stat_j = NULL, strategy = NULL) {
 
     checkmate::assert_numeric(id, len = 1)
     checkmate::assert_numeric(depth, len = 1, null.ok = TRUE)
@@ -112,6 +120,7 @@ Node = R6::R6Class("Node", public = list(
     self$depth = depth
     self$subset_idx = subset_idx
     self$vecb_remaining_features = vecb_remaining_features
+    self$early_stopping_stat_j = early_stopping_stat_j
     self$grid = grid
     self$parent = if (is.null(id_parent)) NULL else list(
       id = id_parent,
@@ -388,12 +397,16 @@ Node = R6::R6Class("Node", public = list(
     vecb_remaining_right = self$vecb_remaining_features
     left_child_value_remaining = NA_real_
     right_child_value_remaining = NA_real_
+    stat_left = NULL
+    stat_right = NULL
     if (length(rem) > 0L) {
       early_stopping = self$strategy$early_stopping
       if (identical(early_stopping$method, "risk_reduction")) {
         # Method 2: per-feature relative improvement of THIS split. Being a reduction criterion it
         # characterises the split as a whole, so both children inherit the same decision.
-        keep = is.finite(int_imp_j[rem]) & (int_imp_j[rem] >= early_stopping$tau)
+        stat_left = int_imp_j[rem]
+        stat_right = stat_left
+        keep = is.finite(stat_left) & (stat_left >= early_stopping$tau)
         keep_left = keep
         keep_right = keep
       } else if (identical(early_stopping$method, "interaction_fraction")) {
@@ -407,21 +420,34 @@ Node = R6::R6Class("Node", public = list(
         y_right = self$strategy$node_transform(
           Y = Y[rem], idx = idx_right, grid = grid_info$grid_right[rem], is_child = TRUE
         )
-        fraction_left = left_objective_value_j[rem] /
+        stat_left = left_objective_value_j[rem] /
           (total_effect_sum_of_squares(y_left) + early_stopping$delta)
-        fraction_right = right_objective_value_j[rem] /
+        stat_right = right_objective_value_j[rem] /
           (total_effect_sum_of_squares(y_right) + early_stopping$delta)
-        keep_left = is.finite(fraction_left) & (fraction_left >= early_stopping$tau)
-        keep_right = is.finite(fraction_right) & (fraction_right >= early_stopping$tau)
+        keep_left = is.finite(stat_left) & (stat_left >= early_stopping$tau)
+        keep_right = is.finite(stat_right) & (stat_right >= early_stopping$tau)
+      } else if (identical(early_stopping$method, "interaction_fraction_total")) {
+        # Method 4: mean risk R_j / (|A_g| * m_{j,g}) normalized by the model's output variance in
+        # the child. The denominator is shared by all features of a child and, unlike Method 3,
+        # does not vanish when a feature has no effect at all.
+        predictions = early_stopping$predictions
+        m_left = vapply(grid_info$grid_left[rem], length, NA_integer_)
+        m_right = vapply(grid_info$grid_right[rem], length, NA_integer_)
+        stat_left = (left_objective_value_j[rem] / (length(idx_left) * m_left)) /
+          (stats::var(predictions[idx_left]) + early_stopping$delta)
+        stat_right = (right_objective_value_j[rem] / (length(idx_right) * m_right)) /
+          (stats::var(predictions[idx_right]) + early_stopping$delta)
+        keep_left = is.finite(stat_left) & (stat_left >= early_stopping$tau)
+        keep_right = is.finite(stat_right) & (stat_right >= early_stopping$tau)
       } else {
         # Method 1 ("plain_risk"): absolute normalized child risk
         # R_j / ((|A_g| - 1) * m_{j,g}) against the root-derived goal, evaluated per child.
         m_left = vapply(grid_info$grid_left[rem], length, NA_integer_)
         m_right = vapply(grid_info$grid_right[rem], length, NA_integer_)
-        normalized_left = left_objective_value_j[rem] / ((length(idx_left) - 1) * m_left)
-        normalized_right = right_objective_value_j[rem] / ((length(idx_right) - 1) * m_right)
-        keep_left = is.finite(normalized_left) & (normalized_left > early_stopping$goal)
-        keep_right = is.finite(normalized_right) & (normalized_right > early_stopping$goal)
+        stat_left = left_objective_value_j[rem] / ((length(idx_left) - 1) * m_left)
+        stat_right = right_objective_value_j[rem] / ((length(idx_right) - 1) * m_right)
+        keep_left = is.finite(stat_left) & (stat_left > early_stopping$goal)
+        keep_right = is.finite(stat_right) & (stat_right > early_stopping$goal)
       }
       vecb_remaining_left[rem] = keep_left
       vecb_remaining_right[rem] = keep_right
@@ -447,6 +473,7 @@ Node = R6::R6Class("Node", public = list(
       int_imp = NULL, int_imp_j = NULL,
       improvement_met = self$improvement_met,
       vecb_remaining_features = vecb_remaining_left,
+      early_stopping_stat_j = stat_left,
       strategy = self$strategy
     )
     right_child = Node$new(
@@ -464,6 +491,7 @@ Node = R6::R6Class("Node", public = list(
       int_imp = NULL, int_imp_j = NULL,
       improvement_met = self$improvement_met,
       vecb_remaining_features = vecb_remaining_right,
+      early_stopping_stat_j = stat_right,
       strategy = self$strategy
     )
     # Set parent split/int_imp for children
