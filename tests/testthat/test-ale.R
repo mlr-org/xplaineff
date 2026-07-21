@@ -77,7 +77,7 @@ test_that("ALE tree fit stores root and cached effect", {
   expect_true(is.list(strat$effect))
 })
 
-test_that("AleStrategy defaults to cpp engine when ale_engine is omitted", {
+test_that("AleStrategy auto engine selects cpp for native predictors", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
   skip_ale_cpp_if_unavailable()
@@ -90,6 +90,43 @@ test_that("AleStrategy defaults to cpp engine when ale_engine is omitted", {
   tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 1, min_node_size = 10)
   tree$fit(model = learner, data = data, target_feature_name = "y", n_intervals = 5)
   expect_identical(tree$strategy$ale_engine, "cpp")
+})
+
+test_that("AleStrategy auto engine selects r for custom predict_fun", {
+  set.seed(13)
+  n = 45
+  data = data.frame(x1 = rnorm(n), x2 = rnorm(n), y = rnorm(n))
+  pred_fun = function(model, newdata) newdata$x1 + 0.5 * newdata$x2
+  tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 1, min_node_size = 10)
+  tree$fit(
+    model = "toy",
+    data = data,
+    target_feature_name = "y",
+    n_intervals = 5,
+    predict_fun = pred_fun
+  )
+  expect_identical(tree$strategy$ale_engine, "r")
+})
+
+test_that("AleStrategy auto engine honors compact ALE option", {
+  skip_ale_cpp_if_unavailable()
+  set.seed(13)
+  n = 45
+  data = data.frame(x1 = rnorm(n), x2 = rnorm(n), y = rnorm(n))
+  pred_fun = function(model, newdata) newdata$x1 + 0.5 * newdata$x2
+  tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 1, min_node_size = 10)
+  withr::with_options(
+    list(xplaineff.ale.compact = TRUE),
+    tree$fit(
+      model = "toy",
+      data = data,
+      target_feature_name = "y",
+      n_intervals = 5,
+      predict_fun = pred_fun
+    )
+  )
+  expect_identical(tree$strategy$ale_engine, "cpp")
+  expect_true(xplaineff:::is_ale_compact(tree$strategy$effect))
 })
 
 test_that("prepare_split_data_ale returns Z and Y", {

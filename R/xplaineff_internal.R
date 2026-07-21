@@ -81,6 +81,52 @@ prune_effects_for_split_search = function(Y, objective_value_j, rel_tol = active
   )
 }
 
+uses_custom_predict_fun = function(predict_fun) {
+  !is.null(predict_fun) && !identical(predict_fun, default_predict_fun)
+}
+
+has_unsupported_pd_cpp_feature = function(data, feature_set) {
+  any(vapply(feature_set, function(feat) {
+    x = data[[feat]]
+    is.character(x) || is.logical(x)
+  }, logical(1L)))
+}
+
+select_pd_engine = function(pd_engine, model, predict_fun, data, feature_set) {
+  pd_engine = match.arg(pd_engine, c("auto", "cpp", "r"))
+  if (!identical(pd_engine, "auto")) {
+    return(pd_engine)
+  }
+  if (uses_custom_predict_fun(predict_fun) || is.function(model)) {
+    return("r")
+  }
+  if (has_unsupported_pd_cpp_feature(data, feature_set)) {
+    return("r")
+  }
+  if (is_ranger_regression_model(model)) {
+    return("row_major")
+  }
+  "cpp"
+}
+
+is_ranger_regression_model = function(model) {
+  !is.null(extract_ranger_regression_model(model))
+}
+
+select_ale_engine = function(ale_engine, model, predict_fun) {
+  ale_engine = match.arg(ale_engine, c("auto", "cpp", "r"))
+  if (!identical(ale_engine, "auto")) {
+    return(ale_engine)
+  }
+  if (isTRUE(getOption("xplaineff.ale.compact", FALSE))) {
+    return("cpp")
+  }
+  if (uses_custom_predict_fun(predict_fun) || is.function(model)) {
+    return("r")
+  }
+  "cpp"
+}
+
 assert_ale_effect_list = function(Y, var_name = "Y") {
   required_cols = c("row_id", "interval_index", "d_l", "int_n", "int_s1", "int_s2")
   checkmate::assert_list(Y, min.len = 1, .var.name = var_name)
@@ -444,6 +490,8 @@ wrap_tree_label = function(text, width = 34L) {
 #'   extract_mlr3_native_model extract_mlr3_feature_names select_newdata_features numeric_matrix_for_prediction
 #'   extract_numeric_prediction has_predict_method cpp_pd_stack_newdata risk_from_stats assert_ale_effect_list
 #'   active_effect_rel_tol active_effect_indices active_effect_names subset_ale_compact_features
-#'   prune_effects_for_split_search d_l interval_index level x x_grid x_left x_right y
+#'   prune_effects_for_split_search uses_custom_predict_fun has_unsupported_pd_cpp_feature
+#'   is_ranger_regression_model
+#'   select_pd_engine select_ale_engine d_l interval_index level x x_grid x_left x_right y
 #' @keywords internal
 NULL

@@ -34,6 +34,11 @@
 \alias{active_effect_names}
 \alias{subset_ale_compact_features}
 \alias{prune_effects_for_split_search}
+\alias{uses_custom_predict_fun}
+\alias{has_unsupported_pd_cpp_feature}
+\alias{is_ranger_regression_model}
+\alias{select_pd_engine}
+\alias{select_ale_engine}
 \alias{d_l}
 \alias{interval_index}
 \alias{level}

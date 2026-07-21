@@ -22,8 +22,7 @@
 #' @param order_method (`character(1)`) \cr
 #'   Categorical level order: \code{"mds"}, \code{"pca"}, \code{"random"}, or \code{"raw"}.
 #' @param ale_engine (`character(1)`) \cr
-#'   ALE engine: \code{"cpp"} or \code{"r"}; default \code{c("cpp", "r")} resolves to
-#'   \code{"cpp"} via \code{match.arg}.
+#'   ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.
 #' @return (`list()`) \cr
 #'   \code{Z}: data.table of split features; \code{Y}: list of ALE effect data per feature.
 #'
@@ -57,7 +56,7 @@ prepare_split_data_ale = function(
   split_feature = NULL,
   predict_fun = NULL,
   order_method = "raw",
-  ale_engine = c("cpp", "r")
+  ale_engine = c("auto", "cpp", "r")
 ) {
   ale_engine = match.arg(ale_engine)
   common = prepare_split_data_common(data, target_feature_name, feature_set, split_feature)
@@ -70,6 +69,7 @@ prepare_split_data_ale = function(
     }
   }
   Z = data.table::setDT(take_cols(data, split_feature))
+  ale_engine = select_ale_engine(ale_engine = ale_engine, model = model, predict_fun = predict_fun)
   effect = if (ale_engine == "cpp") {
     compact_effect = if (isTRUE(getOption("xplaineff.ale.compact", FALSE))) {
       calculate_ale_matrix(

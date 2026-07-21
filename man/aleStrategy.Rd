@@ -59,7 +59,7 @@ Intervals for numeric ALE.}
 Categorical order: \code{"mds"}, \code{"pca"}, \code{"random"}, \code{"raw"}.}
 
 \item{\code{ale_engine}}{(`character(1)`) \cr
-ALE backend after \code{$fit()}: \code{"cpp"} or \code{"r"}.}
+ALE backend selected after \code{$fit()}: \code{"cpp"} or \code{"r"}.}
 
 \item{\code{effect}}{(`list()` or `NULL`) \cr
 Cached ALE effect used when \code{$plot()} omits \code{effect}.}
@@ -107,7 +107,7 @@ Preprocess to Z and Y via \code{prepare_split_data_ale}.
   split_feature = NULL,
   predict_fun = NULL,
   order_method = "raw",
-  ale_engine = c("cpp", "r")
+  ale_engine = c("auto", "cpp", "r")
 )}\if{html}{\out{</div>}}
 }
 
@@ -142,8 +142,7 @@ Prediction function.}
 Categorical order: \code{"mds"}, \code{"pca"}, \code{"random"}, or \code{"raw"}.}
 
 \item{\code{ale_engine}}{(`character(1)`) \cr
-ALE engine: \code{"cpp"} or \code{"r"}; default \code{c("cpp", "r")} resolves to
-\code{"cpp"} via \code{match.arg}.}
+ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -354,7 +353,7 @@ Fit tree: preprocess, create root, split recursively.
   split_feature = NULL,
   predict_fun = NULL,
   order_method = "raw",
-  ale_engine = c("cpp", "r"),
+  ale_engine = c("auto", "cpp", "r"),
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -390,8 +389,7 @@ Prediction function.}
 Categorical order.}
 
 \item{\code{ale_engine}}{(`character(1)`) \cr
-ALE engine: \code{"cpp"} or \code{"r"}; default \code{c("cpp", "r")} resolves to
-\code{"cpp"} via \code{match.arg}.}
+ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.}
 
 \item{\code{...}}{Ignored.}
 }

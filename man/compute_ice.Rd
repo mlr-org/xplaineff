@@ -10,12 +10,13 @@ compute_ice(
   feature,
   grid,
   predict_fun = NULL,
-  pd_engine = c("cpp", "r"),
+  pd_engine = c("cpp", "r", "row_major"),
   base_data_dt = NULL,
   cols_list = NULL,
   feature_index = NULL,
   stacked_pd_cache = NULL,
-  predictor = NULL
+  predictor = NULL,
+  base_data_df = NULL
 )
 }
 \arguments{
@@ -35,7 +36,7 @@ Grid values for the focal feature.}
 Custom predict function; \code{NULL} = default.}
 
 \item{pd_engine}{(`character(1)`) \cr
-\code{"cpp"} or \code{"r"}.}
+\code{"cpp"}, \code{"r"}, or internal \code{"row_major"}.}
 
 \item{base_data_dt}{(`data.table()` or `NULL`) \cr
 Pre-converted data.table of \code{data}; avoids repeated conversion.}
@@ -52,12 +53,15 @@ Pre-allocated stacked data.table cache for the R path; \code{NULL} disables cach
 \item{predictor}{(`list()` or `NULL`) \cr
 Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
 \code{model} and \code{predict_fun}.}
+
+\item{base_data_df}{(`data.frame()` or `NULL`) \cr
+Pre-converted data.frame of \code{data}; used by the row-major path.}
 }
 \value{
 (`matrix`) \cr
   Numeric matrix of shape \code{n_obs x length(grid)} containing ICE predictions.
 }
 \description{
-Dispatches ICE computation to the C++ or R backend based on \code{pd_engine}.
+Dispatches ICE computation to the C++, R, or row-major backend based on \code{pd_engine}.
 }
 \keyword{internal}

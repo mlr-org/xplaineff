@@ -307,7 +307,7 @@ Fit tree: preprocess, create root, split recursively.
   split_feature = NULL,
   predict_fun = NULL,
   n_grid = 20L,
-  pd_engine = c("cpp", "r"),
+  pd_engine = c("auto", "cpp", "r"),
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -340,8 +340,8 @@ Optional prediction function.}
 Number of grid points for numeric features.}
 
 \item{\code{pd_engine}}{(`character(1)`) \cr
-When computing ICE/PD from \code{model}: \code{"cpp"} (column-wise stacked \code{newdata},
-xplaineff-style) or \code{"r"} (\code{data.table::rbindlist}).}
+When computing ICE/PD from \code{model}: \code{"auto"}, \code{"cpp"} (column-wise stacked
+\code{newdata}, xplaineff-style), or \code{"r"} (\code{data.table::rbindlist}).}
 
 \item{\code{...}}{Ignored.}
 }

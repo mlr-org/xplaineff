@@ -16,7 +16,9 @@
 #' @param n_grid (`integer(1)`) \cr
 #'   Number of quantile-based grid points for numeric features.
 #' @param pd_engine (`character(1)`) \cr
-#'   Backend: \code{"cpp"} (default) or \code{"r"}.
+#'   Backend: \code{"auto"} (default), \code{"cpp"}, or \code{"r"}.
+#'   The \code{"auto"} backend may use an internal row-major full-ICE layout for native
+#'   ranger regression models.
 #'
 #' @return (`list()`) \cr
 #'   Named list with element \code{results}: a named list of data.tables, one per
@@ -25,7 +27,7 @@
 #'
 #' @keywords internal
 calculate_pd = function(model, data, target_feature_name, feature_set = NULL,
-  predict_fun = NULL, n_grid = 20L, pd_engine = c("cpp", "r")) {
+  predict_fun = NULL, n_grid = 20L, pd_engine = c("auto", "cpp", "r")) {
   pd_engine = match.arg(pd_engine)
   features = setdiff(colnames(data), target_feature_name)
   feature_set = resolve_split_features(feature_set, features, "Features")
@@ -47,7 +49,11 @@ calculate_pd = function(model, data, target_feature_name, feature_set = NULL,
   )
 
   predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
-  ice_engine = pd_engine
+  ice_engine = select_pd_engine(
+    pd_engine = pd_engine, model = model, predict_fun = predict_fun,
+    data = x_features_dt, feature_set = feature_set
+  )
+  x_features_df = if (identical(ice_engine, "row_major")) as.data.frame(x_features) else NULL
 
   # Pre-allocate one stacked table for the R path: max_g * n rows, reused per feature.
   max_g_r = max(lengths(grids))
@@ -67,7 +73,7 @@ calculate_pd = function(model, data, target_feature_name, feature_set = NULL,
       model = model, data = x_features_dt, feature = feat, grid = grid,
       predict_fun = predict_fun, predictor = predictor, pd_engine = ice_engine,
       base_data_dt = x_features_dt, cols_list = x_cols_list, feature_index = feat_index,
-      stacked_pd_cache = stacked_pd_cache
+      stacked_pd_cache = stacked_pd_cache, base_data_df = x_features_df
     )
     pd_pack_ice_result(ice, feature = feat, grid = grid)
   })
@@ -90,7 +96,7 @@ calculate_pd = function(model, data, target_feature_name, feature_set = NULL,
 #'
 #' @keywords internal
 calculate_pd_matrix = function(model, data, target_feature_name, feature_set = NULL,
-  predict_fun = NULL, n_grid = 20L, pd_engine = c("cpp", "r")) {
+  predict_fun = NULL, n_grid = 20L, pd_engine = c("auto", "cpp", "r")) {
   pd_engine = match.arg(pd_engine)
   features = setdiff(colnames(data), target_feature_name)
   feature_set = resolve_split_features(feature_set, features, "Features")
@@ -112,7 +118,11 @@ calculate_pd_matrix = function(model, data, target_feature_name, feature_set = N
   )
 
   predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
-  ice_engine = pd_engine
+  ice_engine = select_pd_engine(
+    pd_engine = pd_engine, model = model, predict_fun = predict_fun,
+    data = x_features_dt, feature_set = feature_set
+  )
+  x_features_df = if (identical(ice_engine, "row_major")) as.data.frame(x_features) else NULL
 
   max_g_r = max(lengths(grids))
   stacked_pd_cache = NULL
@@ -131,7 +141,7 @@ calculate_pd_matrix = function(model, data, target_feature_name, feature_set = N
       model = model, data = x_features_dt, feature = feat, grid = grid,
       predict_fun = predict_fun, predictor = predictor, pd_engine = ice_engine,
       base_data_dt = x_features_dt, cols_list = x_cols_list, feature_index = feat_index,
-      stacked_pd_cache = stacked_pd_cache
+      stacked_pd_cache = stacked_pd_cache, base_data_df = x_features_df
     )
     colnames(ice) = as.character(grid)
     ice
@@ -143,7 +153,7 @@ calculate_pd_matrix = function(model, data, target_feature_name, feature_set = N
 
 #' Compute ICE Matrix (Dispatch)
 #'
-#' Dispatches ICE computation to the C++ or R backend based on \code{pd_engine}.
+#' Dispatches ICE computation to the C++, R, or row-major backend based on \code{pd_engine}.
 #'
 #' @param model (`any`) \cr
 #'   Fitted model.
@@ -156,7 +166,7 @@ calculate_pd_matrix = function(model, data, target_feature_name, feature_set = N
 #' @param predict_fun (`function()` or `NULL`) \cr
 #'   Custom predict function; \code{NULL} = default.
 #' @param pd_engine (`character(1)`) \cr
-#'   \code{"cpp"} or \code{"r"}.
+#'   \code{"cpp"}, \code{"r"}, or internal \code{"row_major"}.
 #' @param base_data_dt (`data.table()` or `NULL`) \cr
 #'   Pre-converted data.table of \code{data}; avoids repeated conversion.
 #' @param cols_list (`list()` or `NULL`) \cr
@@ -165,6 +175,8 @@ calculate_pd_matrix = function(model, data, target_feature_name, feature_set = N
 #'   1-based column index of \code{feature} in \code{base_data_dt}; used by the C++ path.
 #' @param stacked_pd_cache (`list()` or `NULL`) \cr
 #'   Pre-allocated stacked data.table cache for the R path; \code{NULL} disables caching.
+#' @param base_data_df (`data.frame()` or `NULL`) \cr
+#'   Pre-converted data.frame of \code{data}; used by the row-major path.
 #' @param predictor (`list()` or `NULL`) \cr
 #'   Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
 #'   \code{model} and \code{predict_fun}.
@@ -175,9 +187,9 @@ calculate_pd_matrix = function(model, data, target_feature_name, feature_set = N
 #' @keywords internal
 compute_ice = function(
   model, data, feature, grid, predict_fun = NULL,
-  pd_engine = c("cpp", "r"), base_data_dt = NULL,
+  pd_engine = c("cpp", "r", "row_major"), base_data_dt = NULL,
   cols_list = NULL, feature_index = NULL,
-  stacked_pd_cache = NULL, predictor = NULL
+  stacked_pd_cache = NULL, predictor = NULL, base_data_df = NULL
 ) {
   pd_engine = match.arg(pd_engine)
   if (is.null(predictor)) {
@@ -189,11 +201,17 @@ compute_ice = function(
       predict_fun = predict_fun, predictor = predictor, base_data_dt = base_data_dt,
       cols_list = cols_list, feature_index = feature_index
     )
-  } else {
+  } else if (identical(pd_engine, "r")) {
     compute_ice_r(
       model = model, data = data, feature = feature, grid = grid,
       predict_fun = predict_fun, predictor = predictor, base_data_dt = base_data_dt,
       stacked_pd_cache = stacked_pd_cache
+    )
+  } else {
+    compute_ice_row_major(
+      model = model, data = data, feature = feature, grid = grid,
+      predict_fun = predict_fun, predictor = predictor, base_data_dt = base_data_dt,
+      base_data_df = base_data_df
     )
   }
 }
@@ -287,6 +305,44 @@ compute_ice_r = function(model, data, feature, grid, predict_fun = NULL,
   }
 
   matrix(pred, nrow = n_obs, ncol = grid_len)
+}
+
+
+#' Compute ICE Matrix (Row-Major Backend)
+#'
+#' Builds full ICE prediction data in observation-major order:
+#' all grid values for observation 1, then all grid values for observation 2,
+#' and so on.
+#' Prediction still runs through the shared predictor wrapper.
+#'
+#' @inheritParams compute_ice_r
+#'
+#' @return (`matrix`) \cr
+#'   Numeric matrix of shape \code{n_obs x length(grid)}.
+#'
+#' @keywords internal
+compute_ice_row_major = function(model, data, feature, grid, predict_fun = NULL,
+  base_data_dt = NULL, base_data_df = NULL, predictor = NULL) {
+  checkmate::assert_character(feature, len = 1L, .var.name = "feature")
+  checkmate::assert_subset(feature, colnames(data), .var.name = "feature")
+  checkmate::assert_atomic_vector(grid, min.len = 1L, .var.name = "grid")
+  if (is.null(predictor)) {
+    predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
+  }
+
+  dt = if (is.null(base_data_dt)) data.table::as.data.table(data) else base_data_dt
+  df = if (is.null(base_data_df)) as.data.frame(dt) else base_data_df
+  n_obs = nrow(dt)
+  grid_len = length(grid)
+  stacked = df[rep(seq_len(n_obs), each = grid_len), , drop = FALSE]
+  feature_values = rep(grid, times = n_obs)
+  if (is.factor(dt[[feature]])) {
+    feature_values = factor(feature_values, levels = levels(dt[[feature]]))
+  }
+  stacked[[feature]] = feature_values
+
+  pred = predictor$predict(stacked)
+  matrix(pred, nrow = n_obs, ncol = grid_len, byrow = TRUE)
 }
 
 

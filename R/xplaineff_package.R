@@ -32,9 +32,9 @@ utils::globalVariables(c(
 #'     Strategy-specific \code{...} arguments include:
 #'     \itemize{
 #'       \item \strong{AleStrategy}: \code{model} (required), \code{n_intervals = 10},
-#'         \code{predict_fun = NULL}, \code{order_method = "raw"}, and \code{ale_engine} (default \code{"cpp"}).
+#'         \code{predict_fun = NULL}, \code{order_method = "raw"}, and \code{ale_engine} (default \code{"auto"}).
 #'       \item \strong{PdStrategy}: either \code{effect}, or \code{model} with optional \code{predict_fun},
-#'         \code{n_grid}, and \code{pd_engine} (default \code{"cpp"}).
+#'         \code{n_grid}, and \code{pd_engine} (default \code{"auto"}).
 #'       \item Both strategies accept \code{feature_set} and \code{split_feature}.
 #'       \item Tree parameters include \code{impr_par}, \code{min_node_size}, and \code{n_quantiles}.
 #'     }

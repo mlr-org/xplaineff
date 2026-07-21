@@ -44,6 +44,30 @@ test_that("compute_ice cpp matches r (factor focal feature)", {
   testthat::expect_equal(ice_cpp, ice_r, tolerance = 1e-10)
 })
 
+test_that("compute_ice row-major matches r for numeric and factor focal features", {
+  set.seed(12L)
+  n = 40L
+  d = data.frame(
+    x1 = runif(n),
+    x2 = rnorm(n),
+    x3 = factor(sample(c("low", "mid", "high"), n, replace = TRUE))
+  )
+  pred_fun = function(model, newdata) {
+    as.numeric(newdata$x1) - 0.25 * as.numeric(newdata$x2) +
+      match(as.character(newdata$x3), c("low", "mid", "high"))
+  }
+
+  grid_num = seq(0.1, 0.9, length.out = 7L)
+  ice_num_r = xplaineff:::compute_ice_r("toy", d, "x1", grid_num, predict_fun = pred_fun)
+  ice_num_row_major = xplaineff:::compute_ice_row_major("toy", d, "x1", grid_num, predict_fun = pred_fun)
+  testthat::expect_equal(ice_num_row_major, ice_num_r, tolerance = 1e-10)
+
+  grid_cat = levels(d$x3)
+  ice_cat_r = xplaineff:::compute_ice_r("toy", d, "x3", grid_cat, predict_fun = pred_fun)
+  ice_cat_row_major = xplaineff:::compute_ice_row_major("toy", d, "x3", grid_cat, predict_fun = pred_fun)
+  testthat::expect_equal(ice_cat_row_major, ice_cat_r, tolerance = 1e-10)
+})
+
 test_that("re_mean_center_ice_cpp centers grid columns and preserves metadata", {
   tryCatch(
     xplaineff:::re_mean_center_ice_cpp(
@@ -158,6 +182,49 @@ test_that("compute_ice cpp matches r (ranger native model, data= predict)", {
   testthat::expect_equal(ice_cpp, ice_r, tolerance = 1e-10)
 })
 
+test_that("PD auto engine selects row-major backend for native ranger regression", {
+  testthat::skip_if_not_installed("ranger")
+  set.seed(14L)
+  n = 50L
+  d = data.frame(x1 = runif(n), x2 = runif(n), y = rnorm(n))
+  fit = ranger::ranger(
+    data = d,
+    dependent.variable.name = "y",
+    num.trees = 50L,
+    num.threads = 1L,
+    seed = 14L
+  )
+  x_only = data.table::as.data.table(d[, c("x1", "x2"), drop = FALSE])
+
+  engine = xplaineff:::select_pd_engine(
+    pd_engine = "auto",
+    model = fit,
+    predict_fun = NULL,
+    data = x_only,
+    feature_set = c("x1", "x2")
+  )
+
+  testthat::expect_identical(engine, "row_major")
+
+  auto = xplaineff:::calculate_pd_matrix(
+    model = fit,
+    data = d,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    n_grid = 5L
+  )
+  cpp = xplaineff:::calculate_pd_matrix(
+    model = fit,
+    data = d,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    n_grid = 5L,
+    pd_engine = "cpp"
+  )
+  testthat::expect_equal(auto$Y, cpp$Y, tolerance = 1e-10)
+  testthat::expect_equal(auto$grid, cpp$grid)
+})
+
 test_that("custom predict_fun PD cpp engine uses the same values as the R backend", {
   set.seed(10L)
   data = data.frame(x1 = runif(40L), x2 = rnorm(40L), x3 = runif(40L))
@@ -201,6 +268,37 @@ test_that("custom predict_fun PD cpp engine uses the same values as the R backen
   testthat::expect_true(all(seen_r_data_table))
 })
 
+test_that("PD auto engine uses the R stack for custom predict_fun", {
+  set.seed(10L)
+  data = data.frame(x1 = runif(40L), x2 = rnorm(40L), y = rnorm(40L))
+  seen_auto_data_table = logical()
+  pred_fun = function(model, newdata) {
+    seen_auto_data_table <<- c(seen_auto_data_table, data.table::is.data.table(newdata))
+    newdata$x1 - 0.5 * newdata$x2
+  }
+
+  auto = xplaineff:::calculate_pd_matrix(
+    model = "toy",
+    data = data,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    predict_fun = pred_fun,
+    n_grid = 5L
+  )
+  r = xplaineff:::calculate_pd_matrix(
+    model = "toy",
+    data = data,
+    target_feature_name = "y",
+    feature_set = c("x1", "x2"),
+    predict_fun = pred_fun,
+    n_grid = 5L,
+    pd_engine = "r"
+  )
+
+  testthat::expect_equal(auto$Y, r$Y)
+  testthat::expect_true(all(seen_auto_data_table))
+})
+
 test_that("PD cpp engine does not silently fall back for unsupported focal types", {
   data = data.frame(x1 = c("a", "b", "a", "c"), x2 = 1:4, y = 1:4)
   pred_fun = function(model, newdata) as.numeric(newdata$x2)
@@ -217,6 +315,22 @@ test_that("PD cpp engine does not silently fall back for unsupported focal types
     ),
     regexp = "pd_engine|cpp|factor"
   )
+})
+
+test_that("PD auto engine falls back to R for unsupported focal types", {
+  data = data.frame(x1 = c("a", "b", "a", "c"), x2 = 1:4, y = 1:4)
+  pred_fun = function(model, newdata) as.numeric(newdata$x2)
+
+  result = xplaineff:::calculate_pd_matrix(
+    model = "toy",
+    data = data,
+    target_feature_name = "y",
+    feature_set = "x1",
+    predict_fun = pred_fun,
+    n_grid = 3L
+  )
+
+  testthat::expect_named(result$Y, "x1")
 })
 
 test_that("PdStrategy fit aborts when target column is missing from data", {

@@ -27,7 +27,7 @@
 #' @field order_method (`character(1)`) \cr
 #'   Categorical order: \code{"mds"}, \code{"pca"}, \code{"random"}, \code{"raw"}.
 #' @field ale_engine (`character(1)`) \cr
-#'   ALE backend after \code{$fit()}: \code{"cpp"} or \code{"r"}.
+#'   ALE backend selected after \code{$fit()}: \code{"cpp"} or \code{"r"}.
 #' @field effect (`list()` or `NULL`) \cr
 #'   Cached ALE effect used when \code{$plot()} omits \code{effect}.
 #'
@@ -55,7 +55,7 @@ AleStrategy = R6::R6Class(
     n_intervals = NULL,
     predict_fun = NULL,
     order_method = "raw",
-    ale_engine = "cpp",
+    ale_engine = "auto",
     effect = NULL,
 
     #' @description
@@ -85,13 +85,12 @@ AleStrategy = R6::R6Class(
     #' @param order_method (`character(1)`) \cr
     #'   Categorical order: \code{"mds"}, \code{"pca"}, \code{"random"}, or \code{"raw"}.
     #' @param ale_engine (`character(1)`) \cr
-    #'   ALE engine: \code{"cpp"} or \code{"r"}; default \code{c("cpp", "r")} resolves to
-    #'   \code{"cpp"} via \code{match.arg}.
+    #'   ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.
     #' @return (`list()`) \cr
     #'   \code{Z}: split features; \code{Y}: ALE effect data.tables.
     preprocess = function(model, effect = NULL, data, target_feature_name, n_intervals,
       feature_set = NULL, split_feature = NULL, predict_fun = NULL,
-      order_method = "raw", ale_engine = c("cpp", "r")) {
+      order_method = "raw", ale_engine = c("auto", "cpp", "r")) {
       ale_engine = match.arg(ale_engine)
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
@@ -284,14 +283,13 @@ AleStrategy = R6::R6Class(
     #' @param order_method (`character(1)`) \cr
     #'   Categorical order.
     #' @param ale_engine (`character(1)`) \cr
-    #'   ALE engine: \code{"cpp"} or \code{"r"}; default \code{c("cpp", "r")} resolves to
-    #'   \code{"cpp"} via \code{match.arg}.
+    #'   ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.
     #' @param ... Ignored.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
     fit = function(tree, model, effect = NULL, data, target_feature_name,
       n_intervals = 10, feature_set = NULL, split_feature = NULL,
-      predict_fun = NULL, order_method = "raw", ale_engine = c("cpp", "r"), ...) {
+      predict_fun = NULL, order_method = "raw", ale_engine = c("auto", "cpp", "r"), ...) {
       checkmate::assert_r6(tree, classes = "GadgetTree", .var.name = "tree")
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
@@ -303,6 +301,7 @@ AleStrategy = R6::R6Class(
       checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
       checkmate::assert_choice(order_method, c("mds", "pca", "random", "raw"), .var.name = "order_method")
       ale_engine = match.arg(ale_engine)
+      user_predict_fun = predict_fun
       if (is.null(model)) {
         cli::cli_abort("AleStrategy requires {.arg model} to be passed.")
       }
@@ -315,6 +314,7 @@ AleStrategy = R6::R6Class(
       if (is.null(predict_fun)) {
         predict_fun = default_predict_fun
       }
+      ale_engine = select_ale_engine(ale_engine = ale_engine, model = model, predict_fun = user_predict_fun)
       t_global = system.time({
         self$model = model
         self$data = data

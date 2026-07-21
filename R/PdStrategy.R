@@ -285,14 +285,14 @@ PdStrategy = R6::R6Class(
     #' @param n_grid (`integer(1)`) \cr
     #'   Number of grid points for numeric features.
     #' @param pd_engine (`character(1)`) \cr
-    #'   When computing ICE/PD from \code{model}: \code{"cpp"} (column-wise stacked \code{newdata},
-    #'   xplaineff-style) or \code{"r"} (\code{data.table::rbindlist}).
+    #'   When computing ICE/PD from \code{model}: \code{"auto"}, \code{"cpp"} (column-wise stacked
+    #'   \code{newdata}, xplaineff-style), or \code{"r"} (\code{data.table::rbindlist}).
     #' @param ... Ignored.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
     fit = function(tree, effect = NULL, model = NULL, data, target_feature_name,
       feature_set = NULL, split_feature = NULL, predict_fun = NULL,
-      n_grid = 20L, pd_engine = c("cpp", "r"), ...) {
+      n_grid = 20L, pd_engine = c("auto", "cpp", "r"), ...) {
       checkmate::assert_r6(tree, classes = "GadgetTree", .var.name = "tree")
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")

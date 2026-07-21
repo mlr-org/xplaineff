@@ -11,7 +11,7 @@ calculate_pd(
   feature_set = NULL,
   predict_fun = NULL,
   n_grid = 20L,
-  pd_engine = c("cpp", "r")
+  pd_engine = c("auto", "cpp", "r")
 )
 }
 \arguments{
@@ -34,7 +34,9 @@ Features to compute PD for; \code{NULL} = all non-target columns.}
 Number of quantile-based grid points for numeric features.}
 
 \item{pd_engine}{(`character(1)`) \cr
-Backend: \code{"cpp"} (default) or \code{"r"}.}
+Backend: \code{"auto"} (default), \code{"cpp"}, or \code{"r"}.
+The \code{"auto"} backend may use an internal row-major full-ICE layout for native
+ranger regression models.}
 }
 \value{
 (`list()`) \cr
