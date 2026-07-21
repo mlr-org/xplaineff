@@ -19,6 +19,7 @@ args = commandArgs(trailingOnly = TRUE)
 run_id = format(Sys.time(), "%Y%m%d_%H%M%S")
 run_root = file.path("simulation/results/runtime_runs", run_id)
 indir = file.path(run_root, "global_r_runtime")
+summary_file = ""
 figdir = file.path(run_root, "paper_figures")
 paper_figdir = ""
 fixed_N = 10000L
@@ -45,6 +46,8 @@ i = 1L
 while (i <= length(args)) {
   if (args[i] == "--indir" && i < length(args)) {
     indir = args[i + 1L]; i = i + 2L
+  } else if (args[i] == "--summary" && i < length(args)) {
+    summary_file = args[i + 1L]; i = i + 2L
   } else if (args[i] == "--figdir" && i < length(args)) {
     figdir = args[i + 1L]; i = i + 2L
   } else if (args[i] == "--paper-figdir" && i < length(args)) {
@@ -80,53 +83,78 @@ source("simulation/global_runtime_io.R")
 
 setDTthreads(1L)
 
+make_global_label = function(package, impl) {
+  fcase(
+    package == "xplaineff" & impl == "auto", "xplaineff-auto",
+    package == "xplaineff" & impl == "r", "xplaineff-r",
+    package == "xplaineff" & impl == "cpp", "xplaineff-cpp",
+    default = package
+  )
+}
+
 if (isTRUE(include_mlr3) && !"mlr3_rf" %in% model_types) {
   model_types = c(model_types, "mlr3_rf")
 }
 
-dt = load_global_runtime_data(indir = indir, model_types = model_types, include_mlr3 = include_mlr3)
+if (nzchar(summary_file)) {
+  summary_dt = fread(summary_file)
+  required_cols = c(
+    "module", "package", "impl", "method", "model_type", "sub_experiment", "N", "D", "n_grid", "n_intervals",
+    "time_median", "time_q25", "time_q75"
+  )
+  missing_cols = setdiff(required_cols, names(summary_dt))
+  if (length(missing_cols)) {
+    stop(
+      "Summary CSV is missing required column(s): ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  summary_dt[package == "gadget", package := "xplaineff"]
+  summary_dt[, label := make_global_label(package, impl)]
+  message("Loaded: ", summary_file)
+} else {
+  dt = load_global_runtime_data(indir = indir, model_types = model_types, include_mlr3 = include_mlr3)
 
-if (nrow(dt) == 0L) {
-  stop("No benchmark data found. Run simulation/run_global_r_runtime.sh first.")
+  if (nrow(dt) == 0L) {
+    stop("No benchmark data found. Run simulation/run_global_r_runtime.sh first.")
+  }
+
+  n_err = dt[status == "error", .N]
+  if (n_err > 0L) {
+    message("Warning: ", n_err, " benchmark row(s) have status=error; see error_message in raw CSV.")
+  }
+
+  dt[, time_sec := as.numeric(time_sec)]
+  dt[, c("source_file", "source_rank") := NULL]
+  # Raw CSVs from runs before the package rename record package = "gadget".
+  dt[package == "gadget", package := "xplaineff"]
+  dt = dt[!(sub_experiment == "vs_N" & N == 500L)]
+
+  dt_ok = dt[status == "ok" & is.finite(time_sec)]
+  if (nrow(dt_ok) == 0L) {
+    stop("No successful benchmark timings found.")
+  }
+
+  summary_dt = dt_ok[, .(
+    time_median = stats::median(time_sec),
+    time_q25 = stats::quantile(time_sec, probs = 0.25, names = FALSE, type = 7),
+    time_q75 = stats::quantile(time_sec, probs = 0.75, names = FALSE, type = 7),
+    time_min = min(time_sec),
+    time_max = max(time_sec),
+    time_mean = mean(time_sec),
+    time_sd = stats::sd(time_sec),
+    n_rep = .N
+  ), by = .(module, package, impl, method, model_type, sub_experiment, N, D, n_grid, n_intervals)]
+
+  summary_dt[, label := make_global_label(package, impl)]
+
+  write.csv(summary_dt, file.path(indir, "summary.csv"), row.names = FALSE)
+  message("Written: ", file.path(indir, "summary.csv"))
 }
-
-n_err = dt[status == "error", .N]
-if (n_err > 0L) {
-  message("Warning: ", n_err, " benchmark row(s) have status=error; see error_message in raw CSV.")
-}
-
-dt[, time_sec := as.numeric(time_sec)]
-dt[, c("source_file", "source_rank") := NULL]
-# Raw CSVs from runs before the package rename record package = "gadget".
-dt[package == "gadget", package := "xplaineff"]
-dt = dt[!(sub_experiment == "vs_N" & N == 500L)]
-
-dt_ok = dt[status == "ok" & is.finite(time_sec)]
-if (nrow(dt_ok) == 0L) {
-  stop("No successful benchmark timings found.")
-}
-
-summary_dt = dt_ok[, .(
-  time_median = stats::median(time_sec),
-  time_q25 = stats::quantile(time_sec, probs = 0.25, names = FALSE, type = 7),
-  time_q75 = stats::quantile(time_sec, probs = 0.75, names = FALSE, type = 7),
-  time_min = min(time_sec),
-  time_max = max(time_sec),
-  time_mean = mean(time_sec),
-  time_sd = stats::sd(time_sec),
-  n_rep = .N
-), by = .(module, package, impl, method, model_type, sub_experiment, N, D, n_grid, n_intervals)]
-
-summary_dt[, label := fifelse(
-  package == "xplaineff" & impl == "r",
-  "xplaineff-r",
-  fifelse(package == "xplaineff" & impl == "cpp", "xplaineff-cpp", package)
-)]
-
-write.csv(summary_dt, file.path(indir, "summary.csv"), row.names = FALSE)
-message("Written: ", file.path(indir, "summary.csv"))
 
 palette_values = c(
+  "xplaineff-auto" = "#1f77b4",
   "xplaineff-r" = "#1f77b4",
   "xplaineff-cpp" = "#17becf",
   "pdp" = "#ff7f0e",
@@ -136,6 +164,7 @@ palette_values = c(
   "effectplots" = "#8c564b"
 )
 shape_values = c(
+  "xplaineff-auto" = 16,
   "xplaineff-r" = 16,
   "xplaineff-cpp" = 4,
   "pdp" = 17,
@@ -145,6 +174,7 @@ shape_values = c(
   "effectplots" = 7
 )
 x_offset_values = c(
+  "xplaineff-auto" = 0.952,
   "xplaineff-r" = 0.952,
   "xplaineff-cpp" = 0.968,
   "pdp" = 0.984,

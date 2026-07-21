@@ -204,6 +204,10 @@ xplaineff_predict_fun = function(model, pred_fun) {
   pred_fun
 }
 
+ale_engine_for_benchmark = function(model_type) {
+  if (identical(model_type, "toy")) "r" else "cpp"
+}
+
 make_cells = function() {
   rows = list()
   make_cell = function(sub_experiment, N, D, resolution, n_split) {
@@ -242,8 +246,9 @@ make_cells = function() {
   unique(do.call(rbind, rows))
 }
 
-run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
+run_regional = function(effect, model_type, dat, model, pred_fun, resolution, n_split) {
   pred_fun = xplaineff_predict_fun(model, pred_fun)
+  effect_engine = "cpp"
   if (identical(effect, "pdp")) {
     strat = PdStrategy$new()
     tree = GadgetTree$new(
@@ -261,6 +266,7 @@ run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
       pd_engine = "cpp"
     )
   } else {
+    effect_engine = ale_engine_for_benchmark(model_type)
     strat = AleStrategy$new()
     tree = GadgetTree$new(
       strategy = strat,
@@ -275,22 +281,25 @@ run_regional = function(effect, dat, model, pred_fun, resolution, n_split) {
       n_intervals = resolution,
       predict_fun = pred_fun,
       order_method = "raw",
-      ale_engine = "cpp"
+      ale_engine = effect_engine
     )
   }
-  c(
-    precompute = strat$fit_timing$global,
-    split = strat$fit_timing$regional,
-    total = strat$fit_timing$global + strat$fit_timing$regional
+  list(
+    timing = c(
+      precompute = strat$fit_timing$global,
+      split = strat$fit_timing$regional,
+      total = strat$fit_timing$global + strat$fit_timing$regional
+    ),
+    effect_engine = effect_engine
   )
 }
 
-record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
+record_row = function(rows, model_type, effect, cell, repetition, timing = NULL, effect_engine = NA_character_,
   status = "ok", error_message = NA_character_) {
   rows[[length(rows) + 1L]] = data.frame(
     module = "regional_runtime",
     package = "xplaineff",
-    impl = "cpp",
+    impl = if (is.na(effect_engine)) "cpp" else effect_engine,
     effect = effect,
     method = sprintf("regional_%s", effect),
     model_type = model_type,
@@ -304,6 +313,7 @@ record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
     n_quantiles = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     n_candidates = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     split_candidate_rule = if (is.null(n_quantiles)) "all_unique" else "quantile",
+    effect_engine = effect_engine,
     prediction_path = if (identical(model_type, "rf")) "default_predict_fun" else "custom_predict_fun",
     ranger_num_threads = if (identical(model_type, "rf")) {
       ranger_threads_label(rf_config$num_threads)
@@ -350,7 +360,7 @@ run_model = function(model_type) {
       )
       message(log_msg, " | start")
       tryCatch(
-        run_regional(effect, dat, model, pred_fun, cell$resolution, cell$n_split),
+        run_regional(effect, model_type, dat, model, pred_fun, cell$resolution, cell$n_split),
         error = function(e) {
           if (isTRUE(fail_fast)) stop(e)
           message(log_msg, " | warmup skipped/failed: ", conditionMessage(e))
@@ -359,11 +369,13 @@ run_model = function(model_type) {
       )
       for (r in seq_len(reps)) {
         out = tryCatch(
-          list(ok = TRUE, timing = run_regional(effect, dat, model, pred_fun, cell$resolution, cell$n_split),
-            error = NA_character_),
+          {
+            res = run_regional(effect, model_type, dat, model, pred_fun, cell$resolution, cell$n_split)
+            list(ok = TRUE, timing = res$timing, effect_engine = res$effect_engine, error = NA_character_)
+          },
           error = function(e) {
             if (isTRUE(fail_fast)) stop(e)
-            list(ok = FALSE, timing = NULL, error = conditionMessage(e))
+            list(ok = FALSE, timing = NULL, effect_engine = NA_character_, error = conditionMessage(e))
           }
         )
         rows = record_row(
@@ -373,6 +385,7 @@ run_model = function(model_type) {
           cell = cell,
           repetition = r,
           timing = out$timing,
+          effect_engine = out$effect_engine,
           status = if (out$ok) "ok" else "error",
           error_message = out$error
         )

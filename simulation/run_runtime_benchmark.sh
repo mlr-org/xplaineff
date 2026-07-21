@@ -87,71 +87,25 @@ run_global_benchmark() {
   fi
 }
 
-run_regional_xplaineff() {
-  echo "2b. Running regional benchmark: xplaineff..."
-  Rscript simulation/benchmark_regional_runtime_xplaineff.R \
-    --datadir "${DATADIR}" \
-    --outdir "${REGIONAL_OUTDIR}" \
-    --reps "${REPS}" \
-    --N-vec "${N_VEC}" \
-    --D-vec "${D_VEC}" \
-    --fixed-N "${FIXED_N}" \
-    --fixed-D "${FIXED_D}" \
-    --resolution "${RESOLUTION}" \
-    --resolution-vec "${RES_VEC}" \
-    --n-split "${N_SPLIT}" \
-    --n-split-vec "${N_SPLIT_VEC}" \
-    --n-quantiles "${N_QUANTILES}" \
-    --models "${MODELS}"
-
-}
-
-run_regional_effector() {
-  echo "2c. Running regional benchmark: effector..."
-  python3 simulation/benchmark_regional_runtime_effector.py \
-    --datadir "${DATADIR}" \
-    --outdir "${REGIONAL_OUTDIR}" \
-    --reps "${REPS}" \
-    --N-vec "${N_VEC}" \
-    --D-vec "${D_VEC}" \
-    --fixed-N "${FIXED_N}" \
-    --fixed-D "${FIXED_D}" \
-    --resolution "${RESOLUTION}" \
-    --resolution-vec "${RES_VEC}" \
-    --n-split "${N_SPLIT}" \
-    --n-split-vec "${N_SPLIT_VEC}" \
-    --numerical-features-grid-size "${EFFECTOR_NUMERICAL_GRID_SIZE}" \
-    --models "${MODELS}"
-}
-
 run_regional_benchmark() {
-  if [ "$PARALLEL_REGIONAL_PACKAGES" = "true" ]; then
-    mkdir -p "${REGIONAL_OUTDIR}"
-    run_regional_xplaineff > "${REGIONAL_OUTDIR}/_run_xplaineff.log" 2>&1 &
-    XPLAINEFF_PID=$!
-    run_regional_effector > "${REGIONAL_OUTDIR}/_run_effector.log" 2>&1 &
-    EFFECTOR_PID=$!
-
-    FAILED=0
-    if ! wait "${XPLAINEFF_PID}"; then
-      echo "ERROR: regional xplaineff benchmark failed; see ${REGIONAL_OUTDIR}/_run_xplaineff.log" >&2
-      FAILED=1
-    fi
-    if ! wait "${EFFECTOR_PID}"; then
-      echo "ERROR: regional effector benchmark failed; see ${REGIONAL_OUTDIR}/_run_effector.log" >&2
-      FAILED=1
-    fi
-    if [ "${FAILED}" -ne 0 ]; then
-      exit 1
-    fi
-  else
-    run_regional_xplaineff
-    run_regional_effector
-  fi
-  echo "2d. Summarizing regional benchmark..."
-  Rscript simulation/summarize_regional_runtime.R \
-    --indir "${REGIONAL_OUTDIR}" \
-    --figdir "${FIGDIR}"
+  GENERATE_DATA=false \
+    REGIONAL_OUTDIR="${REGIONAL_OUTDIR}" \
+    REGIONAL_FIGDIR="${FIGDIR}" \
+    BENCHMARK_MODELS="${MODELS}" \
+    N_VEC="${N_VEC}" \
+    D_VEC="${D_VEC}" \
+    FIXED_N="${FIXED_N}" \
+    FIXED_D="${FIXED_D}" \
+    RESOLUTION="${RESOLUTION}" \
+    RES_VEC="${RES_VEC}" \
+    N_SPLIT="${N_SPLIT}" \
+    N_SPLIT_VEC="${N_SPLIT_VEC}" \
+    N_QUANTILES="${N_QUANTILES}" \
+    EFFECTOR_NUMERICAL_GRID_SIZE="${EFFECTOR_NUMERICAL_GRID_SIZE}" \
+    PARALLEL_REGIONAL_PACKAGES="${PARALLEL_REGIONAL_PACKAGES}" \
+    RUN_ROOT="${RUN_ROOT}" \
+    SYNC_PAPER_FIGURES=false \
+    bash simulation/run_regional_runtime.sh "${MODE}"
 }
 
 echo "1. Generating shared benchmark data..."

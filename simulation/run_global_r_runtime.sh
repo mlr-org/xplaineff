@@ -12,7 +12,8 @@ MODE="${1:-publication}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 RUN_ROOT="${RUN_ROOT:-simulation/results/runtime_runs/${RUN_ID}}"
 
-# Keep non-model BLAS/OpenMP libraries single-threaded and avoid Intel/OpenMP shared-memory failures in sandboxed shells.
+# Keep non-model BLAS/OpenMP libraries single-threaded and avoid Intel/OpenMP shared-memory failures in
+# sandboxed shells.
 # Model backend threads are controlled inside the benchmark script when needed.
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export OMP_THREAD_LIMIT="${OMP_THREAD_LIMIT:-1}"
@@ -30,6 +31,8 @@ CORES="${CORES:-1}"
 PARALLEL_SUB="${PARALLEL_SUB:-true}"
 GENERATE_DATA="${GENERATE_DATA:-true}"
 GLOBAL_PACKAGES="${GLOBAL_PACKAGES:-}"
+GLOBAL_IMPLS="${GLOBAL_IMPLS:-}"
+GLOBAL_METHODS="${GLOBAL_METHODS:-}"
 GLOBAL_SUB_JOBS="${GLOBAL_SUB_JOBS:-3}"
 case "${GLOBAL_SUB_JOBS}" in
   ''|*[!0-9]*) GLOBAL_SUB_JOBS=3 ;;
@@ -102,10 +105,19 @@ echo "    model backend: xplaineff uses default_predict_fun dispatch for native 
 echo "    DATADIR=${DATADIR}  OUTDIR=${OUTDIR}  FIGDIR=${FIGDIR}"
 echo "    PARALLEL_SUB=${PARALLEL_SUB}  GLOBAL_SUB_JOBS=${GLOBAL_SUB_JOBS}  GENERATE_DATA=${GENERATE_DATA}"
 echo "    GLOBAL_PACKAGES=${GLOBAL_PACKAGES:-all}"
+echo "    GLOBAL_IMPLS=${GLOBAL_IMPLS:-all}  GLOBAL_METHODS=${GLOBAL_METHODS:-all}"
 
 GLOBAL_PACKAGE_ARGS=()
 if [ -n "${GLOBAL_PACKAGES}" ]; then
   GLOBAL_PACKAGE_ARGS=(--packages "${GLOBAL_PACKAGES}")
+fi
+GLOBAL_IMPL_ARGS=()
+if [ -n "${GLOBAL_IMPLS}" ]; then
+  GLOBAL_IMPL_ARGS=(--impls "${GLOBAL_IMPLS}")
+fi
+GLOBAL_METHOD_ARGS=()
+if [ -n "${GLOBAL_METHODS}" ]; then
+  GLOBAL_METHOD_ARGS=(--methods "${GLOBAL_METHODS}")
 fi
 
 if [ "$GENERATE_DATA" = "true" ]; then
@@ -157,6 +169,8 @@ if [ "$PARALLEL_SUB" = "true" ]; then
       --n-intervals-vec "${N_INTERVALS_VEC}" \
       --models "${MODELS}" \
       "${GLOBAL_PACKAGE_ARGS[@]}" \
+      "${GLOBAL_IMPL_ARGS[@]}" \
+      "${GLOBAL_METHOD_ARGS[@]}" \
       --cores 1 \
       --sub-experiments "${SUB}" \
       --output-suffix "${SUB}" \
@@ -203,6 +217,8 @@ else
     --n-intervals-vec "${N_INTERVALS_VEC}" \
     --models "${MODELS}" \
     "${GLOBAL_PACKAGE_ARGS[@]}" \
+    "${GLOBAL_IMPL_ARGS[@]}" \
+    "${GLOBAL_METHOD_ARGS[@]}" \
     --cores "${CORES}"
 fi
 

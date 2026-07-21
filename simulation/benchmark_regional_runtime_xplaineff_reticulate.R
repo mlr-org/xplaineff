@@ -78,6 +78,7 @@ sub_experiments = c("vs_N", "vs_D", "vs_res", "vs_split")
 output_suffix = "reticulate_sklearn"
 python = Sys.getenv("RETICULATE_PYTHON", unset = "")
 rf_n_jobs = 1L
+ale_compact = parse_flag(Sys.getenv("XPLAINEFF_ALE_COMPACT", "true"))
 
 parse_int_vec = function(x) as.integer(strsplit(x, ",", fixed = TRUE)[[1L]])
 parse_chr_vec = function(x) trimws(strsplit(x, ",", fixed = TRUE)[[1L]])
@@ -138,10 +139,14 @@ while (i <= length(args)) {
     python = trimws(as.character(args[i + 1L])); i = i + 2L
   } else if (args[i] == "--rf-n-jobs" && i < length(args)) {
     rf_n_jobs = parse_nullable_int(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--ale-compact" && i < length(args)) {
+    ale_compact = parse_flag(args[i + 1L]); i = i + 2L
   } else {
     i = i + 1L
   }
 }
+
+options(xplaineff.ale.compact = ale_compact)
 
 if (nzchar(python)) {
   reticulate::use_python(python, required = TRUE)
@@ -256,6 +261,7 @@ make_cells = function() {
 
 run_regional = function(effect, dat, model_type, pred_fun, resolution, n_split) {
   model = model_label(model_type)
+  effect_engine = "cpp"
   if (identical(effect, "pdp")) {
     strat = PdStrategy$new()
     tree = GadgetTree$new(
@@ -287,22 +293,32 @@ run_regional = function(effect, dat, model_type, pred_fun, resolution, n_split) 
       n_intervals = resolution,
       predict_fun = pred_fun,
       order_method = "raw",
-      ale_engine = "cpp"
+      ale_engine = effect_engine
     )
   }
-  c(
-    precompute = strat$fit_timing$global,
-    split = strat$fit_timing$regional,
-    total = strat$fit_timing$global + strat$fit_timing$regional
+  list(
+    timing = c(
+      precompute = strat$fit_timing$global,
+      split = strat$fit_timing$regional,
+      total = strat$fit_timing$global + strat$fit_timing$regional
+    ),
+    effect_engine = effect_engine
   )
 }
 
-record_row = function(rows, model_type, effect, cell, repetition, timing = NULL, status = "ok",
-  error_message = NA_character_) {
+record_row = function(rows, model_type, effect, cell, repetition, timing = NULL, effect_engine = NA_character_,
+  status = "ok", error_message = NA_character_) {
+  impl = if (identical(model_type, "rf")) {
+    "reticulate_sklearn"
+  } else if (is.na(effect_engine)) {
+    "cpp"
+  } else {
+    effect_engine
+  }
   rows[[length(rows) + 1L]] = data.frame(
     module = "regional_runtime",
     package = "xplaineff",
-    impl = if (identical(model_type, "rf")) "reticulate_sklearn" else "cpp",
+    impl = impl,
     effect = effect,
     method = sprintf("regional_%s", effect),
     model_type = model_type,
@@ -316,7 +332,9 @@ record_row = function(rows, model_type, effect, cell, repetition, timing = NULL,
     n_quantiles = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     n_candidates = if (is.null(n_quantiles)) NA_integer_ else n_quantiles,
     split_candidate_rule = if (is.null(n_quantiles)) "all_unique" else "quantile",
+    effect_engine = effect_engine,
     prediction_path = if (identical(model_type, "rf")) "reticulate_sklearn_batch" else "custom_predict_fun",
+    ale_compact = if (identical(effect, "ale")) isTRUE(ale_compact) else NA,
     python = if (identical(model_type, "rf")) reticulate::py_config()$python else NA_character_,
     sklearn_version = if (identical(model_type, "rf")) as.character(sklearn$`__version__`) else NA_character_,
     rf_n_jobs = if (identical(model_type, "rf")) nullable_int_label(rf_n_jobs) else NA_character_,
@@ -368,21 +386,20 @@ run_model = function(model_type) {
       )
       for (r in seq_len(reps)) {
         out = tryCatch(
-          list(
-            ok = TRUE,
-            timing = run_regional(
+          {
+            res = run_regional(
               effect,
               data_cache[[key]],
               model_type,
               pred_cache[[key]],
               cell$resolution,
               cell$n_split
-            ),
-            error = NA_character_
-          ),
+            )
+            list(ok = TRUE, timing = res$timing, effect_engine = res$effect_engine, error = NA_character_)
+          },
           error = function(e) {
             if (isTRUE(fail_fast)) stop(e)
-            list(ok = FALSE, timing = NULL, error = conditionMessage(e))
+            list(ok = FALSE, timing = NULL, effect_engine = NA_character_, error = conditionMessage(e))
           }
         )
         rows = record_row(
@@ -392,6 +409,7 @@ run_model = function(model_type) {
           cell = cell,
           repetition = r,
           timing = out$timing,
+          effect_engine = out$effect_engine,
           status = if (out$ok) "ok" else "error",
           error_message = out$error
         )

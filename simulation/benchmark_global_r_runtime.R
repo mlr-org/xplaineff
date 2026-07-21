@@ -73,6 +73,8 @@ resume_checkpoints = TRUE
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res")
 packages = character()
+impls = character()
+methods = character()
 cores = 1L
 output_suffix = ""
 checkpoint_dir = ""
@@ -125,6 +127,14 @@ while (i <= length(args)) {
   } else if (args[i] == "--packages" && i < length(args)) {
     packages = parse_chr_vec(args[i + 1L])
     packages = packages[nzchar(packages)]
+    i = i + 2L
+  } else if (args[i] == "--impls" && i < length(args)) {
+    impls = parse_chr_vec(args[i + 1L])
+    impls = impls[nzchar(impls)]
+    i = i + 2L
+  } else if (args[i] == "--methods" && i < length(args)) {
+    methods = parse_chr_vec(args[i + 1L])
+    methods = methods[nzchar(methods)]
     i = i + 2L
   } else if (args[i] == "--cores" && i < length(args)) {
     cores = max(1L, as.integer(args[i + 1L])); i = i + 2L
@@ -315,14 +325,29 @@ run_xplaineff_pdp = function(dat, model, pred_fun, engine, n_grid) {
 
 run_xplaineff_ale = function(dat, model, pred_fun, engine, n_intervals) {
   features = setdiff(colnames(dat), "y")
-  if (identical(engine, "cpp")) {
+  predict_fun = xplaineff_predict_fun(model, pred_fun)
+  effective_engine = if (identical(engine, "auto")) {
+    xplaineff:::select_ale_engine(ale_engine = "auto", model = model, predict_fun = predict_fun)
+  } else {
+    engine
+  }
+  if (identical(effective_engine, "cpp") && isTRUE(getOption("xplaineff.ale.compact", FALSE))) {
+    xplaineff:::calculate_ale_matrix(
+      model = model,
+      data = dat,
+      feature_set = features,
+      target_feature_name = "y",
+      n_intervals = n_intervals,
+      predict_fun = predict_fun
+    )
+  } else if (identical(effective_engine, "cpp")) {
     xplaineff:::calculate_ale_fast(
       model = model,
       data = dat,
       feature_set = features,
       target_feature_name = "y",
       n_intervals = n_intervals,
-      predict_fun = xplaineff_predict_fun(model, pred_fun)
+      predict_fun = predict_fun
     )
   } else {
     xplaineff:::calculate_ale(
@@ -331,7 +356,7 @@ run_xplaineff_ale = function(dat, model, pred_fun, engine, n_intervals) {
       feature_set = features,
       target_feature_name = "y",
       n_intervals = n_intervals,
-      predict_fun = xplaineff_predict_fun(model, pred_fun)
+      predict_fun = predict_fun
     )
   }
 }
@@ -456,12 +481,18 @@ run_effectplots_ale = function(dat, model, pred_fun, n_intervals) {
 }
 
 method_specs = list(
+  list(package = "xplaineff", impl = "auto", method = "global_pdp", requires = character(),
+    model_types = c("rf", "toy", "mlr3_rf"),
+    runner = function(dat, model, pred_fun, cell) run_xplaineff_pdp(dat, model, pred_fun, "auto", cell$n_grid)),
   list(package = "xplaineff", impl = "r", method = "global_pdp", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
     runner = function(dat, model, pred_fun, cell) run_xplaineff_pdp(dat, model, pred_fun, "r", cell$n_grid)),
   list(package = "xplaineff", impl = "cpp", method = "global_pdp", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
     runner = function(dat, model, pred_fun, cell) run_xplaineff_pdp(dat, model, pred_fun, "cpp", cell$n_grid)),
+  list(package = "xplaineff", impl = "auto", method = "global_ale", requires = character(),
+    model_types = c("rf", "toy", "mlr3_rf"),
+    runner = function(dat, model, pred_fun, cell) run_xplaineff_ale(dat, model, pred_fun, "auto", cell$n_intervals)),
   list(package = "xplaineff", impl = "r", method = "global_ale", requires = character(),
     model_types = c("rf", "toy", "mlr3_rf"),
     runner = function(dat, model, pred_fun, cell) run_xplaineff_ale(dat, model, pred_fun, "r", cell$n_intervals)),
@@ -500,6 +531,18 @@ if (length(packages)) {
   method_specs = Filter(function(spec) spec$package %in% packages, method_specs)
   if (!length(method_specs)) {
     stop(sprintf("No method specs match --packages=%s", paste(packages, collapse = ",")), call. = FALSE)
+  }
+}
+if (length(impls)) {
+  method_specs = Filter(function(spec) spec$impl %in% impls, method_specs)
+  if (!length(method_specs)) {
+    stop(sprintf("No method specs match --impls=%s", paste(impls, collapse = ",")), call. = FALSE)
+  }
+}
+if (length(methods)) {
+  method_specs = Filter(function(spec) spec$method %in% methods, method_specs)
+  if (!length(method_specs)) {
+    stop(sprintf("No method specs match --methods=%s", paste(methods, collapse = ",")), call. = FALSE)
   }
 }
 

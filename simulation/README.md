@@ -15,9 +15,24 @@ The data and CSV results are regenerable and are ignored by git; the publication
   The publication mode uses 20 timed repetitions after one untimed warm-up.
   It runs three sweeps: sample size `N`, feature dimension `D`, and PDP/ALE resolution.
   Runtime trend plots show median timings; shaded ribbons show the interquartile range across repetitions.
+  Use `GLOBAL_PACKAGES=...`, `GLOBAL_IMPLS=...`, or `GLOBAL_METHODS=...` to restrict the package, implementation, or
+  method grid.
+  For example, the current xplaineff-only global benchmark is:
+
+  ```sh
+  GLOBAL_PACKAGES=xplaineff GLOBAL_IMPLS=auto bash simulation/run_global_r_runtime.sh
+  ```
+
+- `run_regional_runtime.sh` runs the current regional runtime benchmark.
+  It generates the shared sweep data, runs xplaineff with the reticulate-backed sklearn compact path, runs effector, and
+  writes the combined regional summary and paper-format regional figures.
+  The xplaineff ALE compact path is explicit through `ALE_COMPACT=true`, which is the default for this wrapper.
 - `benchmark_regional_runtime_xplaineff.R` and `benchmark_regional_runtime_effector.py` run the regional PDP/ALE runtime
   benchmark.
   They measure precompute time, split-search time, and total time for xplaineff and effector.
+- `benchmark_regional_runtime_xplaineff_reticulate.R` runs the reticulate-backed sklearn regional benchmark used for the
+  compact regional xplaineff run.
+  This script keeps the historical compact benchmark path explicit, so old regional results remain comparable.
 - `plot_regional_runtime_paperformat.R` regenerates the paper-format regional runtime comparison plots from a completed
   regional runtime run.
   From the repository root, use:
@@ -28,6 +43,19 @@ The data and CSV results are regenerable and are ignored by git; the publication
   ```
 
   It writes the figures to that run's `figures/` directory and syncs publication copies to `paper/figures/`.
+- `summarize_global_r_runtime.R` can also redraw the paper-format global runtime figure directly from an integrated
+  summary file:
+
+  ```sh
+  GLOBAL_RUN=simulation/results/runtime_runs/20260616_214256
+  Rscript simulation/summarize_global_r_runtime.R \
+    --summary "${GLOBAL_RUN}/global_r_runtime/summary_paper_with_xpl_auto_20260719.csv" \
+    --figdir "${GLOBAL_RUN}/figures" \
+    --paper-figdir paper/figures
+  ```
+
+  Use `plot_regional_runtime_paperformat.R --summary ...` in the same way for integrated regional summaries, such as
+  `summary_paper_with_xpl_pruning_effector050_20260719.csv`.
 - `run_categorical_recovery.sh` runs the categorical level-ordering recovery diagnostic.
   It writes raw CSV files to `results/categorical_recovery/` and categorical recovery figures to
   `results/paper_figures/`.
@@ -39,6 +67,11 @@ The data and CSV results are regenerable and are ignored by git; the publication
 
 - `results/runtime_runs/<RUN_ID>/global_r_runtime/`: raw CSVs and `summary.csv` for a global R package runtime run.
 - `results/runtime_runs/<RUN_ID>/regional_runtime/`: raw CSVs and `summary.csv` for a regional xplaineff/effector run.
+- Paper-ready runtime integrations are kept next to their source runs with explicit names, such as
+  `summary_paper_with_xpl_auto_20260719.csv` for global runtime and
+  `summary_paper_with_xpl_pruning_effector050_20260719.csv` for regional runtime.
+  These files are non-destructive replacements for paper tables and figures; the original `summary.csv` files remain
+  unchanged.
 - `results/structural_recovery/`: raw CSVs and `structural_recovery_summary.csv` for the structural-recovery benchmark.
 - `results/categorical_recovery/`: raw CSVs and `categorical_recovery_summary.csv` for the categorical level-ordering
   diagnostic.
@@ -52,3 +85,10 @@ The data and CSV results are regenerable and are ignored by git; the publication
 
 Temporary smoke, probe, copy, or one-off diagnostic outputs should not be kept here after use.
 Use clearly named scratch directories while debugging, then remove them before committing.
+If a one-off script is needed for auditability, store it inside the ignored result directory that it produced.
+
+## Diagnostic Helpers
+
+- `diagnose_global_r_runtime.R` checks whether a global runtime run has all expected cells and repetitions.
+- `probe_effector_wrapper_official.py` checks the official effector wrapper behavior and is not part of the publication
+  runtime workflow.
