@@ -535,6 +535,74 @@ test_that("search_best_split_point_ale zeroes self risk only on constant categor
   expect_equal(result$right_objective_value_j, 4)
 })
 
+test_that("ALE exhaustive categorical split search finds non-prefix level sets", {
+  skip_ale_cpp_if_unavailable()
+  group = factor(rep(c("a", "b", "c", "d"), each = 2L), levels = c("a", "b", "c", "d"), ordered = TRUE)
+  d_l = c(5, 5, -5, -5, 5, 5, -5, -5)
+  dt = data.table::data.table(
+    row_id = seq_along(group),
+    feat_val = seq_along(group),
+    x_left = seq_along(group),
+    x_right = seq_along(group),
+    d_l = d_l,
+    interval_index = rep(1L, length(group))
+  )
+  dt[, `:=`(
+    int_n = .N,
+    int_s1 = sum(d_l),
+    int_s2 = sum(d_l^2)
+  ), by = interval_index]
+  effect = list(signal = dt)
+  Z = data.frame(group = group)
+
+  ordered = xplaineff:::search_best_split_ale(
+    Z = Z,
+    effect = effect,
+    min_node_size = 2L,
+    categorical_split = "ordered_prefix"
+  )
+  exhaustive = xplaineff:::search_best_split_ale(
+    Z = Z,
+    effect = effect,
+    min_node_size = 2L,
+    categorical_split = "exhaustive"
+  )
+
+  expect_equal(exhaustive$split_levels[[1L]], c("a", "c"))
+  expect_equal(exhaustive$split_point[1L], "{a, c}")
+  expect_lt(exhaustive$split_objective[1L], ordered$split_objective[1L])
+})
+
+test_that("ALE exhaustive categorical split search errors above the level guard", {
+  skip_ale_cpp_if_unavailable()
+  n_levels = 13L
+  group = factor(letters[seq_len(n_levels)], levels = letters[seq_len(n_levels)], ordered = TRUE)
+  dt = data.table::data.table(
+    row_id = seq_along(group),
+    feat_val = seq_along(group),
+    x_left = seq_along(group),
+    x_right = seq_along(group),
+    d_l = seq_along(group),
+    interval_index = rep(1L, length(group))
+  )
+  dt[, `:=`(
+    int_n = .N,
+    int_s1 = sum(d_l),
+    int_s2 = sum(d_l^2)
+  ), by = interval_index]
+
+  expect_error(
+    xplaineff:::search_best_split_ale(
+      Z = data.frame(group = group),
+      effect = list(signal = dt),
+      min_node_size = 1L,
+      categorical_split = "exhaustive",
+      max_exhaustive_levels = 12L
+    ),
+    "too many level-set candidates"
+  )
+})
+
 test_that("ALE split prefers x3 on the interaction synthetic DGP", {
   skip_ale_cpp_if_unavailable()
   set.seed(1234)

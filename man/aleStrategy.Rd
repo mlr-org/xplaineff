@@ -19,7 +19,7 @@ Intended for use through \code{GadgetTree$new(strategy = AleStrategy$new())} and
 \section{Construction}{
 
 ```
-s = AleStrategy$new()
+s = AleStrategy$new(categorical_split = "ordered_prefix")
 ```
 }
 
@@ -61,6 +61,12 @@ Categorical order: \code{"mds"}, \code{"pca"}, \code{"random"}, \code{"raw"}.}
 \item{\code{ale_engine}}{(`character(1)`) \cr
 ALE backend selected after \code{$fit()}: \code{"cpp"} or \code{"r"}.}
 
+\item{\code{categorical_split}}{(`character(1)`) \cr
+Categorical split mode for ALE trees: \code{"ordered_prefix"} or \code{"exhaustive"}.}
+
+\item{\code{max_exhaustive_levels}}{(`integer(1)`) \cr
+Maximum observed levels allowed for exhaustive categorical split search.}
+
 \item{\code{effect}}{(`list()` or `NULL`) \cr
 Cached ALE effect used when \code{$plot()} omits \code{effect}.}
 }
@@ -87,9 +93,23 @@ Cached ALE effect used when \code{$plot()} omits \code{effect}.}
 \subsection{Method \code{new()}}{
 Create an AleStrategy instance (calls \code{super$initialize("ale")}).
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{AleStrategy$new()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{AleStrategy$new(
+  categorical_split = "ordered_prefix",
+  max_exhaustive_levels = 12L
+)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{categorical_split}}{(`character(1)`) \cr
+Categorical split mode for ALE trees: \code{"ordered_prefix"} or \code{"exhaustive"}.}
+
+\item{\code{max_exhaustive_levels}}{(`integer(1)`) \cr
+Maximum observed levels allowed for exhaustive categorical split search.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-AleStrategy-preprocess"></a>}}
@@ -354,6 +374,8 @@ Fit tree: preprocess, create root, split recursively.
   predict_fun = NULL,
   order_method = "raw",
   ale_engine = c("auto", "cpp", "r"),
+  categorical_split = NULL,
+  max_exhaustive_levels = NULL,
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -390,6 +412,13 @@ Categorical order.}
 
 \item{\code{ale_engine}}{(`character(1)`) \cr
 ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.}
+
+\item{\code{categorical_split}}{(`character(1)` or `NULL`) \cr
+Categorical split mode for ALE trees; \code{NULL} keeps the current strategy setting.}
+
+\item{\code{max_exhaustive_levels}}{(`integer(1)` or `NULL`) \cr
+Maximum observed levels allowed for exhaustive categorical split search;
+\code{NULL} keeps the current strategy setting.}
 
 \item{\code{...}}{Ignored.}
 }

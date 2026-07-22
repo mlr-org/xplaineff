@@ -41,6 +41,10 @@ ale_sweep_cpp <- function(ord_idx, d_l_mat, interval_idx_mat, offsets, tot_n, to
     .Call(`_xplaineff_ale_sweep_cpp`, ord_idx, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, is_cand, min_node_size, split_feat_j, z_sorted, n_obs)
 }
 
+ale_exhaustive_level_set_cpp <- function(z_fac, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, min_node_size, split_feat_j, max_exhaustive_levels) {
+    .Call(`_xplaineff_ale_exhaustive_level_set_cpp`, z_fac, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, min_node_size, split_feat_j, max_exhaustive_levels)
+}
+
 calculate_ale_heterogeneity_single_cpp <- function(d_l, interval_index) {
     .Call(`_xplaineff_calculate_ale_heterogeneity_single_cpp`, d_l, interval_index)
 }
@@ -61,7 +65,7 @@ re_mean_center_ice_cpp <- function(Y, grid, idx) {
     .Call(`_xplaineff_re_mean_center_ice_cpp`, Y, grid, idx)
 }
 
-search_best_split_cpp <- function(Z, Y, min_node_size, n_quantiles = NULL, active_effect_rel_tol = 1e-14) {
-    .Call(`_xplaineff_search_best_split_cpp`, Z, Y, min_node_size, n_quantiles, active_effect_rel_tol)
+search_best_split_cpp <- function(Z, Y, min_node_size, n_quantiles = NULL, active_effect_rel_tol = 1e-14, categorical_split = "one_vs_rest", max_exhaustive_levels = 12L) {
+    .Call(`_xplaineff_search_best_split_cpp`, Z, Y, min_node_size, n_quantiles, active_effect_rel_tol, categorical_split, max_exhaustive_levels)
 }
 

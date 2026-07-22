@@ -11,7 +11,9 @@ search_best_split_point_ale(
   split_feat,
   is_categorical,
   n_quantiles = NULL,
-  min_node_size = 1L
+  min_node_size = 1L,
+  categorical_split = c("ordered_prefix", "exhaustive"),
+  max_exhaustive_levels = 12L
 )
 }
 \arguments{
@@ -35,11 +37,18 @@ Quantiles for numeric features.}
 
 \item{min_node_size}{(`integer(1)`) \cr
 Minimum observations per child.}
+
+\item{categorical_split}{(`character(1)`) \cr
+Categorical split mode: \code{"ordered_prefix"} or \code{"exhaustive"}.}
+
+\item{max_exhaustive_levels}{(`integer(1)`) \cr
+Maximum observed levels allowed for exhaustive categorical split search.}
 }
 \value{
 (`list()`) \cr
   \code{split_point}, \code{split_objective}, \code{objective_value_j},
-  \code{left_objective_value_j}, \code{right_objective_value_j}.
+  \code{left_objective_value_j}, \code{right_objective_value_j}, and
+  \code{split_levels}.
 }
 \description{
 Find best ALE split point for one feature.

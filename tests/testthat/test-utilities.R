@@ -164,6 +164,46 @@ test_that("PD categorical child conditions display category sets", {
   expect_equal(children$right_child$parent$split_condition, "cat in {a, c}")
 })
 
+test_that("PD categorical child conditions support explicit level-set splits", {
+  x = factor(c("a", "b", "c", "d"), levels = c("a", "b", "c", "d"))
+  strategy = list(
+    name = "pd",
+    get_child_objectives = function(...) {
+      list(
+        left_objective_value_j = c(cat = 1),
+        right_objective_value_j = c(cat = 1),
+        left_objective_value = 1,
+        right_objective_value = 1
+      )
+    }
+  )
+  node = xplaineff:::Node$new(
+    id = 1L, depth = 1L, subset_idx = seq_along(x), grid = list(cat = x),
+    objective_value = 10, objective_value_j = c(cat = 10), strategy = strategy
+  )
+
+  children = node$create_children(
+    z_split_feature = x,
+    Y = list(),
+    split_info = list(
+      split_feature = "cat",
+      split_value = "{a, b}",
+      split_levels = c("a", "b"),
+      is_categorical = TRUE
+    ),
+    objective_value_root_j = c(cat = 10),
+    objective_value_root = 10,
+    impr_par = 0
+  )
+
+  expect_equal(children$left_child$subset_idx, 1:2)
+  expect_equal(children$right_child$subset_idx, 3:4)
+  expect_equal(as.character(children$left_child$grid$cat), c("a", "b"))
+  expect_equal(as.character(children$right_child$grid$cat), c("c", "d"))
+  expect_equal(children$left_child$parent$split_condition, "cat in {a, b}")
+  expect_equal(children$right_child$parent$split_condition, "cat in {c, d}")
+})
+
 test_that("mean_center_ice returns Y and grid from effect with results", {
   set.seed(1)
   effect = list(results = data.frame(

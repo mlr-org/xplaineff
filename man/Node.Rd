@@ -292,7 +292,12 @@ Given split_feature, split_value, and is_categorical: partitions
 \code{self$grid[[split_feature]]} into left (<= or ==) and
 right (> or !=). Returns list \code{grid_left}, \code{grid_right}.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Node$create_child_grids(split_feature, split_value, is_categorical)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Node$create_child_grids(
+  split_feature,
+  split_value,
+  is_categorical,
+  split_levels = NULL
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -306,6 +311,9 @@ Split value.}
 
 \item{\code{is_categorical}}{(`logical(1)`) \cr
 Whether the split feature is categorical.}
+
+\item{\code{split_levels}}{(`character()` or `NULL`) \cr
+Left-side levels for explicit categorical level-set splits.}
 }
 \if{html}{\out{</div>}}
 }

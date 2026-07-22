@@ -126,6 +126,44 @@ test_that("search_best_split_cpp handles categorical split and one-level factor"
   expect_false(result$best_split[2L])
 })
 
+test_that("search_best_split_cpp supports exhaustive categorical level-set splits", {
+  skip_cpp_if_unavailable()
+  Z = data.frame(
+    group = factor(rep(c("a", "b", "c", "d"), each = 2L), levels = c("a", "b", "c", "d"))
+  )
+  Y = list(signal = matrix(c(rep(5, 4L), rep(-5, 4L)), ncol = 1L))
+
+  one_vs_rest = search_best_split_cpp(Z = Z, Y = Y, min_node_size = 2L)
+  exhaustive = search_best_split_cpp(
+    Z = Z, Y = Y, min_node_size = 2L, categorical_split = "exhaustive"
+  )
+
+  expect_equal(one_vs_rest$split_levels[[1L]], "a")
+  expect_equal(exhaustive$split_levels[[1L]], c("a", "b"))
+  expect_equal(exhaustive$split_point[1L], "{a, b}")
+  expect_lt(exhaustive$split_objective[1L], one_vs_rest$split_objective[1L])
+})
+
+test_that("search_best_split_cpp errors above the exhaustive categorical level guard", {
+  skip_cpp_if_unavailable()
+  n_levels = 13L
+  Z = data.frame(
+    group = factor(letters[seq_len(n_levels)], levels = letters[seq_len(n_levels)])
+  )
+  Y = list(signal = matrix(seq_len(n_levels), ncol = 1L))
+
+  expect_error(
+    search_best_split_cpp(
+      Z = Z,
+      Y = Y,
+      min_node_size = 1L,
+      categorical_split = "exhaustive",
+      max_exhaustive_levels = 12L
+    ),
+    "too many observed levels"
+  )
+})
+
 test_that("search_best_split_cpp handles categorical self effect grids", {
   skip_cpp_if_unavailable()
   Z = data.frame(cat = factor(c("a", "a", "b", "b", "c", "c")))

@@ -113,12 +113,13 @@ GadgetTree = R6::R6Class(
     #' @param split_feature (`character()` or `NULL`) \cr
     #'   Features for splitting; \code{NULL} = all.
     #' @param ... (`list()`) \cr
-    #'   Strategy-specific arguments passed to \code{$fit()}.
-    #'   For [AleStrategy]: \code{model} or \code{effect}, plus optional
-    #'   \code{n_intervals}, \code{predict_fun}, \code{order_method},
-    #'   and \code{ale_engine}.
-    #'   For [PdStrategy]: \code{effect}, or \code{model} with optional
-    #'   \code{predict_fun}, \code{n_grid}, and \code{pd_engine}.
+#'   Strategy-specific arguments passed to \code{$fit()}.
+#'   For [AleStrategy]: \code{model} or \code{effect}, plus optional
+#'   \code{n_intervals}, \code{predict_fun}, \code{order_method},
+#'   \code{ale_engine}, \code{categorical_split}, and \code{max_exhaustive_levels}.
+#'   For [PdStrategy]: \code{effect}, or \code{model} with optional
+#'   \code{predict_fun}, \code{n_grid}, \code{pd_engine}, \code{categorical_split},
+#'   and \code{max_exhaustive_levels}.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
     fit = function(data, target_feature_name, feature_set = NULL, split_feature = NULL, ...) {

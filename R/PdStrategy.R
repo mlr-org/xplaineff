@@ -13,11 +13,15 @@
 #'
 #' @section Construction:
 #' ```
-#' s = PdStrategy$new()
+#' s = PdStrategy$new(categorical_split = "one_vs_rest")
 #' ```
 #'
 #' @field effect (`list()` or `R6` or `NULL`) \cr
 #'   Cached PD/ICE effect used when \code{$plot()} omits \code{effect}.
+#' @field categorical_split (`character(1)`) \cr
+#'   Categorical split mode for PD trees: \code{"one_vs_rest"} or \code{"exhaustive"}.
+#' @field max_exhaustive_levels (`integer(1)`) \cr
+#'   Maximum observed levels allowed for exhaustive categorical split search.
 #'
 #' @details
 #' This class is used internally by the GadgetTree framework to implement partial dependence
@@ -41,10 +45,21 @@ PdStrategy = R6::R6Class(
   inherit = EffectStrategy,
   public = list(
     effect = NULL,
+    categorical_split = "one_vs_rest",
+    max_exhaustive_levels = 12L,
 
     #' @description
     #' Create a PdStrategy instance (calls \code{super$initialize("pd")}).
-    initialize = function() {
+    #' @param categorical_split (`character(1)`) \cr
+    #'   Categorical split mode for PD trees: \code{"one_vs_rest"} or \code{"exhaustive"}.
+    #' @param max_exhaustive_levels (`integer(1)`) \cr
+    #'   Maximum observed levels allowed for exhaustive categorical split search.
+    initialize = function(categorical_split = "one_vs_rest", max_exhaustive_levels = 12L) {
+      checkmate::assert_choice(categorical_split, c("one_vs_rest", "exhaustive"), .var.name = "categorical_split")
+      checkmate::assert_integerish(max_exhaustive_levels, len = 1L, lower = 2L,
+        any.missing = FALSE, .var.name = "max_exhaustive_levels")
+      self$categorical_split = categorical_split
+      self$max_exhaustive_levels = as.integer(max_exhaustive_levels)
       super$initialize("pd")
     },
 
@@ -228,7 +243,11 @@ PdStrategy = R6::R6Class(
       checkmate::assert_list(Y)
       checkmate::assert_integerish(min_node_size, len = 1, lower = 1, any.missing = FALSE, .var.name = "min_node_size")
       checkmate::assert_integerish(n_quantiles, len = 1, lower = 1, null.ok = TRUE, .var.name = "n_quantiles")
-      search_best_split_cpp(Z = Z, Y = Y, min_node_size = min_node_size, n_quantiles = n_quantiles)
+      search_best_split_cpp(
+        Z = Z, Y = Y, min_node_size = min_node_size, n_quantiles = n_quantiles,
+        categorical_split = self$categorical_split,
+        max_exhaustive_levels = self$max_exhaustive_levels
+      )
     },
 
     #' @description
@@ -287,12 +306,18 @@ PdStrategy = R6::R6Class(
     #' @param pd_engine (`character(1)`) \cr
     #'   When computing ICE/PD from \code{model}: \code{"auto"}, \code{"cpp"} (column-wise stacked
     #'   \code{newdata}, xplaineff-style), or \code{"r"} (\code{data.table::rbindlist}).
+    #' @param categorical_split (`character(1)` or `NULL`) \cr
+    #'   Categorical split mode for PD trees; \code{NULL} keeps the current strategy setting.
+    #' @param max_exhaustive_levels (`integer(1)` or `NULL`) \cr
+    #'   Maximum observed levels allowed for exhaustive categorical split search;
+    #'   \code{NULL} keeps the current strategy setting.
     #' @param ... Ignored.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
     fit = function(tree, effect = NULL, model = NULL, data, target_feature_name,
       feature_set = NULL, split_feature = NULL, predict_fun = NULL,
-      n_grid = 20L, pd_engine = c("auto", "cpp", "r"), ...) {
+      n_grid = 20L, pd_engine = c("auto", "cpp", "r"), categorical_split = NULL,
+      max_exhaustive_levels = NULL, ...) {
       checkmate::assert_r6(tree, classes = "GadgetTree", .var.name = "tree")
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
@@ -306,6 +331,15 @@ PdStrategy = R6::R6Class(
       checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
       checkmate::assert_integerish(n_grid, len = 1L, lower = 2L, .var.name = "n_grid")
       pd_engine = match.arg(pd_engine)
+      if (!is.null(categorical_split)) {
+        checkmate::assert_choice(categorical_split, c("one_vs_rest", "exhaustive"), .var.name = "categorical_split")
+        self$categorical_split = categorical_split
+      }
+      if (!is.null(max_exhaustive_levels)) {
+        checkmate::assert_integerish(max_exhaustive_levels, len = 1L, lower = 2L,
+          any.missing = FALSE, .var.name = "max_exhaustive_levels")
+        self$max_exhaustive_levels = as.integer(max_exhaustive_levels)
+      }
 
       # After checks: same coercion as prepare_split_data_common (ICE + Z use factor categoricals).
       feat_cols = setdiff(colnames(data), target_feature_name)

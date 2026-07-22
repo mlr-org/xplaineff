@@ -12,6 +12,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <functional>
 #include <limits>
 #include <string>
 #include <vector>
@@ -73,6 +74,27 @@ inline bool parse_double_strict(const std::string& s, double& out) {
     ++end;
   }
   return true;
+}
+
+inline CharacterVector selected_level_names(const CharacterVector& lev, const std::vector<int>& level_indices) {
+  CharacterVector out(level_indices.size());
+  for (R_xlen_t i = 0; i < static_cast<R_xlen_t>(level_indices.size()); ++i) {
+    out[i] = lev[level_indices[i]];
+  }
+  return out;
+}
+
+inline std::string format_level_subset_label(const CharacterVector& lev, const std::vector<int>& level_indices) {
+  if (level_indices.size() == 1) {
+    return as<std::string>(lev[level_indices[0]]);
+  }
+  std::string label = "{";
+  for (size_t i = 0; i < level_indices.size(); ++i) {
+    if (i > 0) label += ", ";
+    label += as<std::string>(lev[level_indices[i]]);
+  }
+  label += "}";
+  return label;
 }
 
 /* Extract the numeric grid (column names) of an R matrix. Empty if names are absent. */
@@ -183,18 +205,26 @@ List child_objectives_numeric_flat(
 
 List child_objectives_categorical_flat(
     IntegerVector z_fac,
-    int level_index,
+    const std::vector<int>& left_level_indices,
     const arma::mat& Y_by_obs,
     const arma::vec& S_tot,
     const arma::vec& Q_tot,
     const std::vector<int>& offsets
 ) {
   const int N = Y_by_obs.n_cols;
+  CharacterVector lev = z_fac.attr("levels");
+  const int K = lev.size();
+  std::vector<char> is_left(K, 0);
+  for (int k : left_level_indices) {
+    if (k >= 0 && k < K) is_left[k] = 1;
+  }
   arma::vec SL(Y_by_obs.n_rows, arma::fill::zeros);
   arma::vec QL(Y_by_obs.n_rows, arma::fill::zeros);
   int NL = 0;
   for (int i = 0; i < N; ++i) {
-    if (z_fac[i] == NA_INTEGER || z_fac[i] != level_index + 1) continue;
+    if (z_fac[i] == NA_INTEGER) continue;
+    const int k = z_fac[i] - 1;
+    if (k < 0 || k >= K || !is_left[k]) continue;
     ++NL;
     const arma::subview_col<double> yi = Y_by_obs.col(i);
     SL += yi;
@@ -229,7 +259,9 @@ List search_best_split_point_cpp_internal(
     int               min_node_size  = 1,
     bool              compute_child_objectives = true,
     int               split_feat_effect = -1,      // effect index of the split feature's own
-    const std::vector<double>& split_feat_grid = std::vector<double>())  // effect (-1 = none)
+    const std::vector<double>& split_feat_grid = std::vector<double>(),  // effect (-1 = none)
+    std::string       categorical_split = "one_vs_rest",
+    int               max_exhaustive_levels = 12)
 {
   const int Ly = offsets.size() - 1; // p
   const int N = Y_by_obs.n_cols; // n
@@ -254,7 +286,7 @@ List search_best_split_point_cpp_internal(
 
   double best_obj = R_PosInf, best_split = NA_REAL;
   std::string best_level;
-  int best_level_idx = -1;
+  std::vector<int> best_left_level_indices;
   NumericVector best_left_obj(Ly, NA_REAL);
   NumericVector best_right_obj(Ly, NA_REAL);
 
@@ -268,6 +300,7 @@ List search_best_split_point_cpp_internal(
     // If only one level, no valid split possible
     if (K <= 1)
       return List::create(_["split_point"] = R_NaString,
+        _["split_levels"] = CharacterVector(0),
         _["split_objective"] = R_PosInf,
         _["left_objective_value_j"] = best_left_obj,
         _["right_objective_value_j"] = best_right_obj);
@@ -287,44 +320,79 @@ List search_best_split_point_cpp_internal(
       SumL[k] += Y_by_obs.col(i);  // Direct accumulation, NaN already processed in preprocessing
     }
 
-    // Evaluate each level as potential split (one vs rest)
-    for (int k = 0; k < K; ++k) {
-      int NL = countL[k], NR = N - NL;
-
-      // Skip if either child node would be too small
-      if (NL < min_node_size || NR < min_node_size) continue;
-
-      // Calculate objective function for this split
-      // TODO: split-feature handling for a CATEGORICAL splitting feature is not done here.
-      // For the numeric case, the split feature's own ICE grid is divided across the children,
-      // so its risk uses the true child SSE over each surviving half minus its parent SS
-      // (is_own_effect_halved branch below). The analogous treatment for a categorical splitting
-      // feature is still open (same TODO as in the R reference search_best_split_point_pd.R);
-      // currently its own effect is treated like any other feature (S-only, full grid).
-      const arma::vec SL = SumL[k];
+    auto update_best_categorical = [&](const arma::vec& SL, int NL, const std::vector<int>& left_levels) {
+      int NR = N - NL;
+      if (NL < min_node_size || NR < min_node_size) return;
       const arma::vec SR = S_tot - SL;
       double obj = arma::accu( - SL%SL / NL - SR%SR / NR );
-
-      // Update best split if this one is better
       if (obj < best_obj) {
         best_obj = obj;
-        best_level = as<std::string>(lev[k]);
-        best_level_idx = k;
+        best_left_level_indices = left_levels;
+        best_level = format_level_subset_label(lev, best_left_level_indices);
+      }
+    };
+
+    // TODO: split-feature handling for a CATEGORICAL splitting feature is not done here.
+    // For the numeric case, the split feature's own ICE grid is divided across the children,
+    // so its risk uses the true child SSE over each surviving half minus its parent SS
+    // (is_own_effect_halved branch below). The analogous treatment for a categorical splitting
+    // feature is still open (same TODO as in the R reference search_best_split_point_pd.R);
+    // currently its own effect is treated like any other feature (S-only, full grid).
+    if (categorical_split == "exhaustive") {
+      std::vector<int> observed_levels;
+      observed_levels.reserve(K);
+      for (int k = 0; k < K; ++k) {
+        if (countL[k] > 0) observed_levels.push_back(k);
+      }
+      if (static_cast<int>(observed_levels.size()) > max_exhaustive_levels) {
+        Rcpp::stop("search_best_split_cpp: too many observed levels for exhaustive categorical split search.");
+      }
+      if (observed_levels.size() > 1) {
+        const int anchor = observed_levels[0];
+        arma::vec current_sum = SumL[anchor];
+        int current_count = countL[anchor];
+        std::vector<int> current_levels(1, anchor);
+        std::function<void(size_t)> search_subsets = [&](size_t pos) {
+          if (pos == observed_levels.size()) {
+            if (current_levels.size() < observed_levels.size()) {
+              update_best_categorical(current_sum, current_count, current_levels);
+            }
+            return;
+          }
+          search_subsets(pos + 1);
+          const int k = observed_levels[pos];
+          current_sum += SumL[k];
+          current_count += countL[k];
+          current_levels.push_back(k);
+          search_subsets(pos + 1);
+          current_levels.pop_back();
+          current_count -= countL[k];
+          current_sum -= SumL[k];
+        };
+        search_subsets(1);
+      }
+    } else {
+      // Evaluate each level as potential split (one vs rest).
+      for (int k = 0; k < K; ++k) {
+        update_best_categorical(SumL[k], countL[k], std::vector<int>(1, k));
       }
     }
 
     if (best_obj == R_PosInf)
       return List::create(_["split_point"]     = R_NaString,
+        _["split_levels"] = CharacterVector(0),
         _["split_objective"] = R_PosInf,
         _["left_objective_value_j"] = best_left_obj,
         _["right_objective_value_j"] = best_right_obj);
 
     if (compute_child_objectives) {
-      List child_obj = child_objectives_categorical_flat(z_fac, best_level_idx, Y_by_obs, S_tot, Q_tot, offsets);
+      List child_obj = child_objectives_categorical_flat(
+        z_fac, best_left_level_indices, Y_by_obs, S_tot, Q_tot, offsets);
       best_left_obj = child_obj["left_objective_value_j"];
       best_right_obj = child_obj["right_objective_value_j"];
     }
     return List::create(_["split_point"]     = best_level,
+      _["split_levels"] = selected_level_names(lev, best_left_level_indices),
       _["split_objective"] = best_obj,
       _["left_objective_value_j"] = best_left_obj,
       _["right_objective_value_j"] = best_right_obj);
@@ -385,6 +453,7 @@ List search_best_split_point_cpp_internal(
   // Check if we have any valid split candidates
   if (splits.size() == 0)
     return List::create(_["split_point"]     = NA_REAL,
+      _["split_levels"] = R_NilValue,
       _["split_objective"] = R_PosInf,
       _["left_objective_value_j"] = best_left_obj,
       _["right_objective_value_j"] = best_right_obj);
@@ -464,6 +533,7 @@ List search_best_split_point_cpp_internal(
 
   if (best_obj == R_PosInf || R_IsNA(best_split))
     return List::create(_["split_point"]     = NA_REAL,
+      _["split_levels"] = R_NilValue,
       _["split_objective"] = R_PosInf,
       _["left_objective_value_j"] = best_left_obj,
       _["right_objective_value_j"] = best_right_obj);
@@ -486,6 +556,7 @@ List search_best_split_point_cpp_internal(
     best_right_obj = child_obj["right_objective_value_j"];
   }
   return List::create(_["split_point"]     = mid,
+    _["split_levels"] = R_NilValue,
     _["split_objective"] = best_obj,
     _["left_objective_value_j"] = best_left_obj,
     _["right_objective_value_j"] = best_right_obj);
@@ -508,8 +579,16 @@ DataFrame search_best_split_cpp(
     List            Y,
     int             min_node_size,
     Nullable<int>   n_quantiles = R_NilValue,
-    double          active_effect_rel_tol = 1e-14)
+    double          active_effect_rel_tol = 1e-14,
+    std::string     categorical_split = "one_vs_rest",
+    int             max_exhaustive_levels = 12)
 {
+  if (categorical_split != "one_vs_rest" && categorical_split != "exhaustive") {
+    Rcpp::stop("search_best_split_cpp: categorical_split must be 'one_vs_rest' or 'exhaustive'.");
+  }
+  if (max_exhaustive_levels < 2) {
+    Rcpp::stop("search_best_split_cpp: max_exhaustive_levels must be at least 2.");
+  }
   // Initialize output vectors
   const int p = Z.size();
   CharacterVector feat_names = Z.names();
@@ -518,6 +597,7 @@ DataFrame search_best_split_cpp(
   LogicalVector   is_cat_vec(p);
   CharacterVector split_point_out(p);
   NumericVector   split_obj(p);
+  List            split_levels_out(p);
 
   // Preprocess and flatten all Y matrices' NaN values to avoid repeated processing.
   const int Ly = Y.size();
@@ -645,13 +725,14 @@ DataFrame search_best_split_cpp(
     // Child objective vectors are only needed for the globally selected split and are computed below.
     List res = search_best_split_point_cpp_internal(
       z_j, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_c, min_node_size, false,
-      feat_effect[j], feat_grid[j]);
+      feat_effect[j], feat_grid[j], categorical_split, max_exhaustive_levels);
 
     // Store results
     split_feature[j]   = feat_names[j];
     is_cat_vec[j]      = is_c;
     split_obj[j]       = res["split_objective"];
     split_point_out[j] = as<CharacterVector>(wrap(res["split_point"]))[0];
+    split_levels_out[j] = res["split_levels"];
     left_obj_list[j] = Rcpp::clone(empty_left_obj);
     right_obj_list[j] = Rcpp::clone(empty_right_obj);
   }
@@ -676,9 +757,10 @@ DataFrame search_best_split_cpp(
     SEXP z_best = Z[best_idx];
     List best_res = search_best_split_point_cpp_internal(
       z_best, Y_by_obs, S_tot_col, Q_tot_col, offsets, n_quantiles, is_cat_vec[best_idx], min_node_size, true,
-      feat_effect[best_idx], feat_grid[best_idx]);
+      feat_effect[best_idx], feat_grid[best_idx], categorical_split, max_exhaustive_levels);
     split_obj[best_idx] = best_res["split_objective"];
     split_point_out[best_idx] = as<CharacterVector>(wrap(best_res["split_point"]))[0];
+    split_levels_out[best_idx] = best_res["split_levels"];
 
     NumericVector left_obj = best_res["left_objective_value_j"];
     NumericVector right_obj = best_res["right_objective_value_j"];
@@ -700,6 +782,7 @@ DataFrame search_best_split_cpp(
   );
   out["left_objective_value_j"] = left_obj_list;
   out["right_objective_value_j"] = right_obj_list;
+  out["split_levels"] = split_levels_out;
   out.attr("class") = "data.frame";
   out.attr("row.names") = IntegerVector::create(NA_INTEGER, -p);
   return out;

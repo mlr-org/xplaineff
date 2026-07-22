@@ -11,7 +11,7 @@
 #'
 #' @section Construction:
 #' ```
-#' s = AleStrategy$new()
+#' s = AleStrategy$new(categorical_split = "ordered_prefix")
 #' ```
 #'
 #' @field model (`any`) \cr
@@ -28,6 +28,10 @@
 #'   Categorical order: \code{"mds"}, \code{"pca"}, \code{"random"}, \code{"raw"}.
 #' @field ale_engine (`character(1)`) \cr
 #'   ALE backend selected after \code{$fit()}: \code{"cpp"} or \code{"r"}.
+#' @field categorical_split (`character(1)`) \cr
+#'   Categorical split mode for ALE trees: \code{"ordered_prefix"} or \code{"exhaustive"}.
+#' @field max_exhaustive_levels (`integer(1)`) \cr
+#'   Maximum observed levels allowed for exhaustive categorical split search.
 #' @field effect (`list()` or `NULL`) \cr
 #'   Cached ALE effect used when \code{$plot()} omits \code{effect}.
 #'
@@ -56,11 +60,22 @@ AleStrategy = R6::R6Class(
     predict_fun = NULL,
     order_method = "raw",
     ale_engine = "auto",
+    categorical_split = "ordered_prefix",
+    max_exhaustive_levels = 12L,
     effect = NULL,
 
     #' @description
     #' Create an AleStrategy instance (calls \code{super$initialize("ale")}).
-    initialize = function() {
+    #' @param categorical_split (`character(1)`) \cr
+    #'   Categorical split mode for ALE trees: \code{"ordered_prefix"} or \code{"exhaustive"}.
+    #' @param max_exhaustive_levels (`integer(1)`) \cr
+    #'   Maximum observed levels allowed for exhaustive categorical split search.
+    initialize = function(categorical_split = "ordered_prefix", max_exhaustive_levels = 12L) {
+      checkmate::assert_choice(categorical_split, c("ordered_prefix", "exhaustive"), .var.name = "categorical_split")
+      checkmate::assert_integerish(max_exhaustive_levels, len = 1L, lower = 2L,
+        any.missing = FALSE, .var.name = "max_exhaustive_levels")
+      self$categorical_split = categorical_split
+      self$max_exhaustive_levels = as.integer(max_exhaustive_levels)
       super$initialize("ale")
     },
 
@@ -221,7 +236,9 @@ AleStrategy = R6::R6Class(
         effect = Y,
         min_node_size = min_node_size,
         n_quantiles = n_quantiles,
-        active_effect_tol = 0
+        active_effect_tol = 0,
+        categorical_split = self$categorical_split,
+        max_exhaustive_levels = self$max_exhaustive_levels
       )
     },
 
@@ -284,12 +301,18 @@ AleStrategy = R6::R6Class(
     #'   Categorical order.
     #' @param ale_engine (`character(1)`) \cr
     #'   ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.
+    #' @param categorical_split (`character(1)` or `NULL`) \cr
+    #'   Categorical split mode for ALE trees; \code{NULL} keeps the current strategy setting.
+    #' @param max_exhaustive_levels (`integer(1)` or `NULL`) \cr
+    #'   Maximum observed levels allowed for exhaustive categorical split search;
+    #'   \code{NULL} keeps the current strategy setting.
     #' @param ... Ignored.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
     fit = function(tree, model, effect = NULL, data, target_feature_name,
       n_intervals = 10, feature_set = NULL, split_feature = NULL,
-      predict_fun = NULL, order_method = "raw", ale_engine = c("auto", "cpp", "r"), ...) {
+      predict_fun = NULL, order_method = "raw", ale_engine = c("auto", "cpp", "r"),
+      categorical_split = NULL, max_exhaustive_levels = NULL, ...) {
       checkmate::assert_r6(tree, classes = "GadgetTree", .var.name = "tree")
       checkmate::assert_data_frame(data, .var.name = "data")
       checkmate::assert_character(target_feature_name, len = 1, .var.name = "target_feature_name")
@@ -301,6 +324,15 @@ AleStrategy = R6::R6Class(
       checkmate::assert_function(predict_fun, null.ok = TRUE, .var.name = "predict_fun")
       checkmate::assert_choice(order_method, c("mds", "pca", "random", "raw"), .var.name = "order_method")
       ale_engine = match.arg(ale_engine)
+      if (!is.null(categorical_split)) {
+        checkmate::assert_choice(categorical_split, c("ordered_prefix", "exhaustive"), .var.name = "categorical_split")
+        self$categorical_split = categorical_split
+      }
+      if (!is.null(max_exhaustive_levels)) {
+        checkmate::assert_integerish(max_exhaustive_levels, len = 1L, lower = 2L,
+          any.missing = FALSE, .var.name = "max_exhaustive_levels")
+        self$max_exhaustive_levels = as.integer(max_exhaustive_levels)
+      }
       user_predict_fun = predict_fun
       if (is.null(model)) {
         cli::cli_abort("AleStrategy requires {.arg model} to be passed.")

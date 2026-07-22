@@ -22,7 +22,7 @@ but can be instantiated for advanced customization.
 \section{Construction}{
 
 ```
-s = PdStrategy$new()
+s = PdStrategy$new(categorical_split = "one_vs_rest")
 ```
 }
 
@@ -45,6 +45,12 @@ tree$plot(data = data, target_feature_name = "target", effect = effect)
 \describe{
 \item{\code{effect}}{(`list()` or `R6` or `NULL`) \cr
 Cached PD/ICE effect used when \code{$plot()} omits \code{effect}.}
+
+\item{\code{categorical_split}}{(`character(1)`) \cr
+Categorical split mode for PD trees: \code{"one_vs_rest"} or \code{"exhaustive"}.}
+
+\item{\code{max_exhaustive_levels}}{(`integer(1)`) \cr
+Maximum observed levels allowed for exhaustive categorical split search.}
 }
 \if{html}{\out{</div>}}
 }
@@ -69,9 +75,20 @@ Cached PD/ICE effect used when \code{$plot()} omits \code{effect}.}
 \subsection{Method \code{new()}}{
 Create a PdStrategy instance (calls \code{super$initialize("pd")}).
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PdStrategy$new()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{PdStrategy$new(categorical_split = "one_vs_rest", max_exhaustive_levels = 12L)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{categorical_split}}{(`character(1)`) \cr
+Categorical split mode for PD trees: \code{"one_vs_rest"} or \code{"exhaustive"}.}
+
+\item{\code{max_exhaustive_levels}}{(`integer(1)`) \cr
+Maximum observed levels allowed for exhaustive categorical split search.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-preprocess"></a>}}
@@ -308,6 +325,8 @@ Fit tree: preprocess, create root, split recursively.
   predict_fun = NULL,
   n_grid = 20L,
   pd_engine = c("auto", "cpp", "r"),
+  categorical_split = NULL,
+  max_exhaustive_levels = NULL,
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -342,6 +361,13 @@ Number of grid points for numeric features.}
 \item{\code{pd_engine}}{(`character(1)`) \cr
 When computing ICE/PD from \code{model}: \code{"auto"}, \code{"cpp"} (column-wise stacked
 \code{newdata}, xplaineff-style), or \code{"r"} (\code{data.table::rbindlist}).}
+
+\item{\code{categorical_split}}{(`character(1)` or `NULL`) \cr
+Categorical split mode for PD trees; \code{NULL} keeps the current strategy setting.}
+
+\item{\code{max_exhaustive_levels}}{(`integer(1)` or `NULL`) \cr
+Maximum observed levels allowed for exhaustive categorical split search;
+\code{NULL} keeps the current strategy setting.}
 
 \item{\code{...}}{Ignored.}
 }

@@ -168,6 +168,10 @@ pad_ale_objective_values = function(values, active_features, full_features) {
 #'   Quantiles for numeric split candidates.
 #' @param active_effect_tol (`numeric(1)`) \cr
 #'   Relative threshold used to skip negligible effect components in this split search.
+#' @param categorical_split (`character(1)`) \cr
+#'   Categorical split mode: \code{"ordered_prefix"} or \code{"exhaustive"}.
+#' @param max_exhaustive_levels (`integer(1)`) \cr
+#'   Maximum observed levels allowed for exhaustive categorical split search.
 #'
 #' @return (`data.frame()`) \cr
 #'   Best split info with per-feature objective values.
@@ -176,8 +180,11 @@ search_best_split_ale = function(
   Z, effect,
   min_node_size = 1L,
   n_quantiles = NULL,
-  active_effect_tol = active_effect_rel_tol()
+  active_effect_tol = active_effect_rel_tol(),
+  categorical_split = c("ordered_prefix", "exhaustive"),
+  max_exhaustive_levels = 12L
 ) {
+  categorical_split = match.arg(categorical_split)
   split_feature_names = colnames(Z)
   if (is.null(split_feature_names)) cli::cli_abort("Z (split features) must have column names.")
   full_feature_names = if (is_ale_compact(effect)) effect$feature_names else names(effect)
@@ -206,7 +213,9 @@ search_best_split_ale = function(
       split_feat = split_feat,
       is_categorical = is.factor(Z[[split_feat]]),
       n_quantiles = n_quantiles,
-      min_node_size = min_node_size
+      min_node_size = min_node_size,
+      categorical_split = categorical_split,
+      max_exhaustive_levels = max_exhaustive_levels
     )
     res$split_feature = split_feat
     res$is_categorical = is.factor(Z[[split_feat]])
@@ -222,6 +231,7 @@ search_best_split_ale = function(
       split_feature = res$split_feature,
       is_categorical = res$is_categorical,
       split_point = res$split_point,
+      split_levels = I(rep(list(res$split_levels), length(full_feature_names))),
       split_objective = res$split_objective,
       feature = full_feature_names,
       objective_value_j = as.numeric(ovj),
@@ -234,7 +244,7 @@ search_best_split_ale = function(
   min_obj = if (any(is.finite(res$split_objective))) min(res$split_objective, na.rm = TRUE) else Inf
   res$best_split = is.finite(min_obj) & (res$split_objective == min_obj)
   res[, c("split_feature", "is_categorical", "split_point",
-      "split_objective", "feature", "objective_value_j",
+      "split_levels", "split_objective", "feature", "objective_value_j",
       "left_objective_value_j", "right_objective_value_j",
       "best_split")]
 }

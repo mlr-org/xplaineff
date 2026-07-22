@@ -152,6 +152,27 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ale_exhaustive_level_set_cpp
+List ale_exhaustive_level_set_cpp(IntegerVector z_fac, NumericMatrix d_l_mat, IntegerMatrix interval_idx_mat, IntegerVector offsets, NumericVector tot_n, NumericVector tot_s1, NumericVector tot_s2, NumericVector r_risks, int min_node_size, int split_feat_j, int max_exhaustive_levels);
+RcppExport SEXP _xplaineff_ale_exhaustive_level_set_cpp(SEXP z_facSEXP, SEXP d_l_matSEXP, SEXP interval_idx_matSEXP, SEXP offsetsSEXP, SEXP tot_nSEXP, SEXP tot_s1SEXP, SEXP tot_s2SEXP, SEXP r_risksSEXP, SEXP min_node_sizeSEXP, SEXP split_feat_jSEXP, SEXP max_exhaustive_levelsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type z_fac(z_facSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type d_l_mat(d_l_matSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix >::type interval_idx_mat(interval_idx_matSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type offsets(offsetsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type tot_n(tot_nSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type tot_s1(tot_s1SEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type tot_s2(tot_s2SEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type r_risks(r_risksSEXP);
+    Rcpp::traits::input_parameter< int >::type min_node_size(min_node_sizeSEXP);
+    Rcpp::traits::input_parameter< int >::type split_feat_j(split_feat_jSEXP);
+    Rcpp::traits::input_parameter< int >::type max_exhaustive_levels(max_exhaustive_levelsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ale_exhaustive_level_set_cpp(z_fac, d_l_mat, interval_idx_mat, offsets, tot_n, tot_s1, tot_s2, r_risks, min_node_size, split_feat_j, max_exhaustive_levels));
+    return rcpp_result_gen;
+END_RCPP
+}
 // calculate_ale_heterogeneity_single_cpp
 double calculate_ale_heterogeneity_single_cpp(NumericVector d_l, IntegerVector interval_index);
 RcppExport SEXP _xplaineff_calculate_ale_heterogeneity_single_cpp(SEXP d_lSEXP, SEXP interval_indexSEXP) {
@@ -213,8 +234,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // search_best_split_cpp
-DataFrame search_best_split_cpp(DataFrame Z, List Y, int min_node_size, Nullable<int> n_quantiles, double active_effect_rel_tol);
-RcppExport SEXP _xplaineff_search_best_split_cpp(SEXP ZSEXP, SEXP YSEXP, SEXP min_node_sizeSEXP, SEXP n_quantilesSEXP, SEXP active_effect_rel_tolSEXP) {
+DataFrame search_best_split_cpp(DataFrame Z, List Y, int min_node_size, Nullable<int> n_quantiles, double active_effect_rel_tol, std::string categorical_split, int max_exhaustive_levels);
+RcppExport SEXP _xplaineff_search_best_split_cpp(SEXP ZSEXP, SEXP YSEXP, SEXP min_node_sizeSEXP, SEXP n_quantilesSEXP, SEXP active_effect_rel_tolSEXP, SEXP categorical_splitSEXP, SEXP max_exhaustive_levelsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -223,7 +244,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type min_node_size(min_node_sizeSEXP);
     Rcpp::traits::input_parameter< Nullable<int> >::type n_quantiles(n_quantilesSEXP);
     Rcpp::traits::input_parameter< double >::type active_effect_rel_tol(active_effect_rel_tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(search_best_split_cpp(Z, Y, min_node_size, n_quantiles, active_effect_rel_tol));
+    Rcpp::traits::input_parameter< std::string >::type categorical_split(categorical_splitSEXP);
+    Rcpp::traits::input_parameter< int >::type max_exhaustive_levels(max_exhaustive_levelsSEXP);
+    rcpp_result_gen = Rcpp::wrap(search_best_split_cpp(Z, Y, min_node_size, n_quantiles, active_effect_rel_tol, categorical_split, max_exhaustive_levels));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -239,12 +262,13 @@ static const R_CallMethodDef CallEntries[] = {
     {"_xplaineff_cpp_ale_numeric_prepare", (DL_FUNC) &_xplaineff_cpp_ale_numeric_prepare, 2},
     {"_xplaineff_cpp_ale_categorical_prepare", (DL_FUNC) &_xplaineff_cpp_ale_categorical_prepare, 2},
     {"_xplaineff_ale_sweep_cpp", (DL_FUNC) &_xplaineff_ale_sweep_cpp, 13},
+    {"_xplaineff_ale_exhaustive_level_set_cpp", (DL_FUNC) &_xplaineff_ale_exhaustive_level_set_cpp, 11},
     {"_xplaineff_calculate_ale_heterogeneity_single_cpp", (DL_FUNC) &_xplaineff_calculate_ale_heterogeneity_single_cpp, 2},
     {"_xplaineff_calculate_ale_heterogeneity_list_cpp", (DL_FUNC) &_xplaineff_calculate_ale_heterogeneity_list_cpp, 1},
     {"_xplaineff_node_heterogeneity_cpp", (DL_FUNC) &_xplaineff_node_heterogeneity_cpp, 1},
     {"_xplaineff_cpp_pd_stack_newdata", (DL_FUNC) &_xplaineff_cpp_pd_stack_newdata, 3},
     {"_xplaineff_re_mean_center_ice_cpp", (DL_FUNC) &_xplaineff_re_mean_center_ice_cpp, 3},
-    {"_xplaineff_search_best_split_cpp", (DL_FUNC) &_xplaineff_search_best_split_cpp, 5},
+    {"_xplaineff_search_best_split_cpp", (DL_FUNC) &_xplaineff_search_best_split_cpp, 7},
     {NULL, NULL, 0}
 };
 

@@ -9,7 +9,9 @@ search_best_split_ale(
   effect,
   min_node_size = 1L,
   n_quantiles = NULL,
-  active_effect_tol = active_effect_rel_tol()
+  active_effect_tol = active_effect_rel_tol(),
+  categorical_split = c("ordered_prefix", "exhaustive"),
+  max_exhaustive_levels = 12L
 )
 }
 \arguments{
@@ -27,6 +29,12 @@ Quantiles for numeric split candidates.}
 
 \item{active_effect_tol}{(`numeric(1)`) \cr
 Relative threshold used to skip negligible effect components in this split search.}
+
+\item{categorical_split}{(`character(1)`) \cr
+Categorical split mode: \code{"ordered_prefix"} or \code{"exhaustive"}.}
+
+\item{max_exhaustive_levels}{(`integer(1)`) \cr
+Maximum observed levels allowed for exhaustive categorical split search.}
 }
 \value{
 (`data.frame()`) \cr

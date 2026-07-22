@@ -68,26 +68,82 @@ build_ale_order_and_candidates = function(z, is_categorical, n_quantiles = NULL)
 #'   Quantiles for numeric features.
 #' @param min_node_size (`integer(1)`) \cr
 #'   Minimum observations per child.
+#' @param categorical_split (`character(1)`) \cr
+#'   Categorical split mode: \code{"ordered_prefix"} or \code{"exhaustive"}.
+#' @param max_exhaustive_levels (`integer(1)`) \cr
+#'   Maximum observed levels allowed for exhaustive categorical split search.
 #'
 #' @return (`list()`) \cr
 #'   \code{split_point}, \code{split_objective}, \code{objective_value_j},
-#'   \code{left_objective_value_j}, \code{right_objective_value_j}.
+#'   \code{left_objective_value_j}, \code{right_objective_value_j}, and
+#'   \code{split_levels}.
 #' @keywords internal
 search_best_split_point_ale = function(
   z, effect, st_table, split_feat,
   is_categorical,
   n_quantiles = NULL,
-  min_node_size = 1L
+  min_node_size = 1L,
+  categorical_split = c("ordered_prefix", "exhaustive"),
+  max_exhaustive_levels = 12L
 ) {
+  categorical_split = match.arg(categorical_split)
   feature_names = names(effect)
   p = length(feature_names)
   split_feat_j = match(split_feat, feature_names)
   has_self_ale = !is.na(split_feat_j)
+  split_feat_j_arg = if (has_self_ale) split_feat_j else 0L
+
+  if (is_categorical && categorical_split == "exhaustive") {
+    checkmate::assert_integerish(max_exhaustive_levels, len = 1L, lower = 2L,
+      any.missing = FALSE, .var.name = "max_exhaustive_levels")
+    z_fac = droplevels(z)
+    observed_levels = unique(as.character(stats::na.omit(z_fac)))
+    if (length(observed_levels) > max_exhaustive_levels) {
+      cli::cli_abort(c(
+        "Exhaustive ALE categorical split search would evaluate too many level-set candidates.",
+        i = "{.arg split_feat} has {length(observed_levels)} observed levels.",
+        i = "The current limit is {.arg max_exhaustive_levels} = {max_exhaustive_levels}.",
+        i = "Increase {.arg max_exhaustive_levels} explicitly, or use {.val ordered_prefix}."
+      ))
+    }
+    cpp_res = ale_exhaustive_level_set_cpp(
+      z_fac = z_fac,
+      d_l_mat = st_table$d_l_mat,
+      interval_idx_mat = st_table$interval_idx_mat,
+      offsets = st_table$offsets,
+      tot_n = st_table$tot_n,
+      tot_s1 = st_table$tot_s1,
+      tot_s2 = st_table$tot_s2,
+      r_risks = st_table$r_risks,
+      min_node_size = min_node_size,
+      split_feat_j = split_feat_j_arg,
+      max_exhaustive_levels = max_exhaustive_levels
+    )
+    if (!length(cpp_res$split_levels) || !is.finite(cpp_res$best_risks_sum)) {
+      return(list(
+        split_point = NA_character_,
+        split_levels = character(),
+        split_objective = Inf,
+        objective_value_j = rep(NA_real_, p),
+        left_objective_value_j = rep(NA_real_, p),
+        right_objective_value_j = rep(NA_real_, p)
+      ))
+    }
+    return(list(
+      split_point = as.character(cpp_res$split_point)[1L],
+      split_levels = cpp_res$split_levels,
+      split_objective = cpp_res$best_risks_sum,
+      objective_value_j = cpp_res$best_left_risks + cpp_res$best_right_risks,
+      left_objective_value_j = cpp_res$best_left_risks,
+      right_objective_value_j = cpp_res$best_right_risks
+    ))
+  }
 
   plan = build_ale_order_and_candidates(z, is_categorical, n_quantiles)
   if (is.null(plan)) {
     return(list(
       split_point = NA_real_,
+      split_levels = NULL,
       split_objective = Inf,
       objective_value_j = rep(NA_real_, p),
       left_objective_value_j = rep(NA_real_, p),
@@ -99,7 +155,6 @@ search_best_split_point_ale = function(
   n_obs = plan$n_obs
   is_cand_t = plan$is_cand
 
-  split_feat_j_arg = if (has_self_ale) split_feat_j else 0L
   z_sorted_num = if (is.numeric(z_sorted) || is.factor(z_sorted)) as.numeric(z_sorted) else rep(0.0, n_obs)
 
   cpp_res = ale_sweep_cpp(
@@ -125,6 +180,7 @@ search_best_split_point_ale = function(
   if (is.na(best_t) || best_t < 0L) { # in cpp: best_t = -1 means no valid split point found
     return(list(
       split_point = NA_real_,
+      split_levels = NULL,
       split_objective = Inf,
       objective_value_j = rep(NA_real_, p),
       left_objective_value_j = rep(NA_real_, p),
@@ -141,6 +197,7 @@ search_best_split_point_ale = function(
   }
   list(
     split_point = best_split_point,
+    split_levels = NULL,
     split_objective = best_risks_sum,
     objective_value_j = best_left_risks + best_right_risks,
     left_objective_value_j = best_left_risks,

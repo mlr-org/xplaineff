@@ -233,6 +233,11 @@ Node = R6::R6Class("Node", public = list(
         split_feature = split_res$split_feature[split_res$best_split][1],
         split_value = split_res$split_point[split_res$best_split][1],
         is_categorical = split_res$is_categorical[split_res$best_split][1],
+        split_levels = if ("split_levels" %in% names(split_res)) {
+          split_res$split_levels[split_res$best_split][[1L]]
+        } else {
+          NULL
+        },
         raw_result = split_res
       )
     }
@@ -262,6 +267,7 @@ Node = R6::R6Class("Node", public = list(
     split_feature = split_info$split_feature
     split_value = split_info$split_value
     is_categorical = split_info$is_categorical
+    split_levels = split_info$split_levels
     # Get indices for children
     z_sub = z_split_feature[self$subset_idx]
     is_ale_categorical = is_ale_ordered_categorical_split(is_categorical, self$strategy)
@@ -272,9 +278,13 @@ Node = R6::R6Class("Node", public = list(
       idx_left = self$subset_idx[which(left_mask)]
       idx_right = self$subset_idx[which(!left_mask)]
     } else if (is_categorical) {
-      split_groups = one_vs_rest_categorical_split_groups(z_split_feature, split_value)
-      idx_left = self$subset_idx[which(z_sub == split_value)]
-      idx_right = self$subset_idx[which(z_sub != split_value)]
+      if (is.null(split_levels) || !length(split_levels)) {
+        split_levels = split_value
+      }
+      split_groups = categorical_split_groups(z_split_feature, split_levels)
+      left_mask = categorical_left_mask(z_sub, split_groups$left_levels)
+      idx_left = self$subset_idx[which(left_mask)]
+      idx_right = self$subset_idx[which(!left_mask)]
     } else {
       idx_left = self$subset_idx[which(z_sub <= as.numeric(split_value))]
       idx_right = self$subset_idx[which(z_sub > as.numeric(split_value))]
@@ -283,7 +293,7 @@ Node = R6::R6Class("Node", public = list(
       return(NULL)
     }
 
-    grid_info = self$create_child_grids(split_feature, split_value, is_categorical)
+    grid_info = self$create_child_grids(split_feature, split_value, is_categorical, split_levels)
     obj = self$strategy$get_child_objectives(
       Z, Y, split_info, idx_left, idx_right,
       grid_info$grid_left, grid_info$grid_right
@@ -365,9 +375,11 @@ Node = R6::R6Class("Node", public = list(
   #'   Split value.
   #' @param is_categorical (`logical(1)`) \cr
   #'   Whether the split feature is categorical.
+  #' @param split_levels (`character()` or `NULL`) \cr
+  #'   Left-side levels for explicit categorical level-set splits.
   #' @return (`list()`) \cr
   #'   \code{grid_left}, \code{grid_right}.
-  create_child_grids = function(split_feature, split_value, is_categorical) {
+  create_child_grids = function(split_feature, split_value, is_categorical, split_levels = NULL) {
     grid_left = self$grid
     grid_right = self$grid
     if (split_feature %in% names(self$grid) && length(self$grid[[split_feature]]) > 0L) {
@@ -375,8 +387,11 @@ Node = R6::R6Class("Node", public = list(
         grid_left_idx = ordered_categorical_left_mask(grid_left[[split_feature]], split_value)
         grid_right_idx = !grid_left_idx
       } else if (is_categorical) {
-        grid_left_idx = grid_left[[split_feature]] == split_value
-        grid_right_idx = grid_right[[split_feature]] != split_value
+        if (is.null(split_levels) || !length(split_levels)) {
+          split_levels = split_value
+        }
+        grid_left_idx = categorical_left_mask(grid_left[[split_feature]], split_levels)
+        grid_right_idx = !grid_left_idx
       } else {
         grid_left_idx = as.numeric(grid_left[[split_feature]]) <= as.numeric(split_value)
         grid_right_idx = as.numeric(grid_right[[split_feature]]) > as.numeric(split_value)
@@ -398,7 +413,8 @@ Node = R6::R6Class("Node", public = list(
   apply_split = function(split_info, children_info) {
     self$split = list(
       feature = split_info$split_feature,
-      value = if (split_info$is_categorical) split_info$split_value else as.numeric(split_info$split_value)
+      value = if (split_info$is_categorical) split_info$split_value else as.numeric(split_info$split_value),
+      levels = split_info$split_levels
     )
     self$importance = list(imp = children_info$int_imp, imp_j = children_info$int_imp_j)
     self$children = list("left_child" = children_info$left_child, "right_child" = children_info$right_child)

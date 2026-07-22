@@ -2,6 +2,11 @@ test_that("PdStrategy can be created", {
   strategy = PdStrategy$new()
   expect_true(inherits(strategy, "PdStrategy"))
   expect_equal(strategy$name, "pd")
+  expect_equal(strategy$categorical_split, "one_vs_rest")
+  expect_equal(strategy$max_exhaustive_levels, 12L)
+  exhaustive_strategy = PdStrategy$new(categorical_split = "exhaustive", max_exhaustive_levels = 8L)
+  expect_equal(exhaustive_strategy$categorical_split, "exhaustive")
+  expect_equal(exhaustive_strategy$max_exhaustive_levels, 8L)
 })
 
 test_that("PdStrategy find_best_split returns expected structure", {
@@ -58,6 +63,45 @@ test_that("fit-time active-effect hidden option keeps PD grids full", {
   unpruned_tree = GadgetTree$new(strategy = PdStrategy$new(), n_split = 0L, min_node_size = 2L)
   unpruned_tree$fit(data = data, target_feature_name = "y", effect = effect)
   expect_named(unpruned_tree$root$objective$value_j, c("signal", "weak"))
+})
+
+test_that("PdStrategy fit can use exhaustive categorical level-set splits", {
+  tryCatch({
+    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
+  }, error = function(e) {
+    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+      testthat::skip("C++ symbols not loaded (install package with compile)")
+    }
+  })
+  group = factor(rep(c("a", "b", "c", "d"), each = 2L), levels = c("a", "b", "c", "d"))
+  curve_left = c(5, 5, -5, -5)
+  curve_right = -curve_left
+  Y = matrix(
+    c(rep(curve_left, 4L), rep(curve_right, 4L)),
+    nrow = 8L,
+    byrow = TRUE,
+    dimnames = list(NULL, levels(group))
+  )
+  effect = structure(
+    list(Y = list(group = Y), grid = list(group = levels(group))),
+    class = "xplaineff_pd_matrix"
+  )
+  data = data.frame(group = group, y = 0)
+
+  tree = GadgetTree$new(strategy = PdStrategy$new(), n_split = 1L, min_node_size = 2L, impr_par = 0)
+  tree$fit(
+    data = data,
+    target_feature_name = "y",
+    effect = effect,
+    categorical_split = "exhaustive",
+    max_exhaustive_levels = 4L
+  )
+
+  expect_equal(tree$strategy$categorical_split, "exhaustive")
+  expect_equal(tree$strategy$max_exhaustive_levels, 4L)
+  expect_equal(tree$root$split$levels, c("a", "b"))
+  expect_equal(tree$root$children$left_child$parent$split_condition, "group in {a, b}")
+  expect_equal(tree$root$children$right_child$parent$split_condition, "group in {c, d}")
 })
 
 test_that("PdStrategy heterogeneity returns numeric vector", {
@@ -142,6 +186,11 @@ test_that("AleStrategy can be created", {
   strategy = AleStrategy$new()
   expect_true(inherits(strategy, "AleStrategy"))
   expect_equal(strategy$name, "ale")
+  expect_equal(strategy$categorical_split, "ordered_prefix")
+  expect_equal(strategy$max_exhaustive_levels, 12L)
+  exhaustive_strategy = AleStrategy$new(categorical_split = "exhaustive", max_exhaustive_levels = 8L)
+  expect_equal(exhaustive_strategy$categorical_split, "exhaustive")
+  expect_equal(exhaustive_strategy$max_exhaustive_levels, 8L)
 })
 
 test_that("AleStrategy heterogeneity returns numeric for ALE-like list", {
