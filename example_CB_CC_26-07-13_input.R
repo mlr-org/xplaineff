@@ -25,8 +25,8 @@ train_model = function(dat, test_data_size = 200) {
   rmse = sqrt(mean((test_data$y - prediction_test)^2))
   r_squared = 1 - sum((test_data$y - prediction_test)^2) /
     sum((test_data$y - mean(test_data$y))^2)
-  cat(sprintf("\n\nTrained ranger model; hold-out performance (n_test = %d): RMSE = %.3f, R^2 = %.3f\n\n",
-    nrow(test_data), rmse, r_squared))
+  cat(sprintf("\n\nTrained ranger model with n_test = %d and n_train = %d; performance on hold-out test data: RMSE = %.3f, R^2 = %.3f\n\n",
+    nrow(test_data), nrow(train_data), rmse, r_squared))
   list(learner = learner, train_data = train_data, test_data = test_data,
     train_idx = setdiff(seq_len(nrow(dat)), test_idx), test_idx = sort(test_idx),
     rmse = rmse, r_squared = r_squared)

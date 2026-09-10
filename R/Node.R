@@ -395,7 +395,7 @@ Node = R6::R6Class("Node", public = list(
       self$improvement_met = TRUE
       # Improvement not sufficient: stop splitting at this node
       if (verbose > 0) {
-        print(paste("Terminated at intImp < threshold of Node$create_children at node id ", self$id))
+        print(paste("Terminated at intImp < threshold (overall) of Node$create_children at node id ", self$id))
         flush.console()
       }
       return(NULL)
@@ -421,8 +421,7 @@ Node = R6::R6Class("Node", public = list(
         # root there is no previous reduction, so tau applies directly.
         # Being a reduction criterion it characterises the split as a whole, so both children
         # inherit the same decision.
-        stat_left = int_imp_j[rem]
-        stat_right = stat_left
+        stat = int_imp_j[rem]
         threshold_j = if (is.null(self$parent) || is.null(self$parent$int_imp_j)) {
           rep(early_stopping$tau, length(rem))
         } else {
@@ -431,18 +430,28 @@ Node = R6::R6Class("Node", public = list(
         # A non-finite parent reduction carries no information about this feature; fall back to
         # the flat threshold rather than dropping the feature by accident.
         threshold_j[!is.finite(threshold_j)] = early_stopping$tau
-        keep = is.finite(stat_left) & (stat_left >= threshold_j)
+        keep = is.finite(stat) & (stat >= threshold_j)
         keep_left = keep
         keep_right = keep
         if (verbose > 2) {
           print_early_stopping_stat(sprintf("node id %d (split)", self$id),
-            early_stopping$method, stat_left, threshold_j,
+            early_stopping$method, stat, threshold_j,
             parts = list(
               R_j_node = self$objective$value_j[rem],
               R_j_left = left_objective_value_j[rem],
               R_j_right = right_objective_value_j[rem],
               int_imp_j_parent = if (is.null(self$parent$int_imp_j)) NA_real_ else
                 self$parent$int_imp_j[rem]))
+        }
+        stat_left = stat_right = stat
+        if (all(!keep)) {
+            self$improvement_met = TRUE
+            # Improvement not sufficient for every single feature iindividually: stop splitting at this node
+            if (verbose > 0) {
+                print(paste("Terminated at intImp < threshold (individually for each feature) of Node$create_children at node id ", self$id))
+                flush.console()
+            }
+            return(NULL)
         }
       } else if (identical(early_stopping$method, "interaction_fraction")) {
         # Method 3: interaction fraction q_j = R_j / (R_j + B_j + delta), evaluated per child.
@@ -481,6 +490,7 @@ Node = R6::R6Class("Node", public = list(
         m_right = vapply(grid_info$grid_right[rem], length, NA_integer_)
         var_left = stats::var(predictions[idx_left])
         var_right = stats::var(predictions[idx_right])
+        # TODO DO we need (n-1) instead of n here?
         mean_risk_left = left_objective_value_j[rem] / (length(idx_left) * m_left)
         mean_risk_right = right_objective_value_j[rem] / (length(idx_right) * m_right)
         stat_left = mean_risk_left / (var_left + early_stopping$delta)
@@ -488,7 +498,8 @@ Node = R6::R6Class("Node", public = list(
         keep_left = is.finite(stat_left) & (stat_left >= early_stopping$tau)
         keep_right = is.finite(stat_right) & (stat_right >= early_stopping$tau)
         if (verbose > 2) {
-          print_early_stopping_stat(sprintf("node id %d -> left child %d", self$id, 2 * self$id),
+          print_early_stopping_stat(
+            sprintf("node id %d -> left child %d", self$id, 2 * self$id),
             early_stopping$method, stat_left, early_stopping$tau,
             parts = list(R_j = left_objective_value_j[rem], m_j = m_left,
               n_obs = length(idx_left), mean_risk = mean_risk_left, var_pred = var_left))
@@ -498,7 +509,7 @@ Node = R6::R6Class("Node", public = list(
             parts = list(R_j = right_objective_value_j[rem], m_j = m_right,
               n_obs = length(idx_right), mean_risk = mean_risk_right, var_pred = var_right))
         }
-      } else {
+      } else if (identical(early_stopping$method, "plain_risk")) {
         # Method 1 ("plain_risk"): absolute normalized child risk
         # R_j / ((|A_g| - 1) * m_{j,g}) against the root-derived goal, evaluated per child.
         m_left = vapply(grid_info$grid_left[rem], length, NA_integer_)
@@ -518,6 +529,9 @@ Node = R6::R6Class("Node", public = list(
             parts = list(R_j = right_objective_value_j[rem], m_j = m_right,
               n_obs = length(idx_right)))
         }
+      } else {
+        pass
+        # TO DO: Throgh an error about an unknown stopping method, but this should have been caught in GadgetTree$initialize, so basically assert(FALSE) here
       }
       vecb_remaining_left[rem] = keep_left
       vecb_remaining_right[rem] = keep_right

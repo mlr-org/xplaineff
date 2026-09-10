@@ -29,7 +29,13 @@ walk_remaining(tree1_off$root)
 
 for (improvement_method in early_stopping_methods) {
   cat(sprintf("\n===== Test 1: Early stopping Method: %s, tau = 0.05 =====\n", improvement_method))
-  tree1_on = fit_tree(dat1, effect1, improvement_method, tau = 0.05, verbose = 3)
+#   if (identical(improvement_method, "risk_reduction")) {
+#     # Because risk_reduction early stopping is exactly the same criterion as the overall early stopping criterion in GADGET, we want to isolate feature-wise early stopping from the overall early stopping.
+#     tree1_on = fit_tree(dat1, effect1, improvement_method, tau = 0.05, impr_par = 5e-4, verbose = 3)
+#   } else {
+#     tree1_on = fit_tree(dat1, effect1, improvement_method, tau = 0.05, verbose = 3)
+#   }
+  tree1_on = fit_tree(dat1, effect1, improvement_method, tau = 0.05, impr_par = 5e-4, verbose = 3)
   # show_tree(tree1_on)
   print(tree1_on$extract_split_info())
   cat("remaining_features per node:\n")
@@ -106,7 +112,8 @@ for (improvement_method in early_stopping_methods) {
 
   # The fit must still succeed: the early-stopping bookkeeping is aligned with the pruned
   # feature set, so vecb_remaining_features matches the (shorter) pruned Y.
-  cat("fit succeeded; nodes =", nrow(tree_warn$extract_split_info()), "\n")
+  split_info = tree_warn$extract_split_info()
+  cat("fit succeeded; nodes =", nrow(split_info), "\n")
   cat("features kept after pruning:", length(tree_warn$root$vecb_remaining_features), "\n")
   cat("still interacting at root:",
     paste(names(tree_warn$root$vecb_remaining_features)[tree_warn$root$vecb_remaining_features],
@@ -125,14 +132,14 @@ for (improvement_method in early_stopping_methods) {
 ### remaining-only objective / relative improvement. An unknown method must be rejected.
 
   cat(sprintf("\n===== Test 4: Validation and checking reporting columns for improvement method: %s =====\n", improvement_method))
-  split_info = tree$extract_split_info()
-  method_label = if (is.null(method)) "disabled" else method
+  method_label = if (is.null(improvement_method)) "disabled" else improvement_method
   cols_present = all(report_cols %in% colnames(split_info))
   cat(sprintf("  %-28s nodes=%d  all report columns present: %s\n", method_label, nrow(split_info), cols_present))
 }
 
 options(xplaineff.active_effect_rel_tol = old_rel_tol)
 
+cat(sprintf("\n===== Test 4: Unknown methods need to be rejected\n"))
 # For test 4: An unknown improvement method must be rejected rather than silently ignored.
 unknown_rejected = tryCatch({
   fit_tree(dat1, effect1, "nonsense", tau = 0.05)

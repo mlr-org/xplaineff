@@ -365,7 +365,6 @@ PdStrategy = R6::R6Class(
         c("plain_risk", "risk_reduction", "interaction_fraction", "interaction_fraction_total"),
         null.ok = TRUE, .var.name = "gadget_improvements")
       use_early_stopping = !is.null(gadget_improvements)
-      use_plain_risk = identical(gadget_improvements, "plain_risk")
       tau = if (is.null(gadget_impr_args$tau)) 0.05 else gadget_impr_args$tau
       # Regularizer for the interaction fraction (Method 3); only guards the degenerate
       # "no effect at all" case, where R_j and the total sum of squares both vanish.
@@ -426,14 +425,14 @@ PdStrategy = R6::R6Class(
         early_stopping_stat_root_j = NULL
         if (use_early_stopping) {
           split_feature_names = names(objective_value_root_j_split)
-          if (use_plain_risk) {
+          if (identical(gadget_improvements, "plain_risk")) {
             # Method 1: sort out features already at the root from their absolute normalized risk,
             # and derive early_stopping_goal for the child criterion in Node$create_children. The
             # normalized root risk is R_j / (|A_g| * m_j); the shared |A_g| = nrow(Z) cancels in
             # the root comparison and is folded (as |A_g| - 1) into the goal for the children.
             grid_lengths = vapply(grid[split_feature_names], length, NA_integer_)
             checkmate::assert_true(all(grid_lengths > 0))
-            normalized_root_risk_j = objective_value_root_j_split / grid_lengths
+            normalized_root_risk_j = objective_value_root_j_split / (grid_lengths*(nrow(Z) - 1))
             early_stopping_goal = max(tau * mean(normalized_root_risk_j, na.rm = TRUE), 1e-12)
             vecb_remaining_features = normalized_root_risk_j >= early_stopping_goal
             vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
@@ -441,9 +440,9 @@ PdStrategy = R6::R6Class(
             if (verbose > 2) {
               print_early_stopping_stat("root (id 1)", gadget_improvements,
                 normalized_root_risk_j, early_stopping_goal,
-                parts = list(R_j = objective_value_root_j_split, m_j = grid_lengths))
+                parts = list(R_j = objective_value_root_j_split, m_j = grid_lengths, n_obs = nrow(Z)))
             }
-            early_stopping_goal = early_stopping_goal / (nrow(Z) - 1)
+            # early_stopping_goal = early_stopping_goal / (nrow(Z) - 1)
           } else if (identical(gadget_improvements, "interaction_fraction")) {
             # Method 3: interaction fraction q_j = R_j / (R_j + B_j + delta), where R_j + B_j is
             # the total local-effect sum of squares. Being a risk *value* (not a reduction), it
@@ -471,18 +470,19 @@ PdStrategy = R6::R6Class(
               ))
             }
             grid_lengths = vapply(grid[split_feature_names], length, NA_integer_)
+            # TODO DO we need (n-1) instead of n here?
             mean_risk_root = objective_value_root_j_split / (nrow(Z) * grid_lengths)
             fraction_total_root = mean_risk_root / (stats::var(node_predictions) + delta)
             vecb_remaining_features = fraction_total_root >= tau
             vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
             early_stopping_stat_root_j = fraction_total_root
             if (verbose > 2) {
-              print_early_stopping_stat("root (id 1)", gadget_improvements,
-                fraction_total_root, tau,
+              print_early_stopping_stat(
+                "root (id 1)", gadget_improvements,fraction_total_root, tau,
                 parts = list(R_j = objective_value_root_j_split, m_j = grid_lengths,
-                  mean_risk = mean_risk_root, var_pred = stats::var(node_predictions)))
+                    n_obs = length(nrow(Z)), mean_risk = mean_risk_root, var_pred = stats::var(node_predictions)))
             }
-          } else {
+          } else if (identical(gadget_improvements, "risk_reduction")) {
             # Method 2 ("risk_reduction") is reduction-based, so it cannot drop anything before
             # the first split has been computed: all features start out as still interacting,
             # and the root has no statistic to report.
@@ -490,9 +490,12 @@ PdStrategy = R6::R6Class(
             names(vecb_remaining_features) = split_feature_names
             if (verbose > 2) {
               cat(sprintf(
-                "[early stopping] root (id 1), method %s: no root statistic (reduction-based)\n",
+                "[early stopping] root (id 1), method %s: no root statistic yet (reduction-based method, hence statistic computed after split)\n",
                 gadget_improvements))
             }
+          } else {
+            pass
+            # TO DO: Through an error about an unknown stopping method, but this should have been caught in GadgetTree$initialize, so basically assert(FALSE) here
           }
         }
         # Read by Node$create_children to dispatch the per-method drop criterion.
