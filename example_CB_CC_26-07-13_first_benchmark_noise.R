@@ -4,13 +4,15 @@
 
 source("example_CB_CC_26-07-13_input.R")
 
+cat("\nTook ~ 8 min on 23rd Aug 26\n")
+
 noise_levels = c(0.001, 0.1, 0.2, 0.5, 2.0)
 tau_values = c(0.005, 0.05, 0.5, 0.95)
 
 # Column 1: disabled baseline; then every (method, tau) combination.
 configs = c(
   list(list(improvement_method = NULL, tau = NULL, label = "disabled")),
-  unlist(lapply(methods, function(method) {
+  unlist(lapply(early_stopping_methods, function(method) {
     lapply(tau_values, function(tau) list(improvement_method = method, tau = tau,
       label = paste0(method, "|tau=", tau)))
   }), recursive = FALSE)
@@ -75,20 +77,36 @@ if (detailed) {
   }
 }
 
-# Optional heatmap of tree size across the (noise, method x tau) grid.
+# One heatmap per method over the (noise x tau) grid. The disabled baseline is repeated as the
+# leftmost column of every plot, so each method can be read against it without flipping back.
 if (requireNamespace("ggplot2", quietly = TRUE)) {
   library(ggplot2)
-  df = expand.grid(noise = rownames(n_nodes), config = colnames(n_nodes),
-    stringsAsFactors = FALSE)
-  df$n_nodes = as.vector(n_nodes)
-  df$config = factor(df$config, levels = colnames(n_nodes))
-  p = ggplot(df, aes(x = config, y = noise, fill = n_nodes)) +
-    geom_tile(color = "white") +
-    geom_text(aes(label = n_nodes)) +
-    scale_fill_gradient(low = "#f7fbff", high = "#08519c") +
-    labs(title = "GADGET tree size under selective early stopping",
-      x = "early-stopping method and threshold", y = "observation noise (sd)", fill = "# nodes") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1))
-  print(p)
+  config_method = vapply(configs, function(cfg)
+    if (is.null(cfg$improvement_method)) "disabled" else cfg$improvement_method, character(1))
+  config_tau = vapply(configs, function(cfg)
+    if (is.null(cfg$tau)) NA_real_ else cfg$tau, numeric(1))
+
+  results = data.frame(
+    noise = rep(rownames(n_nodes), times = length(configs)),
+    method = rep(config_method, each = nrow(n_nodes)),
+    tau = rep(config_tau, each = nrow(n_nodes)),
+    n_nodes = as.vector(n_nodes),
+    stringsAsFactors = FALSE
+  )
+  baseline = results[results$method == "disabled", ]
+  tau_levels = c("off (baseline)", format(tau_values))
+
+  for (method in early_stopping_methods) {
+    df = rbind(baseline, results[results$method == method, ])
+    df$tau_label = factor(ifelse(is.na(df$tau), "off (baseline)", format(df$tau)), levels = tau_levels)
+    df$noise = factor(df$noise, levels = rownames(n_nodes))
+    p = ggplot(df, aes(x = tau_label, y = noise, fill = n_nodes)) +
+      geom_tile(color = "white") +
+      geom_text(aes(label = n_nodes)) +
+      scale_fill_gradient(low = "#f7fbff", high = "#08519c") +
+      labs(title = paste("GADGET tree size (# nodes) under selective early stopping:", method),
+        x = "early-stopping threshold tau", y = "observation noise (sd)") +
+      theme_minimal()
+    print(p)
+  }
 }
