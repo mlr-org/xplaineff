@@ -421,6 +421,9 @@ PdStrategy = R6::R6Class(
         vecb_remaining_features = NULL
         early_stopping_goal = NULL
         node_predictions = NULL
+        # The root statistic is reported like every other node's (extract_split_info), so it has to
+        # survive this block rather than being consumed by the vecb_remaining_features test.
+        early_stopping_stat_root_j = NULL
         if (use_early_stopping) {
           split_feature_names = names(objective_value_root_j_split)
           if (use_plain_risk) {
@@ -434,6 +437,12 @@ PdStrategy = R6::R6Class(
             early_stopping_goal = max(tau * mean(normalized_root_risk_j, na.rm = TRUE), 1e-12)
             vecb_remaining_features = normalized_root_risk_j >= early_stopping_goal
             vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
+            early_stopping_stat_root_j = normalized_root_risk_j
+            if (verbose > 2) {
+              print_early_stopping_stat("root (id 1)", gadget_improvements,
+                normalized_root_risk_j, early_stopping_goal,
+                parts = list(R_j = objective_value_root_j_split, m_j = grid_lengths))
+            }
             early_stopping_goal = early_stopping_goal / (nrow(Z) - 1)
           } else if (identical(gadget_improvements, "interaction_fraction")) {
             # Method 3: interaction fraction q_j = R_j / (R_j + B_j + delta), where R_j + B_j is
@@ -443,6 +452,14 @@ PdStrategy = R6::R6Class(
             interaction_fraction_root = objective_value_root_j_split / (total_ss_root + delta)
             vecb_remaining_features = interaction_fraction_root >= tau
             vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
+            early_stopping_stat_root_j = interaction_fraction_root
+            if (verbose > 2) {
+              print_early_stopping_stat("root (id 1)", gadget_improvements,
+                interaction_fraction_root, tau,
+                parts = list(R_j = objective_value_root_j_split,
+                  R_j_plus_B_j = total_ss_root,
+                  B_j = total_ss_root - objective_value_root_j_split))
+            }
           } else if (identical(gadget_improvements, "interaction_fraction_total")) {
             # Method 4: like Method 3, but the denominator is the model's output variance in the
             # node, which is the same for all features and does not vanish when x_j has no effect.
@@ -458,11 +475,24 @@ PdStrategy = R6::R6Class(
             fraction_total_root = mean_risk_root / (stats::var(node_predictions) + delta)
             vecb_remaining_features = fraction_total_root >= tau
             vecb_remaining_features[is.na(vecb_remaining_features)] = FALSE
+            early_stopping_stat_root_j = fraction_total_root
+            if (verbose > 2) {
+              print_early_stopping_stat("root (id 1)", gadget_improvements,
+                fraction_total_root, tau,
+                parts = list(R_j = objective_value_root_j_split, m_j = grid_lengths,
+                  mean_risk = mean_risk_root, var_pred = stats::var(node_predictions)))
+            }
           } else {
             # Method 2 ("risk_reduction") is reduction-based, so it cannot drop anything before
-            # the first split has been computed: all features start out as still interacting.
+            # the first split has been computed: all features start out as still interacting,
+            # and the root has no statistic to report.
             vecb_remaining_features = rep(TRUE, length(split_feature_names))
             names(vecb_remaining_features) = split_feature_names
+            if (verbose > 2) {
+              cat(sprintf(
+                "[early stopping] root (id 1), method %s: no root statistic (reduction-based)\n",
+                gadget_improvements))
+            }
           }
         }
         # Read by Node$create_children to dispatch the per-method drop criterion.
@@ -476,7 +506,8 @@ PdStrategy = R6::R6Class(
 
       t_regional = private$fit_tree_internal(
         tree, Z, Y_split, grid, objective_value_root_j_split, objective_value_root_split, verbose,
-        vecb_remaining_features = vecb_remaining_features
+        vecb_remaining_features = vecb_remaining_features,
+        early_stopping_stat_root_j = early_stopping_stat_root_j
       )
       self$fit_timing = list(global = t_global, regional = t_regional)
       invisible(tree)

@@ -470,6 +470,33 @@ numeric_matrix_for_prediction = function(newdata, feature_names = NULL) {
   x
 }
 
+# Debug dump of a selective early stopping decision (verbose > 2), one row per feature.
+# `parts` carries the intermediate quantities the statistic is assembled from (e.g. numerator and
+# denominator of the interaction fraction), because when a statistic looks implausible it is
+# almost always one of those parts that is off, not the ratio.
+# `threshold` is recycled, so both a shared scalar and a per-feature vector work.
+print_early_stopping_stat = function(node_label, method, stat, threshold, parts = NULL) {
+  features = names(stat)
+  if (is.null(features) || !length(features)) {
+    return(invisible(NULL))
+  }
+  threshold = rep_len(threshold, length(stat))
+  parts = lapply(parts, rep_len, length.out = length(stat))
+  cat(sprintf("[early stopping] %s, method %s\n", node_label, method))
+  for (i in seq_along(stat)) {
+    part_text = ""
+    if (length(parts)) {
+      pieces = sprintf("%s = %.6g", names(parts), vapply(parts, `[[`, numeric(1), i))
+      part_text = paste0("  |  ", paste(pieces, collapse = ", "))
+    }
+    cat(sprintf("  %-14s stat = %-12.6g threshold = %-12.6g %-4s%s\n",
+      features[[i]], stat[[i]], threshold[[i]],
+      if (isTRUE(stat[[i]] >= threshold[[i]])) "keep" else "DROP", part_text))
+  }
+  flush.console()
+  invisible(NULL)
+}
+
 # Wrap each line of a node label (split by \\n) for ggraph tree plots.
 wrap_tree_label = function(text, width = 34L) {
   if (length(text) == 0L) {

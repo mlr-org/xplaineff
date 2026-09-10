@@ -126,13 +126,13 @@ GadgetTree = R6::R6Class(
     #'   \code{tau} (`numeric(1)`, default 0.05) for all methods, and \code{delta}
     #'   (`numeric(1)`, default 1e-12) regularizing the denominator of Method 3.
     #' @param ... (`list()`) \cr
-#'   Strategy-specific arguments passed to \code{$fit()}.
-#'   For [AleStrategy]: \code{model} or \code{effect}, plus optional
-#'   \code{n_intervals}, \code{predict_fun}, \code{order_method},
-#'   \code{ale_engine}, \code{categorical_split}, and \code{max_exhaustive_levels}.
-#'   For [PdStrategy]: \code{effect}, or \code{model} with optional
-#'   \code{predict_fun}, \code{n_grid}, \code{pd_engine}, \code{categorical_split},
-#'   and \code{max_exhaustive_levels}.
+    #'   Strategy-specific arguments passed to \code{$fit()}.
+    #'   For [AleStrategy]: \code{model} or \code{effect}, plus optional
+    #'   \code{n_intervals}, \code{predict_fun}, \code{order_method},
+    #'   \code{ale_engine}, \code{categorical_split}, and \code{max_exhaustive_levels}.
+    #'   For [PdStrategy]: \code{effect}, or \code{model} with optional
+    #'   \code{predict_fun}, \code{n_grid}, \code{pd_engine}, \code{categorical_split},
+    #'   and \code{max_exhaustive_levels}.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
     fit = function(data, target_feature_name, feature_set = NULL, split_feature = NULL,

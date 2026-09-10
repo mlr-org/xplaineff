@@ -128,7 +128,8 @@ Node = R6::R6Class("Node", public = list(
       split_feature = NULL,
       split_value = NULL,
       objective_value = objective_value_parent,
-      int_imp = NULL
+      int_imp = NULL,
+      int_imp_j = NULL
     )
     self$split = NULL
     self$objective = list(value = objective_value, value_j = objective_value_j,
@@ -412,13 +413,37 @@ Node = R6::R6Class("Node", public = list(
     if (length(rem) > 0L) {
       early_stopping = self$strategy$early_stopping
       if (identical(early_stopping$method, "risk_reduction")) {
-        # Method 2: per-feature relative improvement of THIS split. Being a reduction criterion it
-        # characterises the split as a whole, so both children inherit the same decision.
+        # Method 2: per-feature relative improvement of THIS split, thresholded against the
+        # previous split's per-feature improvement (paper eq. 15). This mirrors the total
+        # criterion above, which tests int_imp against parent$int_imp * impr_par rather than
+        # against a fixed value: int_imp and int_imp_j are both relative to the root, so dividing
+        # by the parent's value is what turns them into a ratio of successive reductions. At the
+        # root there is no previous reduction, so tau applies directly.
+        # Being a reduction criterion it characterises the split as a whole, so both children
+        # inherit the same decision.
         stat_left = int_imp_j[rem]
         stat_right = stat_left
-        keep = is.finite(stat_left) & (stat_left >= early_stopping$tau)
+        threshold_j = if (is.null(self$parent) || is.null(self$parent$int_imp_j)) {
+          rep(early_stopping$tau, length(rem))
+        } else {
+          self$parent$int_imp_j[rem] * early_stopping$tau
+        }
+        # A non-finite parent reduction carries no information about this feature; fall back to
+        # the flat threshold rather than dropping the feature by accident.
+        threshold_j[!is.finite(threshold_j)] = early_stopping$tau
+        keep = is.finite(stat_left) & (stat_left >= threshold_j)
         keep_left = keep
         keep_right = keep
+        if (verbose > 2) {
+          print_early_stopping_stat(sprintf("node id %d (split)", self$id),
+            early_stopping$method, stat_left, threshold_j,
+            parts = list(
+              R_j_node = self$objective$value_j[rem],
+              R_j_left = left_objective_value_j[rem],
+              R_j_right = right_objective_value_j[rem],
+              int_imp_j_parent = if (is.null(self$parent$int_imp_j)) NA_real_ else
+                self$parent$int_imp_j[rem]))
+        }
       } else if (identical(early_stopping$method, "interaction_fraction")) {
         # Method 3: interaction fraction q_j = R_j / (R_j + B_j + delta), evaluated per child.
         # R_j + B_j is the child's total local-effect sum of squares, which requires the child
@@ -430,12 +455,23 @@ Node = R6::R6Class("Node", public = list(
         y_right = self$strategy$node_transform(
           Y = Y[rem], idx = idx_right, grid = grid_info$grid_right[rem], is_child = TRUE
         )
-        stat_left = left_objective_value_j[rem] /
-          (total_effect_sum_of_squares(y_left) + early_stopping$delta)
-        stat_right = right_objective_value_j[rem] /
-          (total_effect_sum_of_squares(y_right) + early_stopping$delta)
+        total_ss_left = total_effect_sum_of_squares(y_left)
+        total_ss_right = total_effect_sum_of_squares(y_right)
+        stat_left = left_objective_value_j[rem] / (total_ss_left + early_stopping$delta)
+        stat_right = right_objective_value_j[rem] / (total_ss_right + early_stopping$delta)
         keep_left = is.finite(stat_left) & (stat_left >= early_stopping$tau)
         keep_right = is.finite(stat_right) & (stat_right >= early_stopping$tau)
+        if (verbose > 2) {
+          print_early_stopping_stat(sprintf("node id %d -> left child %d", self$id, 2 * self$id),
+            early_stopping$method, stat_left, early_stopping$tau,
+            parts = list(R_j = left_objective_value_j[rem], R_j_plus_B_j = total_ss_left,
+              B_j = total_ss_left - left_objective_value_j[rem]))
+          print_early_stopping_stat(
+            sprintf("node id %d -> right child %d", self$id, 2 * self$id + 1),
+            early_stopping$method, stat_right, early_stopping$tau,
+            parts = list(R_j = right_objective_value_j[rem], R_j_plus_B_j = total_ss_right,
+              B_j = total_ss_right - right_objective_value_j[rem]))
+        }
       } else if (identical(early_stopping$method, "interaction_fraction_total")) {
         # Method 4: mean risk R_j / (|A_g| * m_{j,g}) normalized by the model's output variance in
         # the child. The denominator is shared by all features of a child and, unlike Method 3,
@@ -443,12 +479,25 @@ Node = R6::R6Class("Node", public = list(
         predictions = early_stopping$predictions
         m_left = vapply(grid_info$grid_left[rem], length, NA_integer_)
         m_right = vapply(grid_info$grid_right[rem], length, NA_integer_)
-        stat_left = (left_objective_value_j[rem] / (length(idx_left) * m_left)) /
-          (stats::var(predictions[idx_left]) + early_stopping$delta)
-        stat_right = (right_objective_value_j[rem] / (length(idx_right) * m_right)) /
-          (stats::var(predictions[idx_right]) + early_stopping$delta)
+        var_left = stats::var(predictions[idx_left])
+        var_right = stats::var(predictions[idx_right])
+        mean_risk_left = left_objective_value_j[rem] / (length(idx_left) * m_left)
+        mean_risk_right = right_objective_value_j[rem] / (length(idx_right) * m_right)
+        stat_left = mean_risk_left / (var_left + early_stopping$delta)
+        stat_right = mean_risk_right / (var_right + early_stopping$delta)
         keep_left = is.finite(stat_left) & (stat_left >= early_stopping$tau)
         keep_right = is.finite(stat_right) & (stat_right >= early_stopping$tau)
+        if (verbose > 2) {
+          print_early_stopping_stat(sprintf("node id %d -> left child %d", self$id, 2 * self$id),
+            early_stopping$method, stat_left, early_stopping$tau,
+            parts = list(R_j = left_objective_value_j[rem], m_j = m_left,
+              n_obs = length(idx_left), mean_risk = mean_risk_left, var_pred = var_left))
+          print_early_stopping_stat(
+            sprintf("node id %d -> right child %d", self$id, 2 * self$id + 1),
+            early_stopping$method, stat_right, early_stopping$tau,
+            parts = list(R_j = right_objective_value_j[rem], m_j = m_right,
+              n_obs = length(idx_right), mean_risk = mean_risk_right, var_pred = var_right))
+        }
       } else {
         # Method 1 ("plain_risk"): absolute normalized child risk
         # R_j / ((|A_g| - 1) * m_{j,g}) against the root-derived goal, evaluated per child.
@@ -458,6 +507,17 @@ Node = R6::R6Class("Node", public = list(
         stat_right = right_objective_value_j[rem] / ((length(idx_right) - 1) * m_right)
         keep_left = is.finite(stat_left) & (stat_left > early_stopping$goal)
         keep_right = is.finite(stat_right) & (stat_right > early_stopping$goal)
+        if (verbose > 2) {
+          print_early_stopping_stat(sprintf("node id %d -> left child %d", self$id, 2 * self$id),
+            early_stopping$method, stat_left, early_stopping$goal,
+            parts = list(R_j = left_objective_value_j[rem], m_j = m_left,
+              n_obs = length(idx_left)))
+          print_early_stopping_stat(
+            sprintf("node id %d -> right child %d", self$id, 2 * self$id + 1),
+            early_stopping$method, stat_right, early_stopping$goal,
+            parts = list(R_j = right_objective_value_j[rem], m_j = m_right,
+              n_obs = length(idx_right)))
+        }
       }
       vecb_remaining_left[rem] = keep_left
       vecb_remaining_right[rem] = keep_right
@@ -508,6 +568,9 @@ Node = R6::R6Class("Node", public = list(
     left_child$parent$split_feature = right_child$parent$split_feature = split_feature
     left_child$parent$split_value = right_child$parent$split_value = split_value
     left_child$parent$int_imp = right_child$parent$int_imp = int_imp
+    # Method 2 needs the previous split's per-feature reduction as its threshold, mirroring how
+    # the total int_imp is thresholded against parent$int_imp above.
+    left_child$parent$int_imp_j = right_child$parent$int_imp_j = int_imp_j
     if (is_categorical) {
       left_child$parent$split_levels = split_groups$left_levels
       right_child$parent$split_levels = split_groups$right_levels
@@ -577,8 +640,8 @@ Node = R6::R6Class("Node", public = list(
       value = if (split_info$is_categorical) split_info$split_value else as.numeric(split_info$split_value),
       levels = split_info$split_levels
     )
-    self$importance = list(imp = children_info$int_imp, imp_remaining = children_info$int_imp_remaining,
-      imp_j = children_info$int_imp_j)
+    self$importance = list(int_imp = children_info$int_imp, int_imp_remaining = children_info$int_imp_remaining,
+      int_imp_j = children_info$int_imp_j)
     self$children = list("left_child" = children_info$left_child, "right_child" = children_info$right_child)
   }
 ))

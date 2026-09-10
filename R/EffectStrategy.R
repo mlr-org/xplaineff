@@ -42,7 +42,7 @@ EffectStrategy = R6::R6Class(
   ),
   private = list(
     fit_tree_internal = function(tree, Z, Y, grid, objective_value_root_j, objective_value_root,
-      verbose, vecb_remaining_features = NULL) {
+      verbose, vecb_remaining_features = NULL, early_stopping_stat_root_j = NULL) {
       # Create new tree. The root objective is the total risk over all features; when selective
       # early stopping is on, objective_value_remaining additionally holds the risk over just the
       # features still flagged as interacting at the root.
@@ -54,7 +54,8 @@ EffectStrategy = R6::R6Class(
         objective_value = objective_value_root,
         objective_value_remaining = root_objective_value_remaining,
         objective_value_j = objective_value_root_j, improvement_met = FALSE, int_imp = NULL,
-        vecb_remaining_features = vecb_remaining_features, strategy = self
+        vecb_remaining_features = vecb_remaining_features,
+        early_stopping_stat_j = early_stopping_stat_root_j, strategy = self
       )
       t_regional = system.time({
         tree$root$split_node(
