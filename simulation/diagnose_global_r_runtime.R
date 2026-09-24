@@ -32,6 +32,9 @@ n_intervals_vec = c(10L, 20L, 50L)
 model_types = c("rf", "toy")
 sub_experiments = c("vs_N", "vs_D", "vs_res")
 include_mlr3 = FALSE
+packages = character()
+impls = character()
+methods = character()
 
 parse_flag = function(x) {
   s = tolower(trimws(as.character(x)))
@@ -77,6 +80,18 @@ while (i <= length(args)) {
     i = i + 2L
   } else if (args[i] == "--include-mlr3" && i < length(args)) {
     include_mlr3 = parse_flag(args[i + 1L]); i = i + 2L
+  } else if (args[i] == "--packages" && i < length(args)) {
+    packages = parse_chr_vec(args[i + 1L])
+    packages = packages[nzchar(packages)]
+    i = i + 2L
+  } else if (args[i] == "--impls" && i < length(args)) {
+    impls = parse_chr_vec(args[i + 1L])
+    impls = impls[nzchar(impls)]
+    i = i + 2L
+  } else if (args[i] == "--methods" && i < length(args)) {
+    methods = parse_chr_vec(args[i + 1L])
+    methods = methods[nzchar(methods)]
+    i = i + 2L
   } else {
     i = i + 1L
   }
@@ -107,6 +122,10 @@ method_specs = list(
   list(package = "effectplots", impl = "default", method = "global_pdp", model_types = c("rf", "toy")),
   list(package = "effectplots", impl = "default", method = "global_ale", model_types = c("rf", "toy"))
 )
+
+if (length(packages)) method_specs = Filter(function(spec) spec$package %in% packages, method_specs)
+if (length(impls)) method_specs = Filter(function(spec) spec$impl %in% impls, method_specs)
+if (length(methods)) method_specs = Filter(function(spec) spec$method %in% methods, method_specs)
 
 make_cells = function(method) {
   is_pdp = grepl("pdp", method)

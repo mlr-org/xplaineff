@@ -81,7 +81,7 @@ else
   MODELS="${BENCHMARK_MODELS:-rf,toy}"
 fi
 
-DATADIR="simulation/data/global_r_runtime"
+DATADIR="${GLOBAL_DATADIR:-simulation/data/global_r_runtime}"
 PAPER_FIGDIR="paper/figures"
 SYNC_PAPER_FIGURES="${SYNC_PAPER_FIGURES:-true}"
 SUMMARY_PAPER_FIGDIR=""
@@ -248,7 +248,10 @@ Rscript simulation/diagnose_global_r_runtime.R \
   --n-grid-vec "${N_GRID_VEC}" \
   --n-intervals-vec "${N_INTERVALS_VEC}" \
   --models "${MODELS}" \
-  --include-mlr3 "${INCLUDE_MLR3}"
+  --include-mlr3 "${INCLUDE_MLR3}" \
+  "${GLOBAL_PACKAGE_ARGS[@]}" \
+  "${GLOBAL_IMPL_ARGS[@]}" \
+  "${GLOBAL_METHOD_ARGS[@]}"
 
 echo "Done. Global raw CSVs and summary.csv in ${OUTDIR}/; global figure in ${FIGDIR}/"
 echo "Use simulation/run_runtime_benchmark.sh for the coordinated global, regional, and diagnostic workflow."

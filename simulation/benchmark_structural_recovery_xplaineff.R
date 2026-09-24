@@ -10,8 +10,9 @@ if (!file.exists("DESCRIPTION") || readLines("DESCRIPTION", 1L) != "Package: xpl
 }
 
 suppressPackageStartupMessages({
-  if (requireNamespace("devtools", quietly = TRUE)) {
-    devtools::load_all(".", quiet = TRUE)
+  use_load_all = tolower(Sys.getenv("XPLAINEFF_BENCH_LOAD_ALL", "true")) %in% c("true", "1", "yes", "y", "on")
+  if (isTRUE(use_load_all) && requireNamespace("pkgload", quietly = TRUE)) {
+    pkgload::load_all(".", quiet = TRUE)
   } else {
     library(xplaineff)
   }

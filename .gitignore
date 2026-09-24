@@ -168,6 +168,9 @@ cran-comments.md
 CRAN-RELEASE
 CRAN-SUBMISSION
 
+# Paper replication outputs
+replication/output/
+
 # pkgdown
 docs/
 

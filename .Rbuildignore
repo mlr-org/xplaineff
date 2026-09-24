@@ -51,6 +51,7 @@
 ^revdep$
 ^scripts$
 ^simulation$
+^replication$
 ^tests/testthat/_object_snapshots$
 ^tools$
 ^ALE Test Results\.pdf$
