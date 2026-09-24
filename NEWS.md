@@ -1,3 +1,7 @@
+# xplaineff (development version)
+
+- Added the introductory vignette `vignette("xplaineff")` with PD and ALE examples on synthetic and bike-sharing data (no issue).
+
 # xplaineff 0.1.0
 
 - Package renamed to xplaineff for CRAN submission (no issue).

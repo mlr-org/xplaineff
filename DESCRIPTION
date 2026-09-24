@@ -1,7 +1,7 @@
 Package: xplaineff
 Type: Package
 Title: Decomposing Global Feature Effects Based on Feature Interactions
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: c(
     person(
       "Zizheng", "Zhang",
@@ -42,6 +42,8 @@ LinkingTo:
 RoxygenNote: 7.3.2
 Suggests: 
     testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
     iml (>= 0.11.4),
     mlr3,
     mlr3learners,
@@ -51,6 +53,7 @@ Suggests:
     withr,
     xgboost
 Config/testthat/edition: 3
+VignetteBuilder: knitr
 Collate:
     'EffectStrategy.R'
     'AleStrategy.R'
