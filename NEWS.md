@@ -1,5 +1,6 @@
 # xplaineff (development version)
 
+- Default predictions for mlr3 classification learners now use the positive class probability instead of numeric factor level codes, so binary PD and ALE effects no longer flip sign with `task$positive`; probability learners no longer error, binary tasks no longer trigger the multiclass warning, and response-only classifiers now error with a hint to set `predict_type = "prob"` (no issue).
 - Added the introductory vignette `vignette("xplaineff")` with PD and ALE examples on synthetic and bike-sharing data (no issue).
 - `GadgetTree$new()` now rejects `n_quantiles < 1` up front (no issue).
 - The PD split search no longer writes NaN replacements back into the caller's effect matrices and copies coerced non-double inputs, and it excludes observations with a missing split-feature value from both children and from the parent totals, matching `Node$create_children()` (no issue).

@@ -178,24 +178,29 @@ has_predict_method = function(model, method) {
 # For multiclass probability PD/ICE on a specific class, pass a custom `predict_fun` in PdStrategy.
 # When `expected_n` is set, abort if length differs (including empty vs nonempty rows).
 extract_numeric_prediction = function(pred, expected_n = NULL) {
-  out = if (inherits(pred, "Prediction")) {
-    if (!is.null(pred$response)) {
-      as.numeric(pred$response)
-    } else if (!is.null(pred$prob)) {
-      if (ncol(pred$prob) > 1L) {
+  is_mlr3_pred = inherits(pred, "Prediction") || (is.list(pred) && any(c("response", "prob") %in% names(pred)))
+  out = if (is_mlr3_pred) {
+    # Prefer prob: classif response is a factor, and as.numeric() on it yields level codes, not probabilities.
+    # mlr3 orders prob columns with the positive class first.
+    if (!is.null(pred$prob)) {
+      if (ncol(pred$prob) > 2L) {
         cli::cli_warn(
           "Multiclass model detected: using first class probability column ({colnames(pred$prob)[1L]}) as prediction.
            Pass {.arg predict_fun} to override."
         )
       }
       as.numeric(pred$prob[, 1L])
+    } else if (is.factor(pred$response)) {
+      cli::cli_abort(
+        "Classification model predicts class labels only; set {.code predict_type = \"prob\"} or pass {.arg predict_fun}."
+      )
+    } else if (!is.null(pred$response)) {
+      as.numeric(pred$response)
     } else {
       cli::cli_abort(
         "{.cls Prediction} object has neither {.field response} nor {.field prob}; cannot extract numeric predictions."
       )
     }
-  } else if (is.list(pred) && !is.null(pred$response)) {
-    as.numeric(pred$response)
   } else if (is.list(pred) && !is.null(pred$predictions)) {
     as.numeric(pred$predictions)
   } else if (is.data.frame(pred)) {
