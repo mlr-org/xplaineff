@@ -1,12 +1,29 @@
 Package: xplaineff
 Type: Package
 Title: Decomposing Global Feature Effects Based on Feature Interactions
-Version: 0.1.0.9000
+Version: 0.1.1
 Authors@R: c(
     person(
       "Zizheng", "Zhang",
       email = "Zizheng.Zhang@stat.uni-muenchen.de",
-      role = c("aut", "cre")
+      role = c("aut", "cre"),
+      comment = c(ORCID = "0009-0009-4252-8018")
+    ),
+    person(
+      "Coco", "Bögel",
+      role = "aut",
+      comment = c(ORCID = "0009-0002-0683-4957")
+    ),
+    person(
+      "Giuseppe", "Casalicchio",
+      email = "giuseppe.casalicchio@stat.uni-muenchen.de",
+      role = "aut",
+      comment = c(ORCID = "0000-0001-5324-5966")
+    ),
+    person(
+      "Bernd", "Bischl",
+      role = "aut",
+      comment = c(ORCID = "0000-0001-6002-6980")
     )
   )
 Description: Implements the GADGET (Generalized Additive Decomposition of Global
