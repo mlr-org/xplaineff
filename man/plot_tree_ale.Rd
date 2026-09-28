@@ -15,43 +15,40 @@ plot_tree_ale(
   color_ale = "lightgreen",
   show_plot = TRUE,
   show_point = TRUE,
-  mean_center = TRUE,
-  ...
+  mean_center = TRUE
 )
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 
-\item{effect}{(`list()`) \cr
+\item{effect}{(\code{list()}) \cr
 Output of \code{calculate_ale()}.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Data with features and target.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target variable name.}
 
-\item{depth}{(`integer()` or `NULL`) \cr
+\item{depth}{(\code{integer()} or \code{NULL}) \cr
 Depth levels to render.}
 
-\item{node_id}{(`integer()` or `NULL`) \cr
+\item{node_id}{(\code{integer()} or \code{NULL}) \cr
 Node IDs to render.}
 
-\item{features}{(`character()` or `NULL`) \cr
+\item{features}{(\code{character()} or \code{NULL}) \cr
 Feature subset.}
 
-\item{color_ale}{(`character(1)`) \cr
+\item{color_ale}{(\code{character(1)}) \cr
 Color for ALE curves.}
 
-\item{show_plot, show_point, mean_center}{(`logical(1)`) \cr
+\item{show_plot, show_point, mean_center}{(\code{logical(1)}) \cr
 Plot options.}
-
-\item{...}{Additional arguments passed to plotting helpers.}
 }
 \value{
-(`list()`) \cr
-  Nested list (depth -> node -> patchwork).
+(\code{list()}) \cr
+Nested list (depth -> node -> patchwork).
 }
 \description{
 External helper mirroring \code{plot_tree_pd}, used by \code{AleStrategy$plot}.

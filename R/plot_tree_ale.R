@@ -25,7 +25,6 @@
 #'   Color for ALE curves.
 #' @param show_plot,show_point,mean_center (`logical(1)`) \cr
 #'   Plot options.
-#' @param ... Additional arguments passed to plotting helpers.
 #'
 #' @return (`list()`) \cr
 #'   Nested list (depth -> node -> patchwork).
@@ -33,7 +32,7 @@
 plot_tree_ale = function(tree, effect, data, target_feature_name,
   depth = NULL, node_id = NULL, features = NULL,
   color_ale = "lightgreen", show_plot = TRUE,
-  show_point = TRUE, mean_center = TRUE, ...) {
+  show_point = TRUE, mean_center = TRUE) {
   checkmate::assert_list(tree, .var.name = "tree")
   checkmate::assert_true(is.list(effect) || inherits(effect, "R6"), .var.name = "effect")
   checkmate::assert_data_frame(data, .var.name = "data")
@@ -85,7 +84,7 @@ plot_tree_ale = function(tree, effect, data, target_feature_name,
       node = nodes[[node_idx]]
       curves = prepare_plot_data_ale(effect,
         idx = node$subset_idx, features = features, mean_center = mean_center)
-      y_range = calculate_y_range_ale_combined(global_curves, curves, data, target_feature_name)
+      y_range = calculate_y_range_ale_combined(global_curves, curves)
       point_values = NULL
       if (show_point) {
         y_node = data[[target_feature_name]][node$subset_idx]
@@ -118,8 +117,6 @@ plot_tree_ale = function(tree, effect, data, target_feature_name,
       combined = patchwork::wrap_plots(stacked, ncol = ncol_used, nrow = nrow_used) +
         patchwork::plot_annotation(title = build_node_title(node, depth_idx, tree, style = "ale")) &
         ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
-      combined$layout$ncol = ncol_used
-      combined$layout$nrow = nrow_used
       if (show_plot) print(combined)
       depth_plots[[paste0("Node_", node$id)]] = combined
     }

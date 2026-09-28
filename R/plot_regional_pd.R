@@ -28,9 +28,6 @@ plot_regional_pd = function(prepared_data, origin_data, target_feature_name, nod
     subset_idx = which(data$node == node_idx)
     data_subset = data[subset_idx, ]
     origin_data_subset = origin_data[subset_idx, ]
-    if (feat %in% colnames(origin_data_subset) && is.factor(origin_data_subset[[feat]])) {
-      origin_data_subset[[feat]] = factor_to_numeric(origin_data_subset[[feat]])
-    }
 
     # data transformation
     data_subset = data_subset[, -ncol(data_subset), drop = FALSE]
@@ -47,6 +44,13 @@ plot_regional_pd = function(prepared_data, origin_data, target_feature_name, nod
     grid_as_num = suppressWarnings(as.numeric(cn))
     grid_numeric = length(cn) > 0L && all(!is.na(grid_as_num))
     grid_values = if (grid_numeric) grid_as_num else cn
+    if (feat %in% colnames(origin_data_subset) && is.factor(origin_data_subset[[feat]])) {
+      origin_data_subset[[feat]] = if (grid_numeric) {
+        factor_to_numeric(origin_data_subset[[feat]])
+      } else {
+        factor(as.character(origin_data_subset[[feat]]), levels = unique(cn))
+      }
+    }
     value_matrix = as.matrix(data_subset)
 
     ice_long = data.frame(
@@ -89,7 +93,6 @@ plot_regional_pd = function(prepared_data, origin_data, target_feature_name, nod
     # check if we can draw lines
     noline = length(unique(plot_data$grid[!is.na(plot_data$value)])) < 2
 
-    # nolint start: object_usage_linter. (.data, type from ggplot2/rlang NSE)
     p = ggplot(plot_data, aes(x = get("grid"), y = get("value"),
         group = get("id"), color = get("type")))
     pdp_data = plot_data[plot_data$type == "PDP", , drop = FALSE]
@@ -100,12 +103,11 @@ plot_regional_pd = function(prepared_data, origin_data, target_feature_name, nod
       p = p + geom_point(size = 1, shape = 4, na.rm = TRUE)
       p = p + geom_point(data = pdp_data, size = 3, shape = 4, na.rm = TRUE)
     }
-    if (feat %in% colnames(origin_data_subset)) {
+    if (show_point && feat %in% colnames(origin_data_subset)) {
       p = p + geom_point(data = origin_data_subset,
         aes(x = get(feat), y = get(target_feature_name)),
-        alpha = if (show_point) 0.3 else 0, size = 0.8, inherit.aes = FALSE)
+        alpha = 0.3, size = 0.8, inherit.aes = FALSE)
     }
-    # nolint end
     ylim_top = ymax
     if (show_point && is.finite(ymin) && is.finite(ymax)) {
       rng = ymax - ymin
@@ -116,7 +118,6 @@ plot_regional_pd = function(prepared_data, origin_data, target_feature_name, nod
         labels = c("ICE" = if (mean_center) "Mean centered ICE" else "ICE",
           "PDP" = if (mean_center) "Mean centered PDP" else "PDP")) +
       coord_cartesian(ylim = c(ymin, ylim_top)) +
-      # ylim(ymin, ymax) +
       theme_bw(base_size = 9) +
       labs(
         x = if (!is.null(split_condition)) paste0(feat, " | ", split_condition) else feat,

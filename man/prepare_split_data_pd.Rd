@@ -13,24 +13,24 @@ prepare_split_data_pd(
 )
 }
 \arguments{
-\item{effect}{(R6 or `list()`) \cr
+\item{effect}{(R6 or \code{list()}) \cr
 Effect object (e.g. FeatureEffect).}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Training data.}
 
-\item{target_feature_name}{(`character(1)` or `NULL`) \cr
+\item{target_feature_name}{(\code{character(1)} or \code{NULL}) \cr
 Target variable name; \code{NULL} = all columns are features.}
 
-\item{feature_set}{(`character()` or `NULL`) \cr
+\item{feature_set}{(\code{character()} or \code{NULL}) \cr
 Features in effect; \code{NULL} = all non-target columns.}
 
-\item{split_feature}{(`character()` or `NULL`) \cr
+\item{split_feature}{(\code{character()} or \code{NULL}) \cr
 Features for splitting; \code{NULL} = all.}
 }
 \value{
-(`list()`) \cr
-  \code{Z}: split-feature data.table; \code{Y}: mean-centered effects; \code{grid}: grid list.
+(\code{list()}) \cr
+\code{Z}: split-feature data.table; \code{Y}: mean-centered effects; \code{grid}: grid list.
 }
 \description{
 Given effect, data, and optional feature/split sets: resolves features;

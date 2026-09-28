@@ -1,4 +1,5 @@
 #' Return comparison operator for child relative to parent.
+#'
 #' Given parent_node and current_node: if current is left child returns \code{<=} (numeric) or \code{=} (categorical);
 #' if right returns \code{>} or \code{!=}.
 #'

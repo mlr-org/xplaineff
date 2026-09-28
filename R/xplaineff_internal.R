@@ -70,7 +70,9 @@ prune_effects_for_split_search = function(Y, objective_value_j, rel_tol = active
   Y_active = if (is_ale_compact(Y)) {
     subset_ale_compact_features(Y, active_names)
   } else {
-    Y[active_idx]
+    out = Y[active_idx]
+    attr(out, "xplaineff_pd_centered") = attr(Y, "xplaineff_pd_centered")
+    out
   }
 
   list(
@@ -447,7 +449,7 @@ numeric_matrix_for_prediction = function(newdata, feature_names = NULL) {
   if (is.null(selected)) {
     return(NULL)
   }
-  supported = vapply(selected, function(x) is.numeric(x) || is.integer(x) || is.logical(x), logical(1L))
+  supported = vapply(selected, function(x) is.numeric(x) || is.logical(x), logical(1L))
   if (!all(supported)) {
     return(NULL)
   }

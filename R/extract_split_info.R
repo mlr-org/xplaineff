@@ -36,7 +36,7 @@ extract_split_info = function(tree, split_benchmark = NULL) {
       return(NULL)
     }
     n_obs = if (is.null(node$subset_idx) || length(node$subset_idx) == 0) 0 else length(node$subset_idx)
-    is_final = isTRUE(node$improvement_met) | isTRUE(node$stop_criterion_met) |
+    is_final = isTRUE(node$improvement_met) || isTRUE(node$stop_criterion_met) ||
       is.null(node$children) || (is.list(node$children) && all(mlr3misc::map_lgl(node$children, is.null)))
     row = data.frame(
       depth = as.integer(node$depth),
@@ -58,7 +58,7 @@ extract_split_info = function(tree, split_benchmark = NULL) {
       is_final = is_final,
       stringsAsFactors = FALSE
     )
-    # Ensure all int_imp.* fields exist
+    # Ensure all int_imp_* fields exist
     for (nm in all_intimp_names) {
       row[[paste0("int_imp_", nm)]] =
         if (!is.null(node$importance$imp_j) && nm %in% names(node$importance$imp_j))
@@ -69,12 +69,12 @@ extract_split_info = function(tree, split_benchmark = NULL) {
   df_split = do.call(rbind, rows)
   rownames(df_split) = NULL
 
-  # Field order: place int_imp.* fields after int_imp
+  # Field order: place int_imp_* fields after int_imp
   all_cols = names(df_split)
   intimp_pos = which(all_cols == "int_imp")
-  intimp_dot_cols = grep("^int_imp_", all_cols, value = TRUE)
-  cols_wo_dot = setdiff(all_cols, intimp_dot_cols)
-  new_order = append(cols_wo_dot, intimp_dot_cols, after = intimp_pos)
+  intimp_cols = grep("^int_imp_", all_cols, value = TRUE)
+  cols_wo_intimp = setdiff(all_cols, intimp_cols)
+  new_order = append(cols_wo_intimp, intimp_cols, after = intimp_pos)
   df_split = df_split[, new_order]
 
   # Merge split_benchmark info if provided

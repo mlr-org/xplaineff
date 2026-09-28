@@ -14,33 +14,33 @@ calculate_ale(
 )
 }
 \arguments{
-\item{model}{(`any`) \cr
+\item{model}{(\code{any}) \cr
 Fitted model with predict interface.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Training data.}
 
-\item{feature_set}{(`character()`) \cr
+\item{feature_set}{(\code{character()}) \cr
 Features to compute ALE for.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target variable name.}
 
-\item{n_intervals}{(`integer(1)`) \cr
+\item{n_intervals}{(\code{integer(1)}) \cr
 Equal-frequency intervals for numeric features.}
 
-\item{predict_fun}{(`function()` or `NULL`) \cr
+\item{predict_fun}{(\verb{function()} or \code{NULL}) \cr
 \code{function(model, data)} returning predictions; \code{NULL} = default.}
 }
 \value{
-(`list()`) \cr
-  Named list of data.tables per \code{feature_set}. Each has columns:
-  \item{row_id}{Row index in \code{data}.}
-  \item{feat_val}{Feature value at that row.}
-  \item{x_left, x_right}{Interval/category boundaries (numeric) or left/right category (factor).}
-  \item{d_l}{Local effect (finite difference).}
-  \item{interval_index}{Interval or category index.}
-  \item{int_n, int_s1, int_s2}{Per-interval count and sum(d_l), sum(d_l^2) for heterogeneity.}
+(\code{list()}) \cr
+Named list of data.tables per \code{feature_set}. Each has columns:
+\item{row_id}{Row index in \code{data}.}
+\item{feat_val}{Feature value at that row.}
+\item{x_left, x_right}{Interval/category boundaries (numeric) or left/right category (factor).}
+\item{d_l}{Local effect (finite difference).}
+\item{interval_index}{Interval or category index.}
+\item{int_n, int_s1, int_s2}{Per-interval count and sum(d_l), sum(d_l^2) for heterogeneity.}
 }
 \description{
 Given model, data, feature_set, target_feature_name, n_intervals, predict_fun: for each feature,

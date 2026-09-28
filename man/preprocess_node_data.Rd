@@ -7,18 +7,18 @@
 preprocess_node_data(tree, Y, grid_total, mean_center)
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 
-\item{Y, grid_total}{(`list()`) \cr
+\item{Y, grid_total}{(\code{list()}) \cr
 Effect matrices and grid.}
 
-\item{mean_center}{(`logical(1)`) \cr
+\item{mean_center}{(\code{logical(1)}) \cr
 Whether to mean-center.}
 }
 \value{
-(`list()`) \cr
-  Processed data per depth.
+(\code{list()}) \cr
+Processed data per depth.
 }
 \description{
 Preprocess PD node data by depth.

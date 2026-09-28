@@ -4,7 +4,7 @@
 \alias{PdStrategy}
 \title{PdStrategy: Generalized Additive Decomposition Based on PD Effects}
 \format{
-[R6::R6Class] object inheriting from [EffectStrategy].
+\link[R6:R6Class]{R6::R6Class} object inheriting from \link{EffectStrategy}.
 }
 \description{
 PD-based effect strategy (inherits from \link{EffectStrategy}). Given effect or model and data,
@@ -21,9 +21,9 @@ but can be instantiated for advanced customization.
 }
 \section{Construction}{
 
-```
-s = PdStrategy$new(categorical_split = "one_vs_rest")
-```
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{s = PdStrategy$new(categorical_split = "one_vs_rest")
+}\if{html}{\out{</div>}}
 }
 
 \examples{
@@ -37,13 +37,13 @@ pd_strat$categorical_split
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{effect}}{(`list()` or `R6` or `NULL`) \cr
+\item{\code{effect}}{(\code{list()} or \code{R6} or \code{NULL}) \cr
 Cached PD/ICE effect used when \code{$plot()} omits \code{effect}.}
 
-\item{\code{categorical_split}}{(`character(1)`) \cr
+\item{\code{categorical_split}}{(\code{character(1)}) \cr
 Categorical split mode for PD trees: \code{"one_vs_rest"} or \code{"exhaustive"}.}
 
-\item{\code{max_exhaustive_levels}}{(`integer(1)`) \cr
+\item{\code{max_exhaustive_levels}}{(\code{integer(1)}) \cr
 Maximum observed levels allowed for exhaustive categorical split search.}
 }
 \if{html}{\out{</div>}}
@@ -67,28 +67,15 @@ Maximum observed levels allowed for exhaustive categorical split search.}
 \if{html}{\out{<a id="method-PdStrategy-new"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-new}{}}}
 \subsection{Method \code{new()}}{
-Create a PdStrategy instance (calls \code{super$initialize("pd")}).
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$new(categorical_split = "one_vs_rest", max_exhaustive_levels = 12L)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{categorical_split}}{(`character(1)`) \cr
-Categorical split mode for PD trees: \code{"one_vs_rest"} or \code{"exhaustive"}.}
-
-\item{\code{max_exhaustive_levels}}{(`integer(1)`) \cr
-Maximum observed levels allowed for exhaustive categorical split search.}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-preprocess"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-preprocess}{}}}
 \subsection{Method \code{preprocess()}}{
-Preprocess to Z, Y, grid via \code{prepare_split_data_pd}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$preprocess(
   effect,
@@ -99,92 +86,31 @@ Preprocess to Z, Y, grid via \code{prepare_split_data_pd}.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{effect}}{(R6 or `list()`) \cr
-Effect object (e.g. FeatureEffect).}
-
-\item{\code{data}}{(`data.frame()` or `data.table()`) \cr
-Data.}
-
-\item{\code{target_feature_name}}{(`character(1)` or `NULL`) \cr
-Target variable name.}
-
-\item{\code{feature_set}}{(`character()` or `NULL`) \cr
-Features for effect; \code{NULL} = all.}
-
-\item{\code{split_feature}}{(`character()` or `NULL`) \cr
-Features for splitting; \code{NULL} = all.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()`) \cr
-  \code{Z}, \code{Y}, \code{grid}.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-node_transform"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-node_transform}{}}}
 \subsection{Method \code{node_transform()}}{
-Subset and mean-center via \code{re_mean_center_ice_cpp}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$node_transform(Y, idx, grid, is_child = FALSE)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{Y}}{(`list()`) \cr
-Effect matrices per feature.}
-
-\item{\code{idx}}{(`integer()`) \cr
-Sample indices in the node.}
-
-\item{\code{grid}}{(`list()`) \cr
-Feature grids; required for PD.}
-
-\item{\code{is_child}}{(`logical(1)`) \cr
-Ignored for PD; kept for API parity with \code{AleStrategy}.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()`) \cr
-  Mean-centered effect matrices.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-heterogeneity"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-heterogeneity}{}}}
 \subsection{Method \code{heterogeneity()}}{
-Compute heterogeneity via \code{node_heterogeneity}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$heterogeneity(Y)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{Y}}{(`list()`) \cr
-Effect matrices.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`numeric()`) \cr
-  Heterogeneity per feature.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-get_child_objectives"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-get_child_objectives}{}}}
 \subsection{Method \code{get_child_objectives()}}{
-Compute left/right child objective values via node_transform and heterogeneity.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$get_child_objectives(
-  Z,
   Y,
   split_info,
   idx_left,
@@ -194,68 +120,20 @@ Compute left/right child objective values via node_transform and heterogeneity.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{Z}}{(`data.frame()` or `data.table()`) \cr
-Split features.}
-
-\item{\code{Y}}{(`list()`) \cr
-Effect matrices.}
-
-\item{\code{split_info}}{(`list()`) \cr
-Split metadata.}
-
-\item{\code{idx_left, idx_right}}{(`integer()`) \cr
-Child row indices.}
-
-\item{\code{grid_left, grid_right}}{(`list()`) \cr
-Child grids.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()`) \cr
-  \code{left_objective_value_j}, \code{right_objective_value_j},
-  \code{left_objective_value}, \code{right_objective_value}.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-find_best_split"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-find_best_split}{}}}
 \subsection{Method \code{find_best_split()}}{
-Find best split via \code{search_best_split_cpp}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$find_best_split(Z, Y, min_node_size, n_quantiles)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{Z}}{(`data.frame()` or `data.table()`) \cr
-Split features.}
-
-\item{\code{Y}}{(`list()`) \cr
-Effect matrices.}
-
-\item{\code{min_node_size}}{(`integer(1)`) \cr
-Minimum node size.}
-
-\item{\code{n_quantiles}}{(`integer(1)` or `NULL`) \cr
-Quantile candidates.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`data.frame()` or `list()`) \cr
-  Best split info.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-plot"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-plot}{}}}
 \subsection{Method \code{plot()}}{
-Plot PD/ICE tree via \code{plot_tree_pd}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$plot(
   tree,
@@ -269,44 +147,11 @@ Plot PD/ICE tree via \code{plot_tree_pd}.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{tree}}{(`list()`) \cr
-Depth-based list of Node objects.}
-
-\item{\code{effect}}{(R6 or `list()` or `NULL`) \cr
-Effect object.}
-
-\item{\code{data}}{(`data.frame()`) \cr
-Data.}
-
-\item{\code{target_feature_name}}{(`character(1)`) \cr
-Target name.}
-
-\item{\code{depth}}{(`integer()` or `NULL`) \cr
-Depths to plot.}
-
-\item{\code{node_id}}{(`integer()` or `NULL`) \cr
-Node IDs to plot.}
-
-\item{\code{features}}{(`character()` or `NULL`) \cr
-Features to plot.}
-
-\item{\code{...}}{Plot arguments.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()`) \cr
-  Nested list (depth -> node -> patchwork).
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-fit"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-fit}{}}}
 \subsection{Method \code{fit()}}{
-Fit tree: preprocess, create root, split recursively.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$fit(
   tree,
@@ -325,58 +170,11 @@ Fit tree: preprocess, create root, split recursively.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{tree}}{(`GadgetTree`) \cr
-Tree instance.}
-
-\item{\code{effect}}{(R6 or `list()` or `NULL`) \cr
-Optional precomputed effect object.}
-
-\item{\code{model}}{(`any`) \cr
-Fitted model for internal PD/ICE computation.}
-
-\item{\code{data}}{(`data.frame()`) \cr
-Data.}
-
-\item{\code{target_feature_name}}{(`character(1)`) \cr
-Target name.}
-
-\item{\code{feature_set, split_feature}}{(`character()` or `NULL`) \cr
-Feature subsets.}
-
-\item{\code{predict_fun}}{(`function()` or `NULL`) \cr
-Optional prediction function.}
-
-\item{\code{n_grid}}{(`integer(1)`) \cr
-Number of grid points for numeric features.}
-
-\item{\code{pd_engine}}{(`character(1)`) \cr
-When computing ICE/PD from \code{model}: \code{"auto"}, \code{"cpp"} (column-wise stacked
-\code{newdata}, xplaineff-style), or \code{"r"} (\code{data.table::rbindlist}).}
-
-\item{\code{categorical_split}}{(`character(1)` or `NULL`) \cr
-Categorical split mode for PD trees; \code{NULL} keeps the current strategy setting.}
-
-\item{\code{max_exhaustive_levels}}{(`integer(1)` or `NULL`) \cr
-Maximum observed levels allowed for exhaustive categorical split search;
-\code{NULL} keeps the current strategy setting.}
-
-\item{\code{...}}{Ignored.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`GadgetTree`) \cr
-  The tree, invisibly.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PdStrategy-clean"></a>}}
 \if{latex}{\out{\hypertarget{method-PdStrategy-clean}{}}}
 \subsection{Method \code{clean()}}{
-Drops \code{tree_ref}; effect cache is intentionally retained when present.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PdStrategy$clean()}\if{html}{\out{</div>}}
 }

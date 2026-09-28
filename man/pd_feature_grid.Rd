@@ -7,15 +7,15 @@
 pd_feature_grid(x, n_grid)
 }
 \arguments{
-\item{x}{(`vector`) \cr
+\item{x}{(\code{vector}) \cr
 Feature column from the training data.}
 
-\item{n_grid}{(`integer(1)`) \cr
+\item{n_grid}{(\code{integer(1)}) \cr
 Number of grid points for numeric features; ignored for factor/character.}
 }
 \value{
-(`atomic vector`) \cr
-  Grid values: \code{character()} for factor/character, \code{numeric()} otherwise.
+(\verb{atomic vector}) \cr
+Grid values: \code{character()} for factor/character, \code{numeric()} otherwise.
 }
 \description{
 Returns grid values for a single feature column:

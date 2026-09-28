@@ -4,7 +4,7 @@
 \alias{GadgetTree}
 \title{GadgetTree: Regional feature-effect tree}
 \format{
-[R6::R6Class] object.
+\link[R6:R6Class]{R6::R6Class} object.
 }
 \description{
 Wrapper for effect-based trees: given a strategy (pd/ale), fits tree via
@@ -19,19 +19,21 @@ point for fitting and visualizing effect-based decision trees in the xplaineff p
 }
 \section{Construction}{
 
-```
-t = GadgetTree$new(strategy, n_split = 2, impr_par = 0.1, min_node_size = 10, n_quantiles = NULL)
-```
-* `strategy` :: ([AleStrategy] | [PdStrategy])\cr
-  Effect strategy object.
-* `n_split` :: `integer(1)`\cr
-  Maximum split depth, counted as splits along any root-to-leaf path.
-* `impr_par` :: `numeric(1)`\cr
-  Improvement threshold.
-* `min_node_size` :: `integer(1)`\cr
-  Minimum samples per node.
-* `n_quantiles` :: `integer(1)` or `NULL`\cr
-  Number of quantile cut points for numeric split candidates; `NULL` = use all unique values.
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{t = GadgetTree$new(strategy, n_split = 2, impr_par = 0.1, min_node_size = 10, n_quantiles = NULL)
+}\if{html}{\out{</div>}}
+\itemize{
+\item \code{strategy} :: (\link{AleStrategy} | \link{PdStrategy})\cr
+Effect strategy object.
+\item \code{n_split} :: \code{integer(1)}\cr
+Maximum split depth, counted as splits along any root-to-leaf path.
+\item \code{impr_par} :: \code{numeric(1)}\cr
+Improvement threshold.
+\item \code{min_node_size} :: \code{integer(1)}\cr
+Minimum samples per node.
+\item \code{n_quantiles} :: \code{integer(1)} or \code{NULL}\cr
+Number of quantile cut points for numeric split candidates; \code{NULL} = use all unique values.
+}
 }
 
 \examples{
@@ -39,32 +41,31 @@ tree = GadgetTree$new(strategy = PdStrategy$new(), n_split = 2L)
 tree$n_split
 
 }
-\keyword{internal}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
 \item{\code{strategy}}{(PdStrategy | AleStrategy) \cr
 Effect-specific logic.}
 
-\item{\code{root}}{(`Node`) \cr
+\item{\code{root}}{(\code{Node}) \cr
 Root node.}
 
-\item{\code{n_split}}{(`integer(1)`) \cr
+\item{\code{n_split}}{(\code{integer(1)}) \cr
 Maximum split depth, counted as splits along any root-to-leaf path.}
 
-\item{\code{impr_par}}{(`numeric(1)`) \cr
+\item{\code{impr_par}}{(\code{numeric(1)}) \cr
 Improvement threshold.}
 
-\item{\code{min_node_size}}{(`integer(1)`) \cr
+\item{\code{min_node_size}}{(\code{integer(1)}) \cr
 Minimum samples per node.}
 
-\item{\code{n_quantiles}}{(`integer(1)` or `NULL`) \cr
+\item{\code{n_quantiles}}{(\code{integer(1)} or \code{NULL}) \cr
 Number of quantile cut points for numeric split candidates.}
 
-\item{\code{split_benchmark}}{(`list()`) \cr
+\item{\code{split_benchmark}}{(\code{list()}) \cr
 Internal split timing records.}
 
-\item{\code{tree_list_cache}}{(`list()` or `NULL`) \cr
+\item{\code{tree_list_cache}}{(\code{list()} or \code{NULL}) \cr
 Cached depth-based tree list; invalidated on \code{$fit()}.}
 }
 \if{html}{\out{</div>}}
@@ -85,7 +86,6 @@ Cached depth-based tree list; invalidated on \code{$fit()}.}
 \if{html}{\out{<a id="method-GadgetTree-new"></a>}}
 \if{latex}{\out{\hypertarget{method-GadgetTree-new}{}}}
 \subsection{Method \code{new()}}{
-Initialize tree parameters.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{GadgetTree$new(
   strategy,
@@ -96,32 +96,11 @@ Initialize tree parameters.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{strategy}}{(PdStrategy | AleStrategy) \cr
-Strategy object.}
-
-\item{\code{n_split}}{(`integer(1)`) \cr
-Maximum split depth, counted as splits along any root-to-leaf path.}
-
-\item{\code{impr_par}}{(`numeric(1)`) \cr
-Improvement threshold.}
-
-\item{\code{min_node_size}}{(`integer(1)`) \cr
-Minimum node size.}
-
-\item{\code{n_quantiles}}{(`integer(1)` or `NULL`) \cr
-Number of quantile cut points for numeric split candidates.}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-GadgetTree-fit"></a>}}
 \if{latex}{\out{\hypertarget{method-GadgetTree-fit}{}}}
 \subsection{Method \code{fit()}}{
-Fit tree via \code{strategy$fit()}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{GadgetTree$fit(
   data,
@@ -132,42 +111,11 @@ Fit tree via \code{strategy$fit()}.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{data}}{(`data.frame()`) \cr
-Data with features and target.}
-
-\item{\code{target_feature_name}}{(`character(1)`) \cr
-Target name.}
-
-\item{\code{feature_set}}{(`character()` or `NULL`) \cr
-Features for effect; \code{NULL} = all.}
-
-\item{\code{split_feature}}{(`character()` or `NULL`) \cr
-Features for splitting; \code{NULL} = all.}
-
-\item{\code{...}}{(`list()`) \cr
-Strategy-specific arguments passed to \code{$fit()}.
-For [AleStrategy]: \code{model} or \code{effect}, plus optional
-\code{n_intervals}, \code{predict_fun}, \code{order_method},
-\code{ale_engine}, \code{categorical_split}, and \code{max_exhaustive_levels}.
-For [PdStrategy]: \code{effect}, or \code{model} with optional
-\code{predict_fun}, \code{n_grid}, \code{pd_engine}, \code{categorical_split},
-and \code{max_exhaustive_levels}.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`GadgetTree`) \cr
-  The tree, invisibly.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-GadgetTree-plot"></a>}}
 \if{latex}{\out{\hypertarget{method-GadgetTree-plot}{}}}
 \subsection{Method \code{plot()}}{
-Plot tree via \code{strategy$plot()}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{GadgetTree$plot(
   data,
@@ -180,41 +128,11 @@ Plot tree via \code{strategy$plot()}.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{data}}{(`data.frame()`) \cr
-Data.}
-
-\item{\code{target_feature_name}}{(`character(1)`) \cr
-Target name.}
-
-\item{\code{effect}}{(R6 or `list()` or `NULL`) \cr
-Optional effect object; omit or \code{NULL} uses strategy-cached effect from \code{$fit()}.}
-
-\item{\code{depth}}{(`integer()` or `NULL`) \cr
-Depths to plot.}
-
-\item{\code{node_id}}{(`integer()` or `NULL`) \cr
-Node IDs to plot.}
-
-\item{\code{features}}{(`character()` or `NULL`) \cr
-Features to plot.}
-
-\item{\code{...}}{Plot arguments.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()`) \cr
-  Nested list (depth -> node -> patchwork).
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-GadgetTree-plot_tree_structure"></a>}}
 \if{latex}{\out{\hypertarget{method-GadgetTree-plot_tree_structure}{}}}
 \subsection{Method \code{plot_tree_structure()}}{
-Converts root to depth-list and calls \code{plot_tree_structure()}. Prints graph.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{GadgetTree$plot_tree_structure(
   label_wrap_width = 34L,
@@ -223,53 +141,24 @@ Converts root to depth-list and calls \code{plot_tree_structure()}. Prints graph
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{label_wrap_width}}{(`integer(1)` or `NULL`) \cr
-Wrap node labels to this many characters per line; \code{NULL} disables wrapping.}
-
-\item{\code{node_spread_x, node_spread_y}}{(`numeric(1)`) \cr
-Layout stretch factors for the ggraph \code{"tree"} layout (larger values separate nodes).}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-GadgetTree-extract_split_info"></a>}}
 \if{latex}{\out{\hypertarget{method-GadgetTree-extract_split_info}{}}}
 \subsection{Method \code{extract_split_info()}}{
-Extract split info from tree.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{GadgetTree$extract_split_info(include_timing = FALSE)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{include_timing}}{(`logical(1)`) \cr
-Whether to include internal split timings in the output.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`data.frame()`) \cr
-  Split info: depth, id, split_feature, split_value, int_imp, etc.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-GadgetTree-get_tree_list"></a>}}
 \if{latex}{\out{\hypertarget{method-GadgetTree-get_tree_list}{}}}
 \subsection{Method \code{get_tree_list()}}{
-Get depth-based tree list (cached). Invalidated on \code{$fit()}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{GadgetTree$get_tree_list()}\if{html}{\out{</div>}}
 }
 
-\subsection{Returns}{
-(`list()`) \cr
-  Depth-based list of nodes.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-GadgetTree-clone"></a>}}

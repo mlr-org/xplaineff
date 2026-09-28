@@ -103,7 +103,7 @@ test_that("mlr3 regr.rpart fast prediction bypasses the learner prediction objec
 
 test_that("native xgboost regression fast prediction matches booster predict", {
   skip_if_not_installed("xgboost")
-  Sys.setenv(OMP_NUM_THREADS = "1", OMP_THREAD_LIMIT = "1")
+  withr::local_envvar(OMP_NUM_THREADS = "1", OMP_THREAD_LIMIT = "1")
   set.seed(33L)
   data = data.frame(x1 = runif(80L), x2 = rnorm(80L), x3 = runif(80L))
   data$y = data$x1 - data$x2 + 0.25 * data$x3
@@ -130,7 +130,7 @@ test_that("mlr3 regr.xgboost fast prediction uses the trained booster", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
   skip_if_not_installed("xgboost")
-  Sys.setenv(OMP_NUM_THREADS = "1", OMP_THREAD_LIMIT = "1")
+  withr::local_envvar(OMP_NUM_THREADS = "1", OMP_THREAD_LIMIT = "1")
   set.seed(34L)
   data = data.frame(x1 = runif(80L), x2 = rnorm(80L), x3 = runif(80L))
   data$y = 0.5 * data$x1 - data$x2 + data$x3
@@ -189,7 +189,7 @@ test_that("mlr3 regr.xgboost fast prediction is used in the ALE path", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
   skip_if_not_installed("xgboost")
-  Sys.setenv(OMP_NUM_THREADS = "1", OMP_THREAD_LIMIT = "1")
+  withr::local_envvar(OMP_NUM_THREADS = "1", OMP_THREAD_LIMIT = "1")
   set.seed(36L)
   data = data.frame(x1 = runif(50L), x2 = rnorm(50L), x3 = runif(50L))
   data$y = 0.5 * data$x1 - data$x2 + data$x3

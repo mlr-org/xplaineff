@@ -7,15 +7,15 @@
 find_node_by_id(node_list, id)
 }
 \arguments{
-\item{node_list}{(`list()`) \cr
+\item{node_list}{(\code{list()}) \cr
 List of Node objects (each with an \code{id} field).}
 
-\item{id}{(`integer(1)`) \cr
+\item{id}{(\code{integer(1)}) \cr
 Node id to look up.}
 }
 \value{
-(`Node` or `NULL`) \cr
-  The node with matching \code{id}, or \code{NULL} if not found.
+(\code{Node} or \code{NULL}) \cr
+The node with matching \code{id}, or \code{NULL} if not found.
 }
 \description{
 Given node_list and id: loops and returns first node with \code{node$id == id}, or NULL.

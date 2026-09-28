@@ -7,15 +7,15 @@
 ensure_factors(data, cols)
 }
 \arguments{
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Data to modify.}
 
-\item{cols}{(`character()`) \cr
+\item{cols}{(\code{character()}) \cr
 Column names to ensure as factor.}
 }
 \value{
-(`data.frame()` or `data.table()`) \cr
-  Modified data (by reference for data.table).
+(\code{data.frame()} or \code{data.table()}) \cr
+Copy of \code{data} with the listed character columns converted to factor.
 }
 \description{
 Ensure character columns are factors.

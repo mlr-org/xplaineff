@@ -12,23 +12,23 @@ prepare_split_data_common(
 )
 }
 \arguments{
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Data.}
 
-\item{target_feature_name}{(`character(1)` or `NULL`) \cr
+\item{target_feature_name}{(\code{character(1)} or \code{NULL}) \cr
 Target column; \code{NULL} = all columns are features.}
 
-\item{feature_set}{(`character()` or `NULL`) \cr
+\item{feature_set}{(\code{character()} or \code{NULL}) \cr
 Features; \code{NULL} = all.}
 
-\item{split_feature}{(`character()` or `NULL`) \cr
+\item{split_feature}{(\code{character()} or \code{NULL}) \cr
 Split features; \code{NULL} = all.}
 }
 \value{
-(`list()`) \cr
-  \code{data}, \code{Z}, \code{feature_set}, \code{split_feature}.
+(\code{list()}) \cr
+\code{data}, \code{feature_set}, \code{split_feature}.
 }
 \description{
-Resolves feature_set/split_feature, ensures factors, builds Z.
+Resolves feature_set/split_feature and ensures factors.
 }
 \keyword{internal}

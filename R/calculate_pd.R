@@ -220,8 +220,8 @@ compute_ice = function(
 #' Compute ICE Matrix (Pure R)
 #'
 #' Builds a stacked prediction data.table by repeating each row once per grid
-#' value, replaces the focal feature column with each grid value, runs
-#' \code{pd_predict}, and reshapes predictions into a matrix.
+#' value, replaces the focal feature column with each grid value, calls
+#' \code{predictor$predict()}, and reshapes predictions into a matrix.
 #'
 #' @param model (`any`) \cr
 #'   Fitted model.
@@ -492,25 +492,4 @@ pd_pack_ice_result = function(ice, feature, grid) {
     .borders = rep(grid, times = n_obs),
     .value   = as.vector(t(ice))
   )
-}
-
-
-#' Generate Predictions for New Data
-#'
-#' Calls \code{predict_fun} (or the default predict method) on \code{newdata}
-#' and extracts a numeric prediction vector via \code{extract_numeric_prediction}.
-#'
-#' @param model (`any`) \cr
-#'   Fitted model.
-#' @param newdata (`data.frame()` or `data.table()`) \cr
-#'   New observations to predict.
-#' @param predict_fun (`function()` or `NULL`) \cr
-#'   \code{function(model, data)} returning predictions; \code{NULL} = default.
-#'
-#' @return (`numeric()`) \cr
-#'   Numeric prediction vector of length \code{nrow(newdata)}.
-#'
-#' @keywords internal
-pd_predict = function(model, newdata, predict_fun = NULL) {
-  make_effect_predictor(model = model, predict_fun = predict_fun)$predict(newdata)
 }

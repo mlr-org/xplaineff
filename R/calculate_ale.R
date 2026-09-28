@@ -95,16 +95,16 @@ calculate_ale = function(model, data, feature_set, target_feature_name, n_interv
 #'   Number of intervals.
 #' @param predict_fun (`function()` or `NULL`) \cr
 #'   Prediction function.
-#'
-#' @return (`data.table()`) \cr
-#'   ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
 #' @param stacked (`NULL` or [data.table::data.table()]) \cr
 #'   Shared \code{2n}-row design matrix; omit to allocate internally.
-#' @param idx_lower, idx_upper (`integer()` or \code{NULL}) \cr
+#' @param idx_lower,idx_upper (`integer()` or \code{NULL}) \cr
 #'   Lower/upper half row indices inside \code{stacked}.
 #' @param predictor (`list()` or `NULL`) \cr
 #'   Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
 #'   \code{model} and \code{predict_fun}.
+#'
+#' @return (`data.table()`) \cr
+#'   ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
 #' @keywords internal
 ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predict_fun = NULL,
   stacked = NULL, idx_lower = NULL, idx_upper = NULL, predictor = NULL) {
@@ -138,7 +138,6 @@ ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predic
   data.table::set(stacked, i = idx_lower, j = feature, value = q[interval_index])
   data.table::set(stacked, i = idx_upper, j = feature, value = q[interval_index + 1L])
   pred = predictor$predict(stacked)
-  pred = pred + 0
   d_l = pred[idx_upper] - pred[idx_lower]
   data.table::set(stacked, j = feature, value = original)
 
@@ -170,16 +169,16 @@ ale_numeric_feature = function(model, data, X, feature, n_intervals = 10, predic
 #'   Feature name.
 #' @param predict_fun (`function()` or `NULL`) \cr
 #'   Prediction function.
-#'
-#' @return (`data.table()`) \cr
-#'   ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
 #' @param stacked (`NULL` or [data.table::data.table()]) \cr
 #'   Shared \code{2n}-row design matrix for batched categorical ALE (see numeric branch).
-#' @param idx_lower, idx_upper (`integer()` or \code{NULL}) \cr
+#' @param idx_lower,idx_upper (`integer()` or \code{NULL}) \cr
 #'   Row halves in \code{stacked}: plus-vector / minus-vector predictions respectively.
 #' @param predictor (`list()` or `NULL`) \cr
 #'   Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
 #'   \code{model} and \code{predict_fun}.
+#'
+#' @return (`data.table()`) \cr
+#'   ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
 #' @keywords internal
 ale_categorical_feature = function(model, data, X, feature, predict_fun = NULL,
   stacked = NULL, idx_lower = NULL, idx_upper = NULL, predictor = NULL) {
@@ -213,7 +212,6 @@ ale_categorical_feature = function(model, data, X, feature, predict_fun = NULL,
   data.table::set(stacked, i = idx_upper, j = feature, value = cn)
 
   pred_cat = predictor$predict(stacked)
-  pred_cat = pred_cat + 0
   delta = pred_cat[idx_lower] - pred_cat[idx_upper]
   data.table::set(stacked, j = feature, value = original)
 

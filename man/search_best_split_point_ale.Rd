@@ -17,38 +17,38 @@ search_best_split_point_ale(
 )
 }
 \arguments{
-\item{z}{(`numeric()` or `factor()`) \cr
+\item{z}{(\code{numeric()} or \code{factor()}) \cr
 Split feature values.}
 
-\item{effect}{(`list()`) \cr
+\item{effect}{(\code{list()}) \cr
 ALE effect data (from \code{calculate_ale}).}
 
-\item{st_table}{(`list()`) \cr
+\item{st_table}{(\code{list()}) \cr
 Precomputed interval statistics.}
 
-\item{split_feat}{(`character(1)`) \cr
+\item{split_feat}{(\code{character(1)}) \cr
 Name of split feature.}
 
-\item{is_categorical}{(`logical(1)`) \cr
+\item{is_categorical}{(\code{logical(1)}) \cr
 Whether \code{z} is categorical.}
 
-\item{n_quantiles}{(`integer(1)` or `NULL`) \cr
+\item{n_quantiles}{(\code{integer(1)} or \code{NULL}) \cr
 Quantiles for numeric features.}
 
-\item{min_node_size}{(`integer(1)`) \cr
+\item{min_node_size}{(\code{integer(1)}) \cr
 Minimum observations per child.}
 
-\item{categorical_split}{(`character(1)`) \cr
+\item{categorical_split}{(\code{character(1)}) \cr
 Categorical split mode: \code{"ordered_prefix"} or \code{"exhaustive"}.}
 
-\item{max_exhaustive_levels}{(`integer(1)`) \cr
+\item{max_exhaustive_levels}{(\code{integer(1)}) \cr
 Maximum observed levels allowed for exhaustive categorical split search.}
 }
 \value{
-(`list()`) \cr
-  \code{split_point}, \code{split_objective}, \code{objective_value_j},
-  \code{left_objective_value_j}, \code{right_objective_value_j}, and
-  \code{split_levels}.
+(\code{list()}) \cr
+\code{split_point}, \code{split_objective}, \code{objective_value_j},
+\code{left_objective_value_j}, \code{right_objective_value_j}, and
+\code{split_levels}.
 }
 \description{
 Find best ALE split point for one feature.

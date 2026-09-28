@@ -20,46 +20,46 @@ compute_ice(
 )
 }
 \arguments{
-\item{model}{(`any`) \cr
+\item{model}{(\code{any}) \cr
 Fitted model.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Feature data (target column already removed).}
 
-\item{feature}{(`character(1)`) \cr
+\item{feature}{(\code{character(1)}) \cr
 Name of the focal feature.}
 
-\item{grid}{(`atomic vector`) \cr
+\item{grid}{(\verb{atomic vector}) \cr
 Grid values for the focal feature.}
 
-\item{predict_fun}{(`function()` or `NULL`) \cr
+\item{predict_fun}{(\verb{function()} or \code{NULL}) \cr
 Custom predict function; \code{NULL} = default.}
 
-\item{pd_engine}{(`character(1)`) \cr
+\item{pd_engine}{(\code{character(1)}) \cr
 \code{"cpp"}, \code{"r"}, or internal \code{"row_major"}.}
 
-\item{base_data_dt}{(`data.table()` or `NULL`) \cr
+\item{base_data_dt}{(\code{data.table()} or \code{NULL}) \cr
 Pre-converted data.table of \code{data}; avoids repeated conversion.}
 
-\item{cols_list}{(`list()` or `NULL`) \cr
+\item{cols_list}{(\code{list()} or \code{NULL}) \cr
 Pre-extracted column list of \code{base_data_dt}; used by the C++ path.}
 
-\item{feature_index}{(`integer(1)` or `NULL`) \cr
+\item{feature_index}{(\code{integer(1)} or \code{NULL}) \cr
 1-based column index of \code{feature} in \code{base_data_dt}; used by the C++ path.}
 
-\item{stacked_pd_cache}{(`list()` or `NULL`) \cr
+\item{stacked_pd_cache}{(\code{list()} or \code{NULL}) \cr
 Pre-allocated stacked data.table cache for the R path; \code{NULL} disables caching.}
 
-\item{predictor}{(`list()` or `NULL`) \cr
+\item{predictor}{(\code{list()} or \code{NULL}) \cr
 Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
 \code{model} and \code{predict_fun}.}
 
-\item{base_data_df}{(`data.frame()` or `NULL`) \cr
+\item{base_data_df}{(\code{data.frame()} or \code{NULL}) \cr
 Pre-converted data.frame of \code{data}; used by the row-major path.}
 }
 \value{
-(`matrix`) \cr
-  Numeric matrix of shape \code{n_obs x length(grid)} containing ICE predictions.
+(\code{matrix}) \cr
+Numeric matrix of shape \code{n_obs x length(grid)} containing ICE predictions.
 }
 \description{
 Dispatches ICE computation to the C++, R, or row-major backend based on \code{pd_engine}.

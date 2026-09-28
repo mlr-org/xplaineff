@@ -7,18 +7,18 @@
 resolve_split_features(requested, all_features, err_label)
 }
 \arguments{
-\item{requested}{(`character()` or `NULL`) \cr
+\item{requested}{(\code{character()} or \code{NULL}) \cr
 Requested feature names; \code{NULL} = use all.}
 
-\item{all_features}{(`character()`) \cr
+\item{all_features}{(\code{character()}) \cr
 Available feature names.}
 
-\item{err_label}{(`character(1)`) \cr
+\item{err_label}{(\code{character(1)}) \cr
 Label for error message (e.g. "Features", "Split features").}
 }
 \value{
-(`character()`) \cr
-  Resolved feature names.
+(\code{character()}) \cr
+Resolved feature names.
 }
 \description{
 Resolve feature names against available columns.

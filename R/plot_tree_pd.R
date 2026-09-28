@@ -27,12 +27,10 @@ plot_tree_pd = function(tree, effect, data, target_feature_name,
   show_plot = TRUE, show_point = FALSE, mean_center = TRUE,
   depth = NULL, node_id = NULL, features = NULL) {
 
-  # Pre-process data once for all depths
   wide_mean_center = mean_center_ice(effect, feature_set = features, mean_center = mean_center)
   Y = wide_mean_center$Y
   grid_total = wide_mean_center$grid
 
-  # Pre-calculate all node data
   all_node_data = preprocess_node_data(tree, Y, grid_total, mean_center)
 
   depths_to_render = select_depths_to_render(tree, depth, node_id)
@@ -50,9 +48,6 @@ plot_tree_pd = function(tree, effect, data, target_feature_name,
     } else {
       node_ids = suppressWarnings(as.integer(node_id))
       nodes_to_render = which(mlr3misc::map_lgl(tree[[depth_idx]], function(n) !is.null(n) && n$id %in% node_ids))
-    }
-    if (length(nodes_to_render) == 0) {
-      cli::cli_abort("No valid nodes to render at depth {depth_idx}")
     }
     plots_at_depth = create_plots_for_depth(tree, prepared_data, data, target_feature_name,
       depth_idx, nodes_to_render, color_ice, color_pd,

@@ -17,8 +17,10 @@
 #'   \code{"mds"}, \code{"pca"}, \code{"random"}, or \code{"raw"}.
 #'
 #' @return (`factor()`) \cr
-#'   Same as \code{x_cat} with reordered \code{levels} and \code{ordered = TRUE};
-#'   unchanged if \code{nlevels(x_cat) <= 1} or no other features.
+#'   Same as \code{x_cat} with reordered \code{levels} and \code{ordered = TRUE}.
+#'   For \code{order_method = "raw"} the level order is kept but the factor is still coerced to
+#'   \code{ordered = TRUE}; for the other methods, \code{x_cat} is returned unchanged if
+#'   \code{nlevels(x_cat) <= 1} or no other features are available.
 #'
 #' @details
 #' For each pair of levels, a distance is computed from all other features
@@ -88,13 +90,10 @@ order_categorical_levels = function(x_cat, data, feature, target_feature_name, o
     mds_ord = stats::cmdscale(dist_mat, k = 1)
     scores = mds_ord[, 1]
     sorted_lev = rownames(dist_mat)[order(scores)]
-  } else if (order_method == "pca") {
+  } else {
     pca_res = stats::prcomp(dist_mat, center = TRUE, scale. = FALSE)
     scores = pca_res$x[, 1]
     sorted_lev = rownames(dist_mat)[order(scores)]
-  } else {
-    # Fallback: keep original order if unknown method is passed
-    return(x_cat)
   }
 
   factor(x_cat, levels = sorted_lev, ordered = TRUE)

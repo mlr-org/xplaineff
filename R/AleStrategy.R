@@ -186,7 +186,7 @@ AleStrategy = R6::R6Class(
     #' @return (`list()`) \cr
     #'   \code{left_objective_value_j}, \code{right_objective_value_j},
     #'   \code{left_objective_value}, \code{right_objective_value}.
-    get_child_objectives = function(Z, Y, split_info, idx_left, idx_right, grid_left, grid_right) {
+    get_child_objectives = function(Y, split_info, idx_left, idx_right, grid_left, grid_right) {
       checkmate::assert_list(split_info, .var.name = "split_info")
       raw = split_info$raw_result
       if (is.null(raw) || is.null(raw$left_objective_value_j)) {
@@ -218,7 +218,7 @@ AleStrategy = R6::R6Class(
     #'   Minimum node size.
     #' @param n_quantiles (`integer(1)` or `NULL`) \cr
     #'   Quantile candidates for numeric.
-    #' @return (`list()` or `data.frame()`) \cr
+    #' @return (`data.table()`) \cr
     #'   Best split info: \code{split_feature}, \code{split_point}, etc.
     find_best_split = function(Z, Y, min_node_size, n_quantiles) {
       checkmate::assert_true(data.table::is.data.table(Z) || is.data.frame(Z), .var.name = "Z")
@@ -306,7 +306,7 @@ AleStrategy = R6::R6Class(
     #' @param ... Ignored.
     #' @return (`GadgetTree`) \cr
     #'   The tree, invisibly.
-    fit = function(tree, model, effect = NULL, data, target_feature_name,
+    fit = function(tree, model = NULL, effect = NULL, data, target_feature_name,
       n_intervals = 10, feature_set = NULL, split_feature = NULL,
       predict_fun = NULL, order_method = "raw", ale_engine = c("auto", "cpp", "r"),
       categorical_split = NULL, max_exhaustive_levels = NULL, ...) {
@@ -378,6 +378,7 @@ AleStrategy = R6::R6Class(
     #' @description
     #' Sets \code{data} and \code{model} to \code{NULL} to free memory after fitting.
     #' \code{effect} is intentionally retained because \code{plot()} requires it post-fit.
+    #' @return (\code{NULL}), invisibly.
     clean = function() {
       self$data = NULL
       self$model = NULL

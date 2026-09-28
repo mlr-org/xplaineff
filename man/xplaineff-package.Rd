@@ -6,38 +6,38 @@
 \alias{xplaineff}
 \title{xplaineff: Generalized Additive Decomposition of Global EffecTs}
 \description{
-The **xplaineff** package implements the GADGET algorithm for interpretable
+The \strong{xplaineff} package implements the GADGET algorithm for interpretable
 machine learning. It builds a tree by recursively partitioning the feature
 space to minimize the heterogeneity of feature effects (e.g., Accumulated
 Local Effects or Partial Dependence), so that within each region the
 effects are more stable and easier to interpret.
 }
 \details{
-**Main components (user-facing):**
+\strong{Main components (user-facing):}
 \itemize{
-  \item \code{\link{GadgetTree}}: R6 class to grow and visualize effect-based trees.
-  \item \code{\link{AleStrategy}}: Strategy for ALE-based trees (ALE computed internally from a fitted model).
-  \item \code{\link{PdStrategy}}: Strategy for PD-based trees (uses
-    precomputed ICE/PD from \pkg{iml} or similar tools).
+\item \code{\link{GadgetTree}}: R6 class to grow and visualize effect-based trees.
+\item \code{\link{AleStrategy}}: Strategy for ALE-based trees (ALE computed internally from a fitted model).
+\item \code{\link{PdStrategy}}: Strategy for PD-based trees (uses
+precomputed ICE/PD from \pkg{iml} or similar tools).
 }
 
-**Typical workflow:**
+\strong{Typical workflow:}
 \enumerate{
-  \item Train a model (e.g., with \pkg{mlr3}).
-  \item Create a tree: \code{tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 3, min_node_size = 50)}.
-  \item Fit: \code{tree$fit(data, target_feature_name, ...)}.
-    Strategy-specific \code{...} arguments include:
-    \itemize{
-      \item \strong{AleStrategy}: \code{model} (required), \code{n_intervals = 10},
-        \code{predict_fun = NULL}, \code{order_method = "raw"}, \code{ale_engine} (default \code{"auto"}),
-        \code{categorical_split}, and \code{max_exhaustive_levels}.
-      \item \strong{PdStrategy}: either \code{effect}, or \code{model} with optional \code{predict_fun},
-        \code{n_grid}, \code{pd_engine} (default \code{"auto"}), \code{categorical_split}, and
-        \code{max_exhaustive_levels}.
-      \item Both strategies accept \code{feature_set} and \code{split_feature}.
-      \item Tree parameters include \code{impr_par}, \code{min_node_size}, and \code{n_quantiles}.
-    }
-  \item Visualize: \code{tree$plot_tree_structure()}, \code{tree$plot(...)}, \code{tree$extract_split_info()}.
+\item Train a model (e.g., with \pkg{mlr3}).
+\item Create a tree: \code{tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 3, min_node_size = 50)}.
+\item Fit: \code{tree$fit(data, target_feature_name, ...)}.
+Strategy-specific \code{...} arguments include:
+\itemize{
+\item \strong{AleStrategy}: \code{model} (required), \code{n_intervals = 10},
+\code{predict_fun = NULL}, \code{order_method = "raw"}, \code{ale_engine} (default \code{"auto"}),
+\code{categorical_split}, and \code{max_exhaustive_levels}.
+\item \strong{PdStrategy}: either \code{effect}, or \code{model} with optional \code{predict_fun},
+\code{n_grid}, \code{pd_engine} (default \code{"auto"}), \code{categorical_split}, and
+\code{max_exhaustive_levels}.
+\item Both strategies accept \code{feature_set} and \code{split_feature}.
+\item Tree parameters include \code{impr_par}, \code{min_node_size}, and \code{n_quantiles}.
+}
+\item Visualize: \code{tree$plot_tree_structure()}, \code{tree$plot(...)}, \code{tree$extract_split_info()}.
 }
 
 For PD-based trees, either pass an effect object from
@@ -47,13 +47,13 @@ or pass a fitted model and let xplaineff compute PD/ICE internally.
 }
 \references{
 Herbinger, J., Wright, M. N., Nagler, T., Bischl, B., and Casalicchio, G. (2024).
-  Decomposing Global Feature Effects Based on Feature Interactions.
-  \emph{Journal of Machine Learning Research}, 25(23-0699), 1–65.
-  URL: \url{https://jmlr.org/papers/volume25/23-0699/23-0699.pdf}.
+Decomposing Global Feature Effects Based on Feature Interactions.
+\emph{Journal of Machine Learning Research}, 25(23-0699), 1–65.
+URL: \url{https://jmlr.org/papers/volume25/23-0699/23-0699.pdf}.
 
 Apley, D.W. and Zhu, J. (2016). Visualizing the Effects of Predictors on the Response
-  in Nonlinear and Generalized Linear Models. \emph{Journal of Computational and Graphical Statistics},
-  25(2), 590–600.
+in Nonlinear and Generalized Linear Models. \emph{Journal of Computational and Graphical Statistics},
+25(2), 590–600.
 }
 \seealso{
 \code{\link{GadgetTree}}, \code{\link{AleStrategy}}, \code{\link{PdStrategy}}

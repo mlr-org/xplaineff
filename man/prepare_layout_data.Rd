@@ -7,13 +7,13 @@
 prepare_layout_data(tree)
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 }
 \value{
-(`data.frame()`) \cr
-  Columns: \code{id}, \code{node_id}, \code{id_parent}, \code{split_feature},
-  \code{split_value}, \code{label}, \code{depth}, etc.
+(\code{data.frame()}) \cr
+Columns: \code{id}, \code{node_id}, \code{id_parent}, \code{split_feature},
+\code{split_value}, \code{label}, \code{depth}, etc.
 }
 \description{
 Given tree (depth-list of Node objects): flattens to one row per node; extracts id, id_parent,

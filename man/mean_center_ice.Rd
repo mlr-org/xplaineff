@@ -7,18 +7,18 @@
 mean_center_ice(effect, feature_set = NULL, mean_center = TRUE)
 }
 \arguments{
-\item{effect}{(R6 or `list()`) \cr
+\item{effect}{(R6 or \code{list()}) \cr
 Effect object with \code{results} field (e.g. from FeatureEffect).}
 
-\item{feature_set}{(`character()` or `NULL`) \cr
+\item{feature_set}{(\code{character()} or \code{NULL}) \cr
 Features to include; \code{NULL} = all.}
 
-\item{mean_center}{(`logical(1)`) \cr
+\item{mean_center}{(\code{logical(1)}) \cr
 Whether to mean-center each effect matrix row-wise.}
 }
 \value{
-(`list()`) \cr
-  \code{Y}: named list of matrices per feature; \code{grid}: column names (grid coordinates) per feature.
+(\code{list()}) \cr
+\code{Y}: named list of matrices per feature; \code{grid}: column names (grid coordinates) per feature.
 }
 \description{
 Expects \code{effect$results} as either a single \code{data.frame} or a named list of

@@ -15,30 +15,30 @@ search_best_split_ale(
 )
 }
 \arguments{
-\item{Z}{(`data.frame()` or `data.table()`) \cr
+\item{Z}{(\code{data.frame()} or \code{data.table()}) \cr
 Split features.}
 
-\item{effect}{(`list()`) \cr
+\item{effect}{(\code{list()}) \cr
 ALE effect data per feature (from \code{calculate_ale}).}
 
-\item{min_node_size}{(`integer(1)`) \cr
+\item{min_node_size}{(\code{integer(1)}) \cr
 Minimum observations per node.}
 
-\item{n_quantiles}{(`integer(1)` or `NULL`) \cr
+\item{n_quantiles}{(\code{integer(1)} or \code{NULL}) \cr
 Quantiles for numeric split candidates.}
 
-\item{active_effect_tol}{(`numeric(1)`) \cr
+\item{active_effect_tol}{(\code{numeric(1)}) \cr
 Relative threshold used to skip negligible effect components in this split search.}
 
-\item{categorical_split}{(`character(1)`) \cr
+\item{categorical_split}{(\code{character(1)}) \cr
 Categorical split mode: \code{"ordered_prefix"} or \code{"exhaustive"}.}
 
-\item{max_exhaustive_levels}{(`integer(1)`) \cr
+\item{max_exhaustive_levels}{(\code{integer(1)}) \cr
 Maximum observed levels allowed for exhaustive categorical split search.}
 }
 \value{
-(`data.frame()`) \cr
-  Best split info with per-feature objective values.
+(\code{data.table()}) \cr
+Best split info with per-feature objective values.
 }
 \description{
 Find best ALE split across features.

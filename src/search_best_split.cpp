@@ -45,14 +45,15 @@ inline double quantile_type7(const NumericVector& x, double p) {
   return x[lo] + f * (x[lo + 1] - x[lo]);
 }
 
-/* Convert R matrix to Armadillo (zero-copy when possible). */
+/* Convert R matrix to an Armadillo copy. The copy keeps the later NaN replacement from
+   writing into the caller's matrix and keeps the data alive when as.matrix() had to coerce. */
 inline arma::mat arma_view(SEXP obj) {
   if (!Rf_isMatrix(obj) || TYPEOF(obj) != REALSXP) {
     Rcpp::Function as_matrix("as.matrix");
     obj = as_matrix(obj);
   }
   Rcpp::NumericMatrix M(obj);
-  return arma::mat(M.begin(), M.nrow(), M.ncol(), false);
+  return arma::mat(M.begin(), M.nrow(), M.ncol(), true);
 }
 
 /* Count of grid points <= x via binary search (O(log n)). Precondition: grid sorted ascending
@@ -190,16 +191,17 @@ List child_objectives_numeric_flat(
   const int N = Y_by_obs.n_cols;
   arma::vec SL(Y_by_obs.n_rows, arma::fill::zeros);
   arma::vec QL(Y_by_obs.n_rows, arma::fill::zeros);
-  int NL = 0;
+  int NL = 0, n_na = 0;
   for (int i = 0; i < N; ++i) {
     const double v = z_num[i];
-    if (R_IsNA(v) || v > split_value) continue;
+    if (ISNAN(v)) { ++n_na; continue; }
+    if (v > split_value) continue;
     ++NL;
     const arma::subview_col<double> yi = Y_by_obs.col(i);
     SL += yi;
     QL += yi % yi;
   }
-  return child_objectives_from_flat_sums(SL, QL, S_tot, Q_tot, offsets, NL, N - NL,
+  return child_objectives_from_flat_sums(SL, QL, S_tot, Q_tot, offsets, NL, N - n_na - NL,
     split_feat_effect, split_feat_pos);
 }
 
@@ -237,21 +239,35 @@ List child_objectives_categorical_flat(
 // -----------------------------------------------------------------------------
 // search_best_split_point_cpp_internal
 // Purpose:
-//   Find best split for a single feature (categorical or numerical).
-//   Accepts preprocessed Ym and S_tot for efficiency.
+//   Find the best split for a single feature (categorical or numerical) given
+//   the preprocessed, flattened effect matrix and its total column sums.
 // Inputs:
-//   z: Feature vector (numeric or categorical)
-//   Ym: Preprocessed effect matrices (NaN replaced with 0)
-//   S_tot: Column sums per matrix
-//   n_quantiles, is_categorical, min_node_size
+//   z: split feature vector (numeric, or factor when is_categorical)
+//   Y_by_obs: M x N matrix; column i holds all active effect values of observation i
+//     (NaN already replaced by 0)
+//   S_tot, Q_tot: length-M column sums of Y and Y^2 over all observations
+//   offsets: length Ly+1; offsets[l]..offsets[l+1]-1 are the rows of effect l in Y_by_obs
+//   n_quantiles: optional number of quantile candidates for numeric z (NULL = all unique values)
+//   is_categorical: TRUE if z is a factor
+//   min_node_size: minimum observations per child
+//   compute_child_objectives: if TRUE, also compute per-effect child objectives
+//   split_feat_effect: effect index of the split feature's own effect (-1 = none)
+//   split_feat_grid: grid values of that effect (column names), used to halve its
+//     grid across the children
+//   categorical_split: "one_vs_rest" or "exhaustive" (categorical z only)
+//   max_exhaustive_levels: maximum observed levels allowed for the exhaustive search
 // Output:
-//   List: split_point, split_objective
+//   List: split_point (numeric midpoint, or level-set label for categorical),
+//     split_levels (character vector of left-child levels, NULL for numeric),
+//     split_objective (R_PosInf when no valid split),
+//     left_objective_value_j, right_objective_value_j (length-Ly per-effect child
+//     objectives; NA unless compute_child_objectives).
 // -----------------------------------------------------------------------------
 List search_best_split_point_cpp_internal(
     SEXP              z,
     const arma::mat&  Y_by_obs,              // effect rows as contiguous observation columns
-    const arma::vec&  S_tot,                 // & = reference, const = read-only, avoids copying large vector
-    const arma::vec&  Q_tot,                 // & = reference, const = read-only, avoids copying large vector
+    const arma::vec&  S_tot,
+    const arma::vec&  Q_tot,
     const std::vector<int>& offsets,         // Column offsets for per-effect child objectives
     Nullable<int>     n_quantiles   = R_NilValue,
     bool              is_categorical = false,
@@ -262,7 +278,7 @@ List search_best_split_point_cpp_internal(
     std::string       categorical_split = "one_vs_rest",
     int               max_exhaustive_levels = 12)
 {
-  const int Ly = offsets.size() - 1; // p
+  const int Ly = offsets.size() - 1; // number of effect matrices
   const int N = Y_by_obs.n_cols; // n
   const int split_feat_n_grid = split_feat_effect >= 0 ?
     offsets[split_feat_effect + 1] - offsets[split_feat_effect] : 0;
@@ -273,16 +289,14 @@ List search_best_split_point_cpp_internal(
     split_feat_grid.size() == static_cast<size_t>(split_feat_n_grid);
   const arma::uword sf_start = is_own_effect_halved ? offsets[split_feat_effect] : 0;      // a
   const arma::uword sf_end   = is_own_effect_halved ? offsets[split_feat_effect + 1] : 0;  // b
-  // Split feature's parent total sum-of-squares, computed once here (before evaluating any
-  // split candidate). WHY it is subtracted: for every OTHER feature the SS term cancels
-  // (SS_parent = SS_left + SS_right, so it drops as a constant and only S terms remain). For
+  // Split feature's parent total sum-of-squares (sf_const, computed in the numeric branch over
+  // the rows with a non-missing split value). WHY it is subtracted: for every OTHER feature the
+  // SS term cancels (SS_parent = SS_left + SS_right, so it drops as a constant and only S terms
+  // remain). For
   // the split feature the grid is halved, so its SS does NOT cancel and must be kept -- but
   // then its objective carries an extra +SS_parent,j that differs per feature. Subtracting
   // sf_const removes that per-feature offset (leaving only the global constant Sum_k SS_k,
   // identical for every split choice) so split_objective stays comparable ACROSS features.
-  const double sf_const = is_own_effect_halved ?
-    arma::accu(Q_tot.subvec(sf_start, sf_end - 1)) : 0.0;
-
   double best_obj = R_PosInf, best_split = NA_REAL;
   std::string best_level;
   std::vector<int> best_left_level_indices;
@@ -416,12 +430,28 @@ List search_best_split_point_cpp_internal(
     z_num = NumericVector(z);
   }
 
-  // Create sorted index and sorted values
-  IntegerVector ord = Rcpp::seq(0, N - 1);
+  // Sort the rows with a non-missing split-feature value. NA rows belong to neither child
+  // (Node$create_children drops them the same way), so they are removed from the totals too.
+  std::vector<int> ord;
+  ord.reserve(N);
+  arma::vec S_use = S_tot;
+  arma::vec Q_use = Q_tot;
+  for (int i = 0; i < N; ++i) {
+    if (ISNAN(z_num[i])) {
+      const arma::subview_col<double> yi = Y_by_obs.col(i);
+      S_use -= yi;
+      Q_use -= yi % yi;
+    } else {
+      ord.push_back(i);
+    }
+  }
   std::sort(ord.begin(), ord.end(), [&](int i, int j){ return z_num[i] < z_num[j]; });
+  const int N_valid = static_cast<int>(ord.size());
+  const double sf_const = is_own_effect_halved ?
+    arma::accu(Q_use.subvec(sf_start, sf_end - 1)) : 0.0;
 
-  NumericVector z_sorted(N);
-  for (int i = 0; i < N; ++i) z_sorted[i] = z_num[ord[i]];
+  NumericVector z_sorted(N_valid);
+  for (int i = 0; i < N_valid; ++i) z_sorted[i] = z_num[ord[i]];
 
   // Generate candidate split points
   NumericVector splits;
@@ -469,7 +499,7 @@ List search_best_split_point_cpp_internal(
 
   int idx = 0;
   for (double sp : splits) {
-    while (idx < N && z_sorted[idx] <= sp) {
+    while (idx < N_valid && z_sorted[idx] <= sp) {
       int r = ord[idx++];
       SL += Y_by_obs.col(r);
       if (is_own_effect_halved) {
@@ -477,13 +507,13 @@ List search_best_split_point_cpp_internal(
         for (arma::uword c = 0; c < sf_M; ++c) QL_split[c] += yr[c] * yr[c];
       }
     }
-    int NL = idx, NR = N - NL;
+    int NL = idx, NR = N_valid - NL;
 
     // Skip if either child node would be too small
     if (NL < min_node_size || NR < min_node_size) continue;
 
     // Calculate objective function for this split
-    const arma::vec SR = S_tot - SL;
+    const arma::vec SR = S_use - SL;
     double obj;
     if (!is_own_effect_halved) {
       obj = arma::accu( - SL%SL / NL - SR%SR / NR );
@@ -514,7 +544,7 @@ List search_best_split_point_cpp_internal(
         obj += arma::accu(QL_split.head(mid - a)) - arma::dot(SL_l, SL_l) / NL;
       }
       if (mid < b) {  // right half, grid > sp
-        const arma::vec QR_r = Q_tot.subvec(mid, b - 1) - QL_split.subvec(mid - a, b - 1 - a);
+        const arma::vec QR_r = Q_use.subvec(mid, b - 1) - QL_split.subvec(mid - a, b - 1 - a);
         const arma::vec SR_r = SR.subvec(mid, b - 1);
         obj += arma::accu(QR_r) - arma::dot(SR_r, SR_r) / NR;
       }
@@ -545,7 +575,7 @@ List search_best_split_point_cpp_internal(
 
   if (compute_child_objectives) {
     const int child_pos = is_own_effect_halved ? find_grid_interval(best_split, split_feat_grid) : 0;
-    List child_obj = child_objectives_numeric_flat(z_num, best_split, Y_by_obs, S_tot, Q_tot, offsets,
+    List child_obj = child_objectives_numeric_flat(z_num, best_split, Y_by_obs, S_use, Q_use, offsets,
       is_own_effect_halved ? split_feat_effect : -1, child_pos);
     best_left_obj = child_obj["left_objective_value_j"];
     best_right_obj = child_obj["right_objective_value_j"];
@@ -560,13 +590,24 @@ List search_best_split_point_cpp_internal(
 // -----------------------------------------------------------------------------
 // search_best_split_cpp
 // Purpose:
-//   Evaluate all features in Z, find best split per feature, return full results.
+//   Evaluate all features in Z, find the best split per feature, and return the
+//   per-feature results with child objectives filled in for the selected split.
 // Inputs:
-//   Z: DataFrame of features
-//   Y: List of effect matrices
-//   min_node_size, n_quantiles
+//   Z: DataFrame of split features (numeric or factor columns)
+//   Y: named list of N x G_l effect matrices (one per effect); names match Z columns
+//     to locate a split feature's own effect
+//   min_node_size: minimum observations per child
+//   n_quantiles: optional number of quantile candidates for numeric features
+//   active_effect_rel_tol: effects whose objective is <= tol * total objective are
+//     dropped from the search (the largest effect is kept if none remain)
+//   categorical_split: "one_vs_rest" or "exhaustive"
+//   max_exhaustive_levels: maximum observed levels for the exhaustive search (>= 2)
 // Output:
-//   DataFrame: split_feature, is_categorical, split_point, split_objective, etc.
+//   DataFrame with one row per feature: split_feature, is_categorical,
+//     split_point (character), split_objective, best_split (logical), and the
+//     list-columns left_objective_value_j, right_objective_value_j (named
+//     per-effect child objectives; NA except for the best split) and
+//     split_levels (left-child levels for categorical splits, NULL otherwise).
 // -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 DataFrame search_best_split_cpp(
@@ -653,31 +694,28 @@ DataFrame search_best_split_cpp(
     }
   }
   offsets[Ly] = M;
-  arma::mat Y_flat;
-  const arma::mat* Y_search = nullptr;
+  // Armadillo stores matrices column-major. Split scanning repeatedly accumulates
+  // all effect columns for one observation, so the search matrix is built directly
+  // in transposed (M x N) layout: each observation vector is contiguous in memory.
+  arma::mat Y_by_obs;
   arma::rowvec S_tot(M, arma::fill::zeros);
   arma::rowvec Q_tot(M, arma::fill::zeros);
   if (n_active_effects == 1) {
-    Y_search = &Ym[single_active_effect];
+    Y_by_obs = Ym[single_active_effect].t();
     S_tot = S_effect[single_active_effect];
     Q_tot = Q_effect[single_active_effect];
   } else {
-    Y_flat.set_size(N, M);
+    Y_by_obs.set_size(M, N);
     for (int l = 0; l < Ly; ++l) {
       if (active_effect[l]) {
         const int start = offsets[l];
         const int end = offsets[l + 1] - 1;
-        Y_flat.cols(start, end) = Ym[l];
+        Y_by_obs.rows(start, end) = Ym[l].t();
         S_tot.subvec(start, end) = S_effect[l];
         Q_tot.subvec(start, end) = Q_effect[l];
       }
     }
-    Y_search = &Y_flat;
   }
-  // Armadillo stores matrices column-major. Split scanning repeatedly accumulates
-  // all effect columns for one observation, so scanning a transposed view gives
-  // contiguous memory access for each observation vector.
-  arma::mat Y_by_obs = Y_search->t();
   arma::vec S_tot_col = S_tot.t();
   arma::vec Q_tot_col = Q_tot.t();
   SEXP effect_names_obj = Y.attr("names");

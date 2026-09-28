@@ -29,6 +29,7 @@ prepare_split_data_pd = function(effect, data, target_feature_name = NULL, featu
     }
   }
   common = prepare_split_data_common(data, target_feature_name, feature_set, split_feature)
+  Z = data.table::setDT(take_cols(common$data, common$split_feature))
   wide_mean_center = mean_center_ice(effect = effect, feature_set = common$feature_set)
-  list(Z = common$Z, Y = wide_mean_center$Y, grid = wide_mean_center$grid)
+  list(Z = Z, Y = wide_mean_center$Y, grid = wide_mean_center$grid)
 }

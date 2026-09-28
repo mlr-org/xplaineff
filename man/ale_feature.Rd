@@ -6,7 +6,6 @@
 \usage{
 ale_feature(
   data,
-  X,
   stacked,
   idx_lower,
   idx_upper,
@@ -16,33 +15,30 @@ ale_feature(
 )
 }
 \arguments{
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Training data.}
 
-\item{X}{(`data.table()`) \cr
-Features (excl. target). Never modified.}
-
-\item{stacked}{(`data.table()`) \cr
+\item{stacked}{(\code{data.table()}) \cr
 Pre-allocated 2n-row matrix shared across features; modified in-place per call.}
 
-\item{idx_lower}{(`integer()`) \cr
+\item{idx_lower}{(\code{integer()}) \cr
 Row indices for the lower/plus half of stacked (1..n).}
 
-\item{idx_upper}{(`integer()`) \cr
+\item{idx_upper}{(\code{integer()}) \cr
 Row indices for the upper/minus half of stacked ((n+1)..2n).}
 
-\item{feature}{(`character(1)`) \cr
+\item{feature}{(\code{character(1)}) \cr
 Feature name.}
 
-\item{n_intervals}{(`integer(1)`) \cr
+\item{n_intervals}{(\code{integer(1)}) \cr
 Number of intervals.}
 
-\item{predictor}{(`list()`) \cr
+\item{predictor}{(\code{list()}) \cr
 Prediction function wrapper from \code{make_effect_predictor}.}
 }
 \value{
-(`data.table()`) \cr
-  ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
+(\code{data.table()}) \cr
+ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
 }
 \description{
 Fast ALE for a single feature.

@@ -7,19 +7,19 @@
 build_ale_order_and_candidates(z, is_categorical, n_quantiles = NULL)
 }
 \arguments{
-\item{z}{(`numeric()` or `factor()`) \cr
+\item{z}{(\code{numeric()} or \code{factor()}) \cr
 Split feature values.}
 
-\item{is_categorical}{(`logical(1)`) \cr
+\item{is_categorical}{(\code{logical(1)}) \cr
 Whether \code{z} is categorical.}
 
-\item{n_quantiles}{(`integer(1)` or `NULL`) \cr
+\item{n_quantiles}{(\code{integer(1)} or \code{NULL}) \cr
 Quantiles for numeric features.}
 }
 \value{
-(`list()` or `NULL`) \cr
-  \code{ord_idx}, \code{z_sorted}, \code{n_obs}, \code{is_cand}; for categorical
-  also \code{boundary_pos}, \code{levels_vec}. \code{NULL} if no valid split.
+(\code{list()} or \code{NULL}) \cr
+\code{ord_idx}, \code{z_sorted}, \code{n_obs}, \code{is_cand}; for categorical
+also \code{boundary_pos}, \code{levels_vec}. \code{NULL} if no valid split.
 }
 \description{
 Build order and split candidates for ALE sweep.

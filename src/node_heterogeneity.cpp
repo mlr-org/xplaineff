@@ -14,7 +14,7 @@ using namespace Rcpp;
 //   Compute heterogeneity (sum of variances) per feature from effect matrices.
 //   For each matrix in Y: sum over columns of (sum of squares - sum^2 / n),
 //   i.e., sum_j [ sum_i Y[i,j]^2 - (sum_i Y[i,j])^2 / n ].
-//   Used by pdStrategy$heterogeneity().
+//   Used by PdStrategy$heterogeneity().
 // Inputs:
 //   - Y: List of numeric matrices (e.g., ICE effect matrices per feature).
 // Notes:

@@ -16,31 +16,31 @@ compute_ice_row_major(
 )
 }
 \arguments{
-\item{model}{(`any`) \cr
+\item{model}{(\code{any}) \cr
 Fitted model.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Feature data (target removed).}
 
-\item{feature}{(`character(1)`) \cr
+\item{feature}{(\code{character(1)}) \cr
 Name of the focal feature.}
 
-\item{grid}{(`atomic vector`) \cr
+\item{grid}{(\verb{atomic vector}) \cr
 Grid values for the focal feature.}
 
-\item{predict_fun}{(`function()` or `NULL`) \cr
+\item{predict_fun}{(\verb{function()} or \code{NULL}) \cr
 Custom predict function; \code{NULL} = default.}
 
-\item{base_data_dt}{(`data.table()` or `NULL`) \cr
+\item{base_data_dt}{(\code{data.table()} or \code{NULL}) \cr
 Pre-converted data.table; avoids repeated conversion.}
 
-\item{predictor}{(`list()` or `NULL`) \cr
+\item{predictor}{(\code{list()} or \code{NULL}) \cr
 Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
 \code{model} and \code{predict_fun}.}
 }
 \value{
-(`matrix`) \cr
-  Numeric matrix of shape \code{n_obs x length(grid)}.
+(\code{matrix}) \cr
+Numeric matrix of shape \code{n_obs x length(grid)}.
 }
 \description{
 Builds full ICE prediction data in observation-major order:

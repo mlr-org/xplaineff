@@ -1,6 +1,7 @@
 test_that("calculate_ale returns named list of data.tables", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
+  skip_if_not_installed("ranger")
   set.seed(1)
   n = 40
   data = data.frame(x1 = rnorm(n), x2 = rnorm(n), y = rnorm(n))
@@ -22,8 +23,9 @@ test_that("calculate_ale returns named list of data.tables", {
   }
 })
 
-test_that("calculate_ale_heterogeneity_cpp returns numeric", {
+test_that("calculate_ale_heterogeneity_cpp returns within-interval sum of squared residuals", {
   skip_ale_cpp_if_unavailable()
+  set.seed(101)
   n = 20
   dt = data.table::data.table(
     row_id = seq_len(n),
@@ -31,15 +33,20 @@ test_that("calculate_ale_heterogeneity_cpp returns numeric", {
     d_l = rnorm(n),
     int_n = 5L, int_s1 = 0, int_s2 = 1
   )
+  expected = sum((dt$d_l - stats::ave(dt$d_l, dt$interval_index))^2)
   result = xplaineff:::calculate_ale_heterogeneity_single_cpp(dt$d_l, dt$interval_index)
   expect_true(is.numeric(result))
   expect_length(result, 1)
-  expect_true(!is.na(result))
-  expect_true(result >= 0)
+  expect_equal(result, expected)
+  expect_equal(
+    xplaineff:::calculate_ale_heterogeneity_single_cpp(c(1, 3, 10, 14), c(1L, 1L, 2L, 2L)),
+    10
+  )
 })
 
 test_that("calculate_ale_heterogeneity_list_cpp works with list of ALE data", {
   skip_ale_cpp_if_unavailable()
+  set.seed(102)
   n = 15
   dt1 = data.table::data.table(
     row_id = seq_len(n), interval_index = rep(1:3, length.out = n),
@@ -50,18 +57,18 @@ test_that("calculate_ale_heterogeneity_list_cpp works with list of ALE data", {
     d_l = rnorm(n), int_n = 3L, int_s1 = 0, int_s2 = 1
   )
   Y = list(f1 = dt1, f2 = dt2)
+  expected = lapply(Y, function(dt) sum((dt$d_l - stats::ave(dt$d_l, dt$interval_index))^2))
   result = xplaineff:::calculate_ale_heterogeneity_list_cpp(Y)
   # C++ returns a named list of scalars, not a numeric vector
   expect_true(is.list(result))
-  expect_length(result, 2)
-  expect_true(all(vapply(result, is.numeric, logical(1))))
-  expect_true(all(!is.na(unlist(result))))
-  expect_true(all(unlist(result) >= 0))
+  expect_named(result, c("f1", "f2"))
+  expect_equal(result, expected)
 })
 
 test_that("ALE tree fit stores root and cached effect", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
+  skip_if_not_installed("ranger")
   skip_ale_cpp_if_unavailable()
   set.seed(2)
   n = 50
@@ -80,6 +87,7 @@ test_that("ALE tree fit stores root and cached effect", {
 test_that("AleStrategy auto engine selects cpp for native predictors", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
+  skip_if_not_installed("ranger")
   skip_ale_cpp_if_unavailable()
   set.seed(13)
   n = 45
@@ -109,6 +117,7 @@ test_that("AleStrategy auto engine selects r for custom predict_fun", {
 })
 
 test_that("AleStrategy auto engine honors compact ALE option", {
+  skip_if_not_installed("withr")
   skip_ale_cpp_if_unavailable()
   set.seed(13)
   n = 45
@@ -132,6 +141,7 @@ test_that("AleStrategy auto engine honors compact ALE option", {
 test_that("prepare_split_data_ale returns Z and Y", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
+  skip_if_not_installed("ranger")
   skip_ale_cpp_if_unavailable()
   set.seed(3)
   n = 30
@@ -155,6 +165,7 @@ test_that("prepare_split_data_ale returns Z and Y", {
 test_that("prepare_split_data_ale r and cpp engines are numerically aligned", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
+  skip_if_not_installed("ranger")
   skip_ale_cpp_if_unavailable()
   set.seed(11)
   n = 60
@@ -635,6 +646,7 @@ test_that("ALE split prefers x3 on the interaction synthetic DGP", {
 })
 
 test_that("compact ALE split search matches data.table ALE on numeric data", {
+  skip_if_not_installed("withr")
   skip_ale_cpp_if_unavailable()
   set.seed(20260713)
   n = 120L
@@ -691,6 +703,7 @@ test_that("compact ALE split search matches data.table ALE on numeric data", {
 })
 
 test_that("ALE matrix split search matches data.table ALE on mixed data", {
+  skip_if_not_installed("withr")
   skip_ale_cpp_if_unavailable()
   set.seed(20260716)
   n = 150L

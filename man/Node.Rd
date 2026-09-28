@@ -12,7 +12,6 @@ Node: Tree Node for Effect-based Decision Trees (R6 class)
 Represents a single node in an effect-based decision tree, storing split information,
 effect statistics, and child nodes. Uses grouped fields for clearer structure.
 
-
 This class is used internally by GadgetTree and strategy objects to represent
 and manage nodes in effect-based decision trees. Each node stores split information,
 effect statistics, and references to its children.
@@ -21,38 +20,38 @@ effect statistics, and references to its children.
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{id}}{(`integer(1)`) \cr
+\item{\code{id}}{(\code{integer(1)}) \cr
 Node identifier within its depth level.}
 
-\item{\code{depth}}{(`integer(1)`) \cr
+\item{\code{depth}}{(\code{integer(1)}) \cr
 Depth of the node (root starts at 1).}
 
-\item{\code{subset_idx}}{(`integer()`) \cr
+\item{\code{subset_idx}}{(\code{integer()}) \cr
 Row indices of data that fall into this node.}
 
-\item{\code{grid}}{(`list()`) \cr
+\item{\code{grid}}{(\code{list()}) \cr
 Grid values for each feature in this node.}
 
-\item{\code{parent}}{(`list()` or `NULL`) \cr
+\item{\code{parent}}{(\code{list()} or \code{NULL}) \cr
 Parent info: id, child_type, split_feature, split_value, objective_value, int_imp. NULL for root.}
 
-\item{\code{split}}{(`list()` or `NULL`) \cr
+\item{\code{split}}{(\code{list()} or \code{NULL}) \cr
 Split info: feature, value. NULL for terminal nodes.}
 
-\item{\code{objective}}{(`list()`) \cr
+\item{\code{objective}}{(\code{list()}) \cr
 Objective: value (scalar), value_j (per-feature vector).}
 
-\item{\code{importance}}{(`list()` or `NULL`) \cr
+\item{\code{importance}}{(\code{list()} or \code{NULL}) \cr
 Importance: imp (scalar), imp_j (per-feature). NULL for root and unsplit nodes.}
 
-\item{\code{children}}{(`list()` or `NULL`) \cr
+\item{\code{children}}{(\code{list()} or \code{NULL}) \cr
 Left and right child nodes (or NULL for terminal nodes).}
 
-\item{\code{stop_criterion_met}}{(`logical(1)`) \cr
+\item{\code{stop_criterion_met}}{(\code{logical(1)}) \cr
 Whether the minimal node size or improvement threshold has been reached.}
 
-\item{\code{improvement_met}}{(`logical(1)`) \cr
-Whether the improvement-based stop criterion was met (`TRUE` = stop splitting).}
+\item{\code{improvement_met}}{(\code{logical(1)}) \cr
+Whether the improvement-based stop criterion was met (\code{TRUE} = stop splitting).}
 
 \item{\code{strategy}}{(PdStrategy | AleStrategy) \cr
 Strategy for effect-specific operations.}
@@ -75,8 +74,6 @@ Strategy for effect-specific operations.}
 \if{html}{\out{<a id="method-Node-new"></a>}}
 \if{latex}{\out{\hypertarget{method-Node-new}{}}}
 \subsection{Method \code{new()}}{
-Create a node from id, depth, subset indices, grid, and optional parent/objective metadata.
-Sets \code{stop_criterion_met = FALSE}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Node$new(
   id,
@@ -95,58 +92,11 @@ Sets \code{stop_criterion_met = FALSE}.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{id}}{(`integer(1)`) \cr
-Node identifier.}
-
-\item{\code{depth}}{(`integer(1)` or `NULL`) \cr
-Node depth (root is 1).}
-
-\item{\code{subset_idx}}{(`integer()`) \cr
-Row indices of data in this node.}
-
-\item{\code{grid}}{(`list()`) \cr
-Grid values for each feature.}
-
-\item{\code{id_parent}}{(`integer(1)` or `NULL`) \cr
-Parent node id.}
-
-\item{\code{child_type}}{(`character(1)` or `NULL`) \cr
-Split direction (\code{"<="}, \code{">"}, \code{"=="}, \code{"!="}, or \code{"in"}).}
-
-\item{\code{objective_value_parent}}{(`numeric(1)` or `NULL`) \cr
-Parent node's objective value.}
-
-\item{\code{objective_value_j}}{(`numeric()` or `NULL`) \cr
-Objective values per feature.}
-
-\item{\code{objective_value}}{(`numeric(1)` or `NULL`) \cr
-Total objective value.}
-
-\item{\code{improvement_met}}{(`logical(1)`) \cr
-Whether improvement threshold was met.}
-
-\item{\code{int_imp}}{(`numeric(1)` or `NULL`) \cr
-Interaction importance.}
-
-\item{\code{int_imp_j}}{(`numeric()` or `NULL`) \cr
-Interaction importance per feature.}
-
-\item{\code{strategy}}{(PdStrategy | AleStrategy or `NULL`) \cr
-Strategy; \code{NULL} not used in practice.}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Node-split_node"></a>}}
 \if{latex}{\out{\hypertarget{method-Node-split_node}{}}}
 \subsection{Method \code{split_node()}}{
-Given Z, Y, root objectives, and tree params: checks stopping criteria;
-finds best split; creates and applies children; recurses into child nodes.
-Returns NULL if no valid split.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Node$split_node(
   Z,
@@ -161,85 +111,20 @@ Returns NULL if no valid split.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{Z}}{(`data.frame()` or `data.table()`) \cr
-Split features.}
-
-\item{\code{Y}}{(`list()`) \cr
-Effect list.}
-
-\item{\code{objective_value_root_j}}{(`numeric()`) \cr
-Root objective values per feature.}
-
-\item{\code{objective_value_root}}{(`numeric(1)`) \cr
-Root total objective value.}
-
-\item{\code{min_node_size}}{(`integer(1)`) \cr
-Minimum node size.}
-
-\item{\code{n_quantiles}}{(`integer(1)` or `NULL`) \cr
-Quantiles for candidate split points.}
-
-\item{\code{impr_par}}{(`numeric(1)`) \cr
-Improvement threshold.}
-
-\item{\code{depth}}{(`integer(1)`) \cr
-Current node depth.}
-
-\item{\code{max_depth}}{(`integer(1)`) \cr
-Maximum tree depth.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`NULL`)
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Node-find_best_split"></a>}}
 \if{latex}{\out{\hypertarget{method-Node-find_best_split}{}}}
 \subsection{Method \code{find_best_split()}}{
-Given Z (subset by node indices), y_curr, and params: calls
-\code{strategy$find_best_split} and returns list with
-\code{split_feature}, \code{split_value}, \code{is_categorical}
-(and for AleStrategy: \code{left/right_objective_value_j}).
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Node$find_best_split(Z, y_curr, min_node_size, n_quantiles)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{Z}}{(`data.frame()` or `data.table()`) \cr
-Split features.}
-
-\item{\code{y_curr}}{(`list()`) \cr
-Effect list for current node.}
-
-\item{\code{min_node_size}}{(`integer(1)`) \cr
-Minimum node size.}
-
-\item{\code{n_quantiles}}{(`integer(1)` or `NULL`) \cr
-Quantiles for candidate split points.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()` or `NULL`) \cr
-  Best split info or \code{NULL} if no valid split.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Node-create_children"></a>}}
 \if{latex}{\out{\hypertarget{method-Node-create_children}{}}}
 \subsection{Method \code{create_children()}}{
-Given Z, Y, split_info, and root objectives: computes idx_left/right,
-child grids, objective values; checks improvement threshold;
-creates left/right Node instances and sets parent info.
-Returns list of \code{left_child}, \code{right_child}, \code{int_imp},
-\code{int_imp_j} or NULL if improvement too small.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Node$create_children(
   z_split_feature,
@@ -251,41 +136,11 @@ Returns list of \code{left_child}, \code{right_child}, \code{int_imp},
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{z_split_feature}}{(`numeric()`) \cr
-Numeric vector. Values of the splitting feature of this split.}
-
-\item{\code{Y}}{(`list()`) \cr
-Effect list.}
-
-\item{\code{split_info}}{(`list()`) \cr
-Split information.}
-
-\item{\code{objective_value_root_j}}{(`numeric()`) \cr
-Root objective values per feature.}
-
-\item{\code{objective_value_root}}{(`numeric(1)`) \cr
-Root total objective value.}
-
-\item{\code{impr_par}}{(`numeric(1)`) \cr
-Improvement threshold.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()`) \cr
-  Left/right child nodes and split statistics.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Node-create_child_grids"></a>}}
 \if{latex}{\out{\hypertarget{method-Node-create_child_grids}{}}}
 \subsection{Method \code{create_child_grids()}}{
-Given split_feature, split_value, and is_categorical: partitions
-\code{self$grid[[split_feature]]} into left (<= or ==) and
-right (> or !=). Returns list \code{grid_left}, \code{grid_right}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Node$create_child_grids(
   split_feature,
@@ -295,52 +150,15 @@ right (> or !=). Returns list \code{grid_left}, \code{grid_right}.
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{split_feature}}{(`character(1)`) \cr
-Feature used for splitting.}
-
-\item{\code{split_value}}{(`numeric(1)` or `factor()`) \cr
-Split value.}
-
-\item{\code{is_categorical}}{(`logical(1)`) \cr
-Whether the split feature is categorical.}
-
-\item{\code{split_levels}}{(`character()` or `NULL`) \cr
-Left-side levels for explicit categorical level-set splits.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`list()`) \cr
-  \code{grid_left}, \code{grid_right}.
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Node-apply_split"></a>}}
 \if{latex}{\out{\hypertarget{method-Node-apply_split}{}}}
 \subsection{Method \code{apply_split()}}{
-Given split_info and children_info: sets \code{split_feature},
-\code{split_value}, \code{int_imp}, \code{int_imp_j}, \code{children}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Node$apply_split(split_info, children_info)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{split_info}}{(`list()`) \cr
-Split information.}
-
-\item{\code{children_info}}{(`list()`) \cr
-Children information.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-(`NULL`)
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Node-clone"></a>}}

@@ -1,6 +1,3 @@
-utils::globalVariables(c("interval_index", "x_left", "x_right", "d_l", "x_grid", "level"))
-interval_index = x_left = x_right = d_l = x_grid = level = NULL
-
 #' Prepare ALE Plot Data for One or More Nodes
 #'
 #' Given effect (from \code{calculate_ale}), idx (row indices or list of such), features,
@@ -21,8 +18,7 @@ interval_index = x_left = x_right = d_l = x_grid = level = NULL
 #'
 #' \code{mean_center_ale()} builds plot grids from aggregated intervals: means sample-wise \code{d_l}
 #' within each \code{(interval_index, x_left, x_right)} group (\code{delta_aggr}), cumulates, then
-#' optionally subtracts a weighted scalar \code{f_j0}. Sample-wise \code{d_l == 0} is mapped to
-#' \code{NA} before aggregation so exact zeros do not enter group means.
+#' optionally subtracts a weighted scalar \code{f_j0}.
 #'
 #' For categorical features, each row of \code{mean_effect} corresponds to one row of
 #' \code{delta_aggr}; \code{x_grid} uses \code{as.character(delta_aggr$x_left)}, so the number of
@@ -32,6 +28,7 @@ interval_index = x_left = x_right = d_l = x_grid = level = NULL
 #'
 #' @return (`list()`) \cr
 #'   Named list of \code{mean_effect} data.tables per feature; nested if \code{idx} is list.
+#' @keywords internal
 prepare_plot_data_ale = function(effect, idx = NULL, features = names(effect),
   mean_center = TRUE) {
   if (is.null(effect) || !length(effect)) {
@@ -73,7 +70,7 @@ prepare_plot_data_ale = function(effect, idx = NULL, features = names(effect),
 #' Internal ALE curve computation
 #'
 #' Given ALE data.table for one feature and mean_center: cumsums d_l by interval;
-#' optionally subtracts global mean. Returns data.table with x_grid and .value (cumulative ALE).
+#' optionally subtracts global mean. Returns data.table with x_grid and d_l (cumulative ALE).
 #'
 #' @param feat (`data.table()`) \cr
 #'   Per-interval ALE derivatives and metadata.

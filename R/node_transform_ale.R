@@ -14,7 +14,7 @@
 #'
 #' @return (`list()`) \cr
 #'   Transformed ALE effects per feature.
-#'
+#' @keywords internal
 node_transform_ale = function(Y, idx, is_child = FALSE) {
   idx = as.integer(idx)
   if (is_ale_compact(Y)) {
@@ -33,7 +33,7 @@ node_transform_ale = function(Y, idx, is_child = FALSE) {
     y_processed = lapply(names(y_subset), function(feat) {
       y_j = y_subset[[feat]]
       # Zero out d_l for constant features in this node (ALE undefined when all values equal)
-      if (length(unique(y_j$feat_val)) == 1) {
+      if (length(unique(y_j$feat_val[!is.na(y_j$feat_val)])) <= 1L) {
         y_j$d_l = 0
         y_j = refresh_ale_interval_stats(y_j)
       }

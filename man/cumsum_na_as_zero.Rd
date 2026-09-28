@@ -7,12 +7,12 @@
 cumsum_na_as_zero(values)
 }
 \arguments{
-\item{values}{(`numeric()`) \cr
+\item{values}{(\code{numeric()}) \cr
 Values to cumulatively sum; \code{NA} treated as 0.}
 }
 \value{
-(`numeric()`) \cr
-  Cumulative sum.
+(\code{numeric()}) \cr
+Cumulative sum.
 }
 \description{
 Cumulative sum with NA as zero.

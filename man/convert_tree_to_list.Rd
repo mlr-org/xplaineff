@@ -7,15 +7,15 @@
 convert_tree_to_list(root_node, max_depth = NULL)
 }
 \arguments{
-\item{root_node}{(`Node` or `NULL`) \cr
+\item{root_node}{(\code{Node} or \code{NULL}) \cr
 Root node of the tree.}
 
-\item{max_depth}{(`integer(1)` or `NULL`) \cr
+\item{max_depth}{(\code{integer(1)} or \code{NULL}) \cr
 Maximum depth to traverse; \code{NULL} = no limit.}
 }
 \value{
-(`list()`) \cr
-  List where each element is a depth level containing Node objects.
+(\code{list()}) \cr
+List where each element is a depth level containing Node objects.
 }
 \description{
 Given root_node and optional max_depth: traverses children recursively, collects nodes by depth.

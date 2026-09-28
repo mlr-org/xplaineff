@@ -8,8 +8,8 @@
 #'   Strategy name (e.g. \code{"ale"}, \code{"pd"}).
 #' @field tree_ref (`GadgetTree` or `NULL`) \cr
 #'   Reference to the fitted tree; set after \code{$fit()}.
-#' @field fit_timing (`numeric()` or `NULL`) \cr
-#'   Fit timing (seconds) for global/regional fits.
+#' @field fit_timing (`list()` or `NULL`) \cr
+#'   Fit timing (seconds) with elements \code{global} and \code{regional}; set after \code{$fit()}.
 #'
 #' @keywords internal
 EffectStrategy = R6::R6Class(
@@ -30,6 +30,7 @@ EffectStrategy = R6::R6Class(
     #' @description
     #' Optional post-fit cleanup to release retained objects.
     #' Default is no-op; subclasses override when needed (see \code{AleStrategy$clean()}).
+    #' @return (\code{NULL}), invisibly.
     clean = function() {
       invisible(NULL)
     }

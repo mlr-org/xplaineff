@@ -1,6 +1,14 @@
 # xplaineff (development version)
 
 - Added the introductory vignette `vignette("xplaineff")` with PD and ALE examples on synthetic and bike-sharing data (no issue).
+- `GadgetTree$new()` now rejects `n_quantiles < 1` up front (no issue).
+- The PD split search no longer writes NaN replacements back into the caller's effect matrices and copies coerced non-double inputs, and it excludes observations with a missing split-feature value from both children and from the parent totals, matching `Node$create_children()` (no issue).
+- The ALE split sweep skips observations without a valid interval index instead of computing an out-of-range position (no issue).
+- Regional PD plots now place observation points of categorical features on the plotted levels, also in child nodes that lack some levels (no issue).
+- Roxygen markdown is enabled and `GadgetTree` is no longer marked as an internal help topic (no issue).
+- `AleStrategy$fit()` now reports a clear error when `model` is missing, and `GadgetTree$plot()` for ALE trees errors on unknown arguments instead of ignoring them (no issue).
+- Regional PD plots no longer add an invisible observation layer when `show_point = FALSE` (no issue).
+- Removed unused internal helpers and imports; the ALE split sweep skips non-finite local effects instead of letting them poison the running sums (no issue).
 
 # xplaineff 0.1.0
 

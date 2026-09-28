@@ -7,15 +7,15 @@
 track_split_condition(node, tree)
 }
 \arguments{
-\item{node}{(`Node`) \cr
+\item{node}{(\code{Node}) \cr
 Node object with \code{parent} and \code{depth}.}
 
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of nodes (from \code{convert_tree_to_list}).}
 }
 \value{
-(`character()`) \cr
-  Conditions from root to node (e.g. \code{"x <= 0.5"}).
+(\code{character()}) \cr
+Conditions from root to node (e.g. \code{"x <= 0.5"}).
 }
 \description{
 Given node and tree (depth-list): walks parent chain via \code{find_node_by_id};

@@ -17,14 +17,14 @@ based tree growing. Not exported.
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{name}}{(`character(1)`) \cr
+\item{\code{name}}{(\code{character(1)}) \cr
 Strategy name (e.g. \code{"ale"}, \code{"pd"}).}
 
-\item{\code{tree_ref}}{(`GadgetTree` or `NULL`) \cr
+\item{\code{tree_ref}}{(\code{GadgetTree} or \code{NULL}) \cr
 Reference to the fitted tree; set after \code{$fit()}.}
 
-\item{\code{fit_timing}}{(`numeric()` or `NULL`) \cr
-Fit timing (seconds) for global/regional fits.}
+\item{\code{fit_timing}}{(\code{list()} or \code{NULL}) \cr
+Fit timing (seconds) with elements \code{global} and \code{regional}; set after \code{$fit()}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -40,26 +40,15 @@ Fit timing (seconds) for global/regional fits.}
 \if{html}{\out{<a id="method-EffectStrategy-new"></a>}}
 \if{latex}{\out{\hypertarget{method-EffectStrategy-new}{}}}
 \subsection{Method \code{new()}}{
-Create an EffectStrategy instance.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{EffectStrategy$new(name)}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{name}}{(`character(1)`) \cr
-Strategy identifier (e.g. \code{"ale"}, \code{"pd"}).}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-EffectStrategy-clean"></a>}}
 \if{latex}{\out{\hypertarget{method-EffectStrategy-clean}{}}}
 \subsection{Method \code{clean()}}{
-Optional post-fit cleanup to release retained objects.
-Default is no-op; subclasses override when needed (see \code{AleStrategy$clean()}).
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{EffectStrategy$clean()}\if{html}{\out{</div>}}
 }

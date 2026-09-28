@@ -15,32 +15,32 @@ calculate_pd_matrix(
 )
 }
 \arguments{
-\item{model}{(`any`) \cr
+\item{model}{(\code{any}) \cr
 Fitted model with a predict interface.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Training data including the target column.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Name of the target variable; excluded from feature columns.}
 
-\item{feature_set}{(`character()` or `NULL`) \cr
+\item{feature_set}{(\code{character()} or \code{NULL}) \cr
 Features to compute PD for; \code{NULL} = all non-target columns.}
 
-\item{predict_fun}{(`function()` or `NULL`) \cr
+\item{predict_fun}{(\verb{function()} or \code{NULL}) \cr
 \code{function(model, data)} returning a numeric vector; \code{NULL} = default.}
 
-\item{n_grid}{(`integer(1)`) \cr
+\item{n_grid}{(\code{integer(1)}) \cr
 Number of quantile-based grid points for numeric features.}
 
-\item{pd_engine}{(`character(1)`) \cr
+\item{pd_engine}{(\code{character(1)}) \cr
 Backend: \code{"auto"} (default), \code{"cpp"}, or \code{"r"}.
 The \code{"auto"} backend may use an internal row-major full-ICE layout for native
 ranger regression models.}
 }
 \value{
-(`list()`) \cr
-  Object of class \code{xplaineff_pd_matrix} with \code{Y} and \code{grid}.
+(\code{list()}) \cr
+Object of class \code{xplaineff_pd_matrix} with \code{Y} and \code{grid}.
 }
 \description{
 Internal matrix-form variant used by \code{PdStrategy} when effects are

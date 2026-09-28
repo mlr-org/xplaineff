@@ -17,34 +17,34 @@ ale_categorical_feature(
 )
 }
 \arguments{
-\item{model}{(`any`) \cr
+\item{model}{(\code{any}) \cr
 Fitted model. See \code{\link{calculate_ale}}.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Training data.}
 
-\item{X}{(`data.frame()` or `data.table()`) \cr
+\item{X}{(\code{data.frame()} or \code{data.table()}) \cr
 Features (excl. target).}
 
-\item{feature}{(`character(1)`) \cr
+\item{feature}{(\code{character(1)}) \cr
 Feature name.}
 
-\item{predict_fun}{(`function()` or `NULL`) \cr
+\item{predict_fun}{(\verb{function()} or \code{NULL}) \cr
 Prediction function.}
 
-\item{stacked}{(`NULL` or [data.table::data.table()]) \cr
+\item{stacked}{(\code{NULL} or \code{\link[data.table:data.table]{data.table::data.table()}}) \cr
 Shared \code{2n}-row design matrix for batched categorical ALE (see numeric branch).}
 
-\item{idx_lower, }{idx_upper (`integer()` or \code{NULL}) \cr
+\item{idx_lower, idx_upper}{(\code{integer()} or \code{NULL}) \cr
 Row halves in \code{stacked}: plus-vector / minus-vector predictions respectively.}
 
-\item{predictor}{(`list()` or `NULL`) \cr
+\item{predictor}{(\code{list()} or \code{NULL}) \cr
 Prediction wrapper from \code{make_effect_predictor}; \code{NULL} builds one from
 \code{model} and \code{predict_fun}.}
 }
 \value{
-(`data.table()`) \cr
-  ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
+(\code{data.table()}) \cr
+ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
 }
 \description{
 ALE for a single categorical feature.

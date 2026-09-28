@@ -3,8 +3,8 @@
 #' @param Y (`list()` or `data.frame()`) \cr
 #'   ALE effect data.
 #'
-#' @return (`numeric()`) \cr
-#'   Heterogeneity value(s): vector per feature when Y is list, single value when Y is data.frame.
+#' @return (`numeric(1)` or `list()`) \cr
+#'   Heterogeneity value(s): single value when Y is data.frame, list with one value per feature when Y is list.
 #' @keywords internal
 calculate_ale_heterogeneity_cpp = function(Y) {
   # Handle both data.frame and list cases

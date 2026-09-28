@@ -13,25 +13,27 @@ order_categorical_levels(
 )
 }
 \arguments{
-\item{x_cat}{(`factor()`) \cr
+\item{x_cat}{(\code{factor()}) \cr
 Focal feature values; use \code{droplevels()} first.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Full dataset including target.}
 
-\item{feature}{(`character(1)`) \cr
+\item{feature}{(\code{character(1)}) \cr
 Name of the categorical feature in \code{data}.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target column name; excluded from distance computation.}
 
-\item{order_method}{(`character(1)`) \cr
+\item{order_method}{(\code{character(1)}) \cr
 \code{"mds"}, \code{"pca"}, \code{"random"}, or \code{"raw"}.}
 }
 \value{
-(`factor()`) \cr
-  Same as \code{x_cat} with reordered \code{levels} and \code{ordered = TRUE};
-  unchanged if \code{nlevels(x_cat) <= 1} or no other features.
+(\code{factor()}) \cr
+Same as \code{x_cat} with reordered \code{levels} and \code{ordered = TRUE}.
+For \code{order_method = "raw"} the level order is kept but the factor is still coerced to
+\code{ordered = TRUE}; for the other methods, \code{x_cat} is returned unchanged if
+\code{nlevels(x_cat) <= 1} or no other features are available.
 }
 \description{
 Given x_cat (factor), data, feature, target_feature_name,
@@ -43,9 +45,9 @@ Returns factor with reordered levels (or x_cat unchanged if K<=1 or no other fea
 For each pair of levels, a distance is computed from all other features
 (all columns in \code{data} except \code{feature} and \code{target_feature_name}):
 \itemize{
-  \item Numeric: sum over features of max absolute difference of ECDFs (KS-style).
-  \item Categorical: sum over features of half-\eqn{L_1} (total variation) distance between
-    conditional level distributions, matching the convention used in the \pkg{ale} package.
+\item Numeric: sum over features of max absolute difference of ECDFs (KS-style).
+\item Categorical: sum over features of half-\eqn{L_1} (total variation) distance between
+conditional level distributions, matching the convention used in the \pkg{ale} package.
 }
 The \eqn{K \times K} distance matrix is embedded in 1D via \code{order_method};
 that 1D order defines the new level order. Single-level factors or no other

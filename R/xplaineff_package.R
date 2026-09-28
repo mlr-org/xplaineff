@@ -52,7 +52,7 @@ utils::globalVariables(c(
 #' @aliases xplaineff xplaineff-package
 #' @seealso
 #' \code{\link{GadgetTree}}, \code{\link{AleStrategy}}, \code{\link{PdStrategy}}
-
+#'
 #' @references
 #' Herbinger, J., Wright, M. N., Nagler, T., Bischl, B., and Casalicchio, G. (2024).
 #'   Decomposing Global Feature Effects Based on Feature Interactions.

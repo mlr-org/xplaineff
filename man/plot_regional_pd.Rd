@@ -19,33 +19,33 @@ plot_regional_pd(
 )
 }
 \arguments{
-\item{prepared_data}{(`list()`) \cr
+\item{prepared_data}{(\code{list()}) \cr
 Prepared effect matrices per feature.}
 
-\item{origin_data}{(`data.frame()`) \cr
+\item{origin_data}{(\code{data.frame()}) \cr
 Original data.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target column.}
 
-\item{node_idx}{(`integer(1)`) \cr
+\item{node_idx}{(\code{integer(1)}) \cr
 Node index.}
 
-\item{color_ice, color_pd}{(`character(1)`) \cr
+\item{color_ice, color_pd}{(\code{character(1)}) \cr
 Colors.}
 
-\item{ymin, ymax}{(`numeric(1)`) \cr
+\item{ymin, ymax}{(\code{numeric(1)}) \cr
 Y-axis limits.}
 
-\item{split_condition}{(`character(1)` or `NULL`) \cr
+\item{split_condition}{(\code{character(1)} or \code{NULL}) \cr
 Split condition label.}
 
-\item{show_point, mean_center}{(`logical(1)`) \cr
+\item{show_point, mean_center}{(\code{logical(1)}) \cr
 Plot options.}
 }
 \value{
-(`list()`) \cr
-  List of ggplot objects per feature.
+(\code{list()}) \cr
+List of ggplot objects per feature.
 }
 \description{
 Plot regional PD/ICE for one node.

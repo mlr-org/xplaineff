@@ -1,6 +1,4 @@
 test_that("convert_tree_to_list returns depth-based list", {
-  skip_if_not(exists("convert_tree_to_list", envir = asNamespace("xplaineff")),
-    "convert_tree_to_list not available")
   # Build a minimal root node (no children)
   grid = list(x = 1:5)
   root = xplaineff:::Node$new(
@@ -92,6 +90,21 @@ test_that("order_categorical_levels returns factor with ordered levels", {
   )
   expect_true(is.factor(result_mds))
   expect_equal(length(levels(result_mds)), nlevels(x_cat))
+  result_pca = xplaineff:::order_categorical_levels(
+    x_cat, data, feature = "cat", target_feature_name = "y", order_method = "pca"
+  )
+  expect_true(is.ordered(result_pca))
+  expect_setequal(levels(result_pca), levels(x_cat))
+  expect_equal(as.character(result_pca), as.character(x_cat))
+  set.seed(7)
+  result_random = xplaineff:::order_categorical_levels(
+    x_cat, data, feature = "cat", target_feature_name = "y", order_method = "random"
+  )
+  expect_true(is.ordered(result_random))
+  expect_equal(length(levels(result_random)), nlevels(x_cat))
+  expect_false(anyDuplicated(levels(result_random)) > 0)
+  expect_setequal(levels(result_random), levels(x_cat))
+  expect_equal(as.character(result_random), as.character(x_cat))
 })
 
 test_that("order_categorical_levels uses half-L1 for categorical auxiliary features", {

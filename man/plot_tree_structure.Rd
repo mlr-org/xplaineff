@@ -12,18 +12,18 @@ plot_tree_structure(
 )
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 
-\item{label_wrap_width}{(`integer(1)` or `NULL`) \cr
+\item{label_wrap_width}{(\code{integer(1)} or \code{NULL}) \cr
 If not \code{NULL}, wrap each line of node labels to this many characters (see \code{strwrap}).}
 
-\item{node_spread_x, node_spread_y}{(`numeric(1)`) \cr
+\item{node_spread_x, node_spread_y}{(\code{numeric(1)}) \cr
 Positive multipliers applied to the default \code{"tree"} layout coordinates to separate nodes.}
 }
 \value{
 (ggplot) \cr
-  Tree structure visualization.
+Tree structure visualization.
 }
 \description{
 Given tree (depth-list of Node objects): calls

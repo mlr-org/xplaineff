@@ -1,13 +1,3 @@
-skip_cpp_if_unavailable = function() {
-  tryCatch({
-    search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
-  }, error = function(e) {
-    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-      testthat::skip("C++ symbols not loaded (install package with compile)")
-    }
-  })
-}
-
 test_that("search_best_split_cpp works with numeric data", {
   skip_cpp_if_unavailable()
   set.seed(1)

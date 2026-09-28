@@ -64,7 +64,7 @@ Node = R6::R6Class("Node", public = list(
   #' @param id_parent (`integer(1)` or `NULL`) \cr
   #'   Parent node id.
   #' @param child_type (`character(1)` or `NULL`) \cr
-  #'   Split direction (\code{"<="}, \code{">"}, \code{"=="}, \code{"!="}, or \code{"in"}).
+  #'   Split direction (\code{"<="}, \code{">"}, or \code{"in"}).
   #' @param objective_value_parent (`numeric(1)` or `NULL`) \cr
   #'   Parent node's objective value.
   #' @param objective_value_j (`numeric()` or `NULL`) \cr
@@ -206,8 +206,8 @@ Node = R6::R6Class("Node", public = list(
   #' @description
   #' Given Z (subset by node indices), y_curr, and params: calls
   #' \code{strategy$find_best_split} and returns list with
-  #' \code{split_feature}, \code{split_value}, \code{is_categorical}
-  #' (and for AleStrategy: \code{left/right_objective_value_j}).
+  #' \code{split_feature}, \code{split_value}, \code{is_categorical},
+  #' \code{split_levels}, and \code{raw_result} (the full strategy result table).
   #' @param Z (`data.frame()` or `data.table()`) \cr
   #'   Split features.
   #' @param y_curr (`list()`) \cr
@@ -245,8 +245,9 @@ Node = R6::R6Class("Node", public = list(
   #' creates left/right Node instances and sets parent info.
   #' Returns list of \code{left_child}, \code{right_child}, \code{int_imp},
   #' \code{int_imp_j} or NULL if improvement too small.
-  #' @param z_split_feature (`numeric()`) \cr
-  #'   Numeric vector. Values of the splitting feature of this split.
+  #' Observations with a missing value of the split feature are excluded from both children.
+  #' @param z_split_feature (`numeric()` or `factor()`) \cr
+  #'   Values of the splitting feature of this split.
   #' @param Y (`list()`) \cr
   #'   Effect list.
   #' @param split_info (`list()`) \cr
@@ -291,7 +292,7 @@ Node = R6::R6Class("Node", public = list(
 
     grid_info = self$create_child_grids(split_feature, split_value, is_categorical, split_levels)
     obj = self$strategy$get_child_objectives(
-      Z, Y, split_info, idx_left, idx_right,
+      Y, split_info, idx_left, idx_right,
       grid_info$grid_left, grid_info$grid_right
     )
     left_objective_value_j = obj$left_objective_value_j
@@ -322,7 +323,6 @@ Node = R6::R6Class("Node", public = list(
       objective_value = left_objective_value,
       objective_value_j = left_objective_value_j,
       int_imp = NULL, int_imp_j = NULL,
-      improvement_met = self$improvement_met,
       strategy = self$strategy
     )
     right_child = Node$new(
@@ -337,13 +337,15 @@ Node = R6::R6Class("Node", public = list(
       objective_value = right_objective_value,
       objective_value_j = right_objective_value_j,
       int_imp = NULL, int_imp_j = NULL,
-      improvement_met = self$improvement_met,
       strategy = self$strategy
     )
     # Set parent split/int_imp for children
-    left_child$parent$split_feature = right_child$parent$split_feature = split_feature
-    left_child$parent$split_value = right_child$parent$split_value = split_value
-    left_child$parent$int_imp = right_child$parent$int_imp = int_imp
+    left_child$parent$split_feature = split_feature
+    right_child$parent$split_feature = split_feature
+    left_child$parent$split_value = split_value
+    right_child$parent$split_value = split_value
+    left_child$parent$int_imp = int_imp
+    right_child$parent$int_imp = int_imp
     if (is_categorical) {
       left_child$parent$split_levels = split_groups$left_levels
       right_child$parent$split_levels = split_groups$right_levels
@@ -363,8 +365,10 @@ Node = R6::R6Class("Node", public = list(
 
   #' @description
   #' Given split_feature, split_value, and is_categorical: partitions
-  #' \code{self$grid[[split_feature]]} into left (<= or ==) and
-  #' right (> or !=). Returns list \code{grid_left}, \code{grid_right}.
+  #' \code{self$grid[[split_feature]]} into left and right. Numeric features split at the
+  #' threshold (\code{<=} left, \code{>} right); ALE ordered categorical splits take the ordered
+  #' level prefix up to \code{split_value} as left; other categorical splits take the level set
+  #' \code{split_levels} as left. Returns list \code{grid_left}, \code{grid_right}.
   #' @param split_feature (`character(1)`) \cr
   #'   Feature used for splitting.
   #' @param split_value (`numeric(1)` or `factor()`) \cr

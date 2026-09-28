@@ -11,30 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// cpp_ale_numeric_breaks
-NumericVector cpp_ale_numeric_breaks(NumericVector x, int n_intervals);
-RcppExport SEXP _xplaineff_cpp_ale_numeric_breaks(SEXP xSEXP, SEXP n_intervalsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type n_intervals(n_intervalsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_ale_numeric_breaks(x, n_intervals));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_ale_interval_index
-IntegerVector cpp_ale_interval_index(NumericVector x, NumericVector breaks);
-RcppExport SEXP _xplaineff_cpp_ale_interval_index(SEXP xSEXP, SEXP breaksSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type breaks(breaksSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_ale_interval_index(x, breaks));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cpp_ale_interval_aggregate
 List cpp_ale_interval_aggregate(NumericVector d_l, IntegerVector interval_index);
 RcppExport SEXP _xplaineff_cpp_ale_interval_aggregate(SEXP d_lSEXP, SEXP interval_indexSEXP) {
@@ -44,19 +20,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type d_l(d_lSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type interval_index(interval_indexSEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_ale_interval_aggregate(d_l, interval_index));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_ale_numeric_finalize
-List cpp_ale_numeric_finalize(NumericVector preds_lower, NumericVector preds_upper, IntegerVector interval_index);
-RcppExport SEXP _xplaineff_cpp_ale_numeric_finalize(SEXP preds_lowerSEXP, SEXP preds_upperSEXP, SEXP interval_indexSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type preds_lower(preds_lowerSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type preds_upper(preds_upperSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type interval_index(interval_indexSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_ale_numeric_finalize(preds_lower, preds_upper, interval_index));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -73,19 +36,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type preds_lower(preds_lowerSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type preds_upper(preds_upperSEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_ale_numeric_effect_table(feat_val, x_left, x_right, interval_index, preds_lower, preds_upper));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_ale_categorical_finalize
-List cpp_ale_categorical_finalize(IntegerVector levels_id, NumericVector y_hat_plus, NumericVector y_hat_neg);
-RcppExport SEXP _xplaineff_cpp_ale_categorical_finalize(SEXP levels_idSEXP, SEXP y_hat_plusSEXP, SEXP y_hat_negSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type levels_id(levels_idSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type y_hat_plus(y_hat_plusSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type y_hat_neg(y_hat_negSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_ale_categorical_finalize(levels_id, y_hat_plus, y_hat_neg));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -252,12 +202,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_xplaineff_cpp_ale_numeric_breaks", (DL_FUNC) &_xplaineff_cpp_ale_numeric_breaks, 2},
-    {"_xplaineff_cpp_ale_interval_index", (DL_FUNC) &_xplaineff_cpp_ale_interval_index, 2},
     {"_xplaineff_cpp_ale_interval_aggregate", (DL_FUNC) &_xplaineff_cpp_ale_interval_aggregate, 2},
-    {"_xplaineff_cpp_ale_numeric_finalize", (DL_FUNC) &_xplaineff_cpp_ale_numeric_finalize, 3},
     {"_xplaineff_cpp_ale_numeric_effect_table", (DL_FUNC) &_xplaineff_cpp_ale_numeric_effect_table, 6},
-    {"_xplaineff_cpp_ale_categorical_finalize", (DL_FUNC) &_xplaineff_cpp_ale_categorical_finalize, 3},
     {"_xplaineff_cpp_ale_categorical_effect_table", (DL_FUNC) &_xplaineff_cpp_ale_categorical_effect_table, 6},
     {"_xplaineff_cpp_ale_numeric_prepare", (DL_FUNC) &_xplaineff_cpp_ale_numeric_prepare, 2},
     {"_xplaineff_cpp_ale_categorical_prepare", (DL_FUNC) &_xplaineff_cpp_ale_categorical_prepare, 2},

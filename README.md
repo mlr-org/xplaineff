@@ -47,7 +47,7 @@ install.packages(c("mlr3", "mlr3learners", "ranger", "ISLR2"))
 **Fit arguments**
 
 - **AleStrategy-specific**
-  - `model` (required): fitted mlr3 learner used to compute ALE.
+  - `model` (required): fitted model or prediction function used to compute ALE.
   - `effect` (reserved): currently not enabled; reserved for future extension.
   - `n_intervals` (optional): number of intervals for ALE grids (default: `10`).
   - `predict_fun` (optional): custom prediction function; if `NULL`, uses the learner’s default.
@@ -61,11 +61,21 @@ install.packages(c("mlr3", "mlr3learners", "ranger", "ISLR2"))
     - `"mds"`: multi-dimensional scaling on the level-distance matrix, then order levels by the 1D coordinates.
     - `"pca"`: PCA on the level-distance matrix, then order levels by the first principal component.
     - `"random"`: use a random order of levels (mainly for robustness checks or baselines).
+  - `ale_engine` (optional): ALE backend, `"auto"` (default), `"cpp"`, or `"r"`.
+  - `categorical_split` (optional): categorical split mode, `"ordered_prefix"` (default) or `"exhaustive"`;
+    can also be set in `AleStrategy$new()`.
+  - `max_exhaustive_levels` (optional): maximum number of observed levels allowed for exhaustive categorical
+    split search (default: `12`); can also be set in `AleStrategy$new()`.
 - **PdStrategy-specific**
   - `effect` (optional): object of class `FeatureEffects` (e.g. from `iml::FeatureEffects`).
   - `model` (optional): fitted model used for internal PD/ICE computation when `effect` is not provided.
   - `n_grid` (optional): number of grid points for numeric PD/ICE computation (default: `20`).
   - `predict_fun` (optional): custom prediction function for internal PD/ICE computation.
+  - `pd_engine` (optional): PD/ICE backend, `"auto"` (default), `"cpp"`, or `"r"`.
+  - `categorical_split` (optional): categorical split mode, `"one_vs_rest"` (default) or `"exhaustive"`;
+    can also be set in `PdStrategy$new()`.
+  - `max_exhaustive_levels` (optional): maximum number of observed levels allowed for exhaustive categorical
+    split search (default: `12`); can also be set in `PdStrategy$new()`.
 - **Shared tree arguments (both strategies)**
   - `feature_set` (optional): subset of features used to compute and plot effects.
   - `split_feature` (optional): subset of features allowed as splitting variables.
@@ -264,7 +274,7 @@ It always returns a nested list of plot objects named by depth and by the actual
 
 - **Overlaying raw observations**
 
-  If available for your strategy, you can overlay observed \((x, y)\) points on top of the regional curves:
+  If available for your strategy, you can overlay observed (x, y) points on top of the regional curves:
 
   ```r
   pl = tree$plot(

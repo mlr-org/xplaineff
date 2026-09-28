@@ -7,18 +7,18 @@
 calculate_y_range_impl(effect_values, data = NULL, target_feature_name = NULL)
 }
 \arguments{
-\item{effect_values}{(`numeric()`) \cr
+\item{effect_values}{(\code{numeric()}) \cr
 Effect values (no NA).}
 
-\item{data}{(`data.frame()` or `NULL`) \cr
+\item{data}{(\code{data.frame()} or \code{NULL}) \cr
 Original data; target values are always included in range when available.}
 
-\item{target_feature_name}{(`character(1)` or `NULL`) \cr
+\item{target_feature_name}{(\code{character(1)} or \code{NULL}) \cr
 Target column.}
 }
 \value{
-(`list()`) \cr
-  \code{ymin}, \code{ymax}.
+(\code{list()}) \cr
+\code{ymin}, \code{ymax}.
 }
 \description{
 Shared implementation for y-axis range from effect values.

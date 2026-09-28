@@ -13,24 +13,24 @@ pivot_effect_to_wide(
 )
 }
 \arguments{
-\item{data}{(`data.frame`) \cr
+\item{data}{(\code{data.frame}) \cr
 Long-ish tabular effect results (ICE-style rows).}
 
-\item{grid_col}{(`character(1)`) \cr
+\item{grid_col}{(\code{character(1)}) \cr
 Column used as column axis after pivot (often feature grid or \code{".borders"}).}
 
-\item{value_col}{(`character(1)`) \cr
+\item{value_col}{(\code{character(1)}) \cr
 Column holding curve values (typically \code{".value"}).}
 
-\item{drop_cols}{(`character()`) \cr
+\item{drop_cols}{(\code{character()}) \cr
 Columns to drop from the wide table after pivot (metadata such as \code{".type"}, \code{".id"}).}
 
-\item{mean_center}{(`logical(1)`) \cr
+\item{mean_center}{(\code{logical(1)}) \cr
 If \code{TRUE}, subtract the row mean from each row.}
 }
 \value{
-(`data.frame`) \cr
-  Wide numeric matrix-like frame (columns are grid cells).
+(\code{data.frame}) \cr
+Wide numeric matrix-like frame (columns are grid cells).
 }
 \description{
 Uses \code{data.table::dcast} on \code{data}: rows indexed by \code{id_cols}

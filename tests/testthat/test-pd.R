@@ -1,13 +1,5 @@
 test_that("compute_ice cpp matches r (numeric focal feature)", {
-  tryCatch(
-    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
-    error = function(e) {
-      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-        testthat::skip("C++ pd_fast not loaded")
-      }
-      stop(e)
-    }
-  )
+  skip_cpp_if_unavailable()
   set.seed(2L)
   n = 45L
   d = data.frame(x1 = runif(n), x2 = runif(n), x3 = rnorm(n))
@@ -20,15 +12,7 @@ test_that("compute_ice cpp matches r (numeric focal feature)", {
 })
 
 test_that("compute_ice cpp matches r (factor focal feature)", {
-  tryCatch(
-    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1L),
-    error = function(e) {
-      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-        testthat::skip("C++ pd_fast not loaded")
-      }
-      stop(e)
-    }
-  )
+  skip_cpp_if_unavailable()
   set.seed(3L)
   n = 40L
   d = data.frame(
@@ -156,15 +140,7 @@ test_that("PdStrategy only skips full-grid centering for prepared centered PD ma
 
 test_that("compute_ice cpp matches r (ranger native model, data= predict)", {
   testthat::skip_if_not_installed("ranger")
-  tryCatch(
-    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
-    error = function(e) {
-      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-        testthat::skip("C++ pd_fast not loaded")
-      }
-      stop(e)
-    }
-  )
+  skip_cpp_if_unavailable()
   set.seed(4L)
   n = 50L
   d = data.frame(x1 = runif(n), x2 = runif(n), y = rnorm(n))
@@ -361,15 +337,7 @@ test_that("pd_feature_grid aborts for all-NA numeric predictor", {
 })
 
 test_that("compute_ice cpp matches r for integer focal feature (C++ promotes stacked column to double)", {
-  tryCatch(
-    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
-    error = function(e) {
-      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-        testthat::skip("C++ pd_fast not loaded")
-      }
-      stop(e)
-    }
-  )
+  skip_cpp_if_unavailable()
   set.seed(5L)
   n = 30L
   d = data.frame(x1 = sample(1L:5L, n, replace = TRUE), x2 = runif(n), y = rnorm(n))
@@ -421,6 +389,14 @@ test_that("extract_numeric_prediction uses response then first prob column for m
     xplaineff:::extract_numeric_prediction(pred),
     as.numeric(pred$response)
   )
+
+  prob = matrix(c(0.7, 0.2, 0.3, 0.8), ncol = 2L, dimnames = list(NULL, c("A", "B")))
+  prob_only = structure(list(response = NULL, prob = prob), class = "Prediction")
+  testthat::expect_warning(
+    prob_pred <- xplaineff:::extract_numeric_prediction(prob_only),
+    "first class probability column"
+  )
+  testthat::expect_equal(prob_pred, c(0.7, 0.2))
 })
 
 test_that("PdStrategy PD path can target one class prob via predict_fun", {
@@ -472,15 +448,7 @@ test_that("prepare_split_data_pd infers feature_set from precomputed effect", {
 })
 
 test_that("calculate_pd_matrix matches long-format PD preprocessing", {
-  tryCatch(
-    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
-    error = function(e) {
-      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-        testthat::skip("C++ pd_fast not loaded")
-      }
-      stop(e)
-    }
-  )
+  skip_cpp_if_unavailable()
   set.seed(6L)
   n = 35L
   dat = data.frame(x1 = runif(n), x2 = rnorm(n))
@@ -514,15 +482,7 @@ test_that("calculate_pd_matrix matches long-format PD preprocessing", {
 })
 
 test_that("PdStrategy model path caches matrix-form effects", {
-  tryCatch(
-    xplaineff:::cpp_pd_stack_newdata(as.list(data.frame(x = 1)), 0L, 1.0),
-    error = function(e) {
-      if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-        testthat::skip("C++ pd_fast not loaded")
-      }
-      stop(e)
-    }
-  )
+  skip_cpp_if_unavailable()
   set.seed(7L)
   n = 40L
   dat = data.frame(x1 = runif(n), x2 = rnorm(n))

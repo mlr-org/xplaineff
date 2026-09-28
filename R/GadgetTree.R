@@ -80,7 +80,7 @@ GadgetTree = R6::R6Class(
       checkmate::assert_integerish(n_split, len = 1, lower = 0, any.missing = FALSE, .var.name = "n_split")
       checkmate::assert_numeric(impr_par, lower = 0, len = 1, any.missing = FALSE, .var.name = "impr_par")
       checkmate::assert_integerish(min_node_size, len = 1, lower = 1, any.missing = FALSE, .var.name = "min_node_size")
-      checkmate::assert_integerish(n_quantiles, len = 1, null.ok = TRUE, .var.name = "n_quantiles")
+      checkmate::assert_integerish(n_quantiles, len = 1, lower = 1, null.ok = TRUE, .var.name = "n_quantiles")
       self$strategy = strategy
       self$n_split = n_split
       self$impr_par = impr_par
@@ -91,6 +91,7 @@ GadgetTree = R6::R6Class(
 
     #' @description
     #' Fit tree via \code{strategy$fit()}.
+    #' Observations with a missing value of the selected split feature are excluded from both child nodes.
     #' @param data (`data.frame()`) \cr
     #'   Data with features and target.
     #' @param target_feature_name (`character(1)`) \cr
@@ -160,6 +161,8 @@ GadgetTree = R6::R6Class(
     #'   Wrap node labels to this many characters per line; \code{NULL} disables wrapping.
     #' @param node_spread_x,node_spread_y (`numeric(1)`) \cr
     #'   Layout stretch factors for the ggraph \code{"tree"} layout (larger values separate nodes).
+    #' @return (ggplot) \cr
+    #'   Tree structure visualization returned by \code{plot_tree_structure()}.
     plot_tree_structure = function(label_wrap_width = 34L, node_spread_x = 1.55, node_spread_y = 1.12) {
       checkmate::assert_integerish(label_wrap_width, len = 1L, lower = 8L, null.ok = TRUE,
         upper = 100L, any.missing = FALSE, .var.name = "label_wrap_width")
@@ -187,7 +190,6 @@ GadgetTree = R6::R6Class(
     #' Get depth-based tree list (cached). Invalidated on \code{$fit()}.
     #' @return (`list()`) \cr
     #'   Depth-based list of nodes.
-    #' @keywords internal
     get_tree_list = function() {
       if (is.null(self$tree_list_cache)) {
         self$tree_list_cache = convert_tree_to_list(self$root, self$n_split + 1)

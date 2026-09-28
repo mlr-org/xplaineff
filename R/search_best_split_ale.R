@@ -173,7 +173,7 @@ pad_ale_objective_values = function(values, active_features, full_features) {
 #' @param max_exhaustive_levels (`integer(1)`) \cr
 #'   Maximum observed levels allowed for exhaustive categorical split search.
 #'
-#' @return (`data.frame()`) \cr
+#' @return (`data.table()`) \cr
 #'   Best split info with per-feature objective values.
 #' @keywords internal
 search_best_split_ale = function(

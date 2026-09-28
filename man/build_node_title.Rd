@@ -7,21 +7,21 @@
 build_node_title(node, depth_idx, tree, style = c("ale", "pd"))
 }
 \arguments{
-\item{node}{(`Node`) \cr
+\item{node}{(\code{Node}) \cr
 Node object.}
 
-\item{depth_idx}{(`integer(1)`) \cr
+\item{depth_idx}{(\code{integer(1)}) \cr
 Depth index.}
 
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 
-\item{style}{(`character(1)`) \cr
+\item{style}{(\code{character(1)}) \cr
 \code{"ale"} or \code{"pd"} for format variant.}
 }
 \value{
-(`character(1)`) \cr
-  Title string.
+(\code{character(1)}) \cr
+Title string.
 }
 \description{
 Build node title for ALE or PD tree plots.

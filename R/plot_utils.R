@@ -88,7 +88,7 @@ calculate_y_range_impl = function(effect_values, data = NULL, target_feature_nam
 }
 
 # Y limits for regional ALE panels: global + node curves (node-only can lie outside global after subsetting).
-calculate_y_range_ale_combined = function(global_curves, regional_curves, data, target_feature_name) {
+calculate_y_range_ale_combined = function(global_curves, regional_curves) {
   gv = unlist(mlr3misc::map(global_curves, function(x) x$mean_effect$d_l), use.names = FALSE)
   rv = unlist(mlr3misc::map(regional_curves, function(x) x$mean_effect$d_l), use.names = FALSE)
   calculate_y_range_impl(c(gv, rv), NULL, NULL)
@@ -182,13 +182,14 @@ create_plots_for_depth = function(tree, prepared_data, data, target_feature_name
   depth_idx, nodes_to_render, color_ice, color_pd,
   show_plot, show_point, mean_center) {
   plots_at_depth = list()
+  y_range_depth = calculate_y_range(prepared_data, data, target_feature_name, mean_center = mean_center)
   for (node_idx in nodes_to_render) {
     node = tree[[depth_idx]][[node_idx]]
     if (!is.null(node)) {
       path_conditions = track_split_condition(node, tree)
       split_condition = if (length(path_conditions) > 0) paste(path_conditions, collapse = " & ") else NULL
       title = build_node_title(node, depth_idx, tree, style = "pd")
-      y_range = calculate_y_range(prepared_data, data, target_feature_name, mean_center = mean_center)
+      y_range = y_range_depth
       if (isTRUE(mean_center) && isTRUE(show_point) && length(node$subset_idx)) {
         y_node = data[[target_feature_name]][node$subset_idx]
         y_range = merge_ale_y_range_with_response(y_range, y_node)

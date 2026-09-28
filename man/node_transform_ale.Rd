@@ -7,18 +7,18 @@
 node_transform_ale(Y, idx, is_child = FALSE)
 }
 \arguments{
-\item{Y}{(`list()`) \cr
+\item{Y}{(\code{list()}) \cr
 ALE effect data per feature.}
 
-\item{idx}{(`integer()`) \cr
+\item{idx}{(\code{integer()}) \cr
 Sample indices in the current node.}
 
-\item{is_child}{(`logical(1)`) \cr
+\item{is_child}{(\code{logical(1)}) \cr
 Whether the current node is a child node; \code{FALSE} skips constant-feature zeroing.}
 }
 \value{
-(`list()`) \cr
-  Transformed ALE effects per feature.
+(\code{list()}) \cr
+Transformed ALE effects per feature.
 }
 \description{
 Subsets ALE effect data to the current node's row indices and recomputes
@@ -26,3 +26,4 @@ per-interval statistics. When \code{is_child} is \code{TRUE},
 forces \code{d_l = 0} for any feature whose values are constant in this node
 (single unique value).
 }
+\keyword{internal}

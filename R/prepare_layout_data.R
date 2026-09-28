@@ -27,11 +27,6 @@ prepare_layout_data = function(tree) {
           } else {
             NA_character_
           },
-          split_levels = if (!is.null(node$parent) && !is.null(node$parent$split_levels)) {
-            format_split_level_set(node$parent$split_levels)
-          } else {
-            NA_character_
-          },
           split_feature = if (!is.null(node$split)) node$split$feature else NA,
           split_value   = if (!is.null(node$split)) node$split$value else NA,
           int_imp       = if (!is.null(node$importance)) node$importance$imp else NA,
@@ -79,8 +74,6 @@ prepare_layout_data = function(tree) {
           format_val(this$split_value))
       }
       path_conditions = paste0(cond_self, "\nheter_reduction: ", round(this$int_imp, 3))
-    } else {
-      path_conditions = path_conditions
     }
     layout[layout$node_id == i, ]$label = paste0("depth_", this$depth, "_id_", i, "  #obs: ", this$N, "\n",
       paste(path_conditions, collapse = " \n& "))

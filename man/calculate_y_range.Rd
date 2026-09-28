@@ -12,22 +12,22 @@ calculate_y_range(
 )
 }
 \arguments{
-\item{prepared_data}{(`list()`) \cr
+\item{prepared_data}{(\code{list()}) \cr
 Prepared effect data.}
 
-\item{data}{(`data.frame()`) \cr
+\item{data}{(\code{data.frame()}) \cr
 Original data.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target column.}
 
-\item{mean_center}{(`logical(1)`) \cr
+\item{mean_center}{(\code{logical(1)}) \cr
 If \code{TRUE}, ICE/PDP are on a centered scale; the raw target column is not merged into
 \code{ylim}. If \code{FALSE}, limits follow ICE/PD values and the target range (for overlays).}
 }
 \value{
-(`list()`) \cr
-  \code{ymin}, \code{ymax}.
+(\code{list()}) \cr
+\code{ymin}, \code{ymax}.
 }
 \description{
 Compute y-axis range for PD plots.

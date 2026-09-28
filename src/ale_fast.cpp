@@ -45,8 +45,20 @@ static double quantile_type7_sorted(const NumericVector& x_sorted, double p) {
   return x_sorted[lo] + f * (x_sorted[lo + 1] - x_sorted[lo]);
 }
 
-// [[Rcpp::export]]
-NumericVector cpp_ale_numeric_breaks(NumericVector x, int n_intervals) {
+// -----------------------------------------------------------------------------
+// cpp_ale_numeric_breaks
+// Purpose:
+//   Compute ALE interval breaks for a numeric feature as type-7 quantiles at
+//   probabilities 0, 1/n_intervals, ..., 1 of the finite values of x, with
+//   duplicate breaks collapsed.
+// Inputs:
+//   x: numeric feature values (non-finite values are ignored)
+//   n_intervals: requested number of intervals (>= 1)
+// Output:
+//   Numeric vector of unique, ascending breaks with at least two entries
+//   (c(NA, NA) if x has no finite value; c(q, q) if all finite values equal).
+// -----------------------------------------------------------------------------
+static NumericVector cpp_ale_numeric_breaks(NumericVector x, int n_intervals) {
   if (n_intervals < 1) {
     stop("n_intervals must be >= 1.");
   }
@@ -74,36 +86,53 @@ NumericVector cpp_ale_numeric_breaks(NumericVector x, int n_intervals) {
   return q;
 }
 
-// [[Rcpp::export]]
-IntegerVector cpp_ale_interval_index(NumericVector x, NumericVector breaks) {
-  int n = x.size();
-  int nb = breaks.size();
-  if (nb < 2) {
-    stop("breaks must contain at least two values.");
-  }
-
-  for (int i = 1; i < nb; ++i) {
-    if (breaks[i] <= breaks[i - 1]) {
-      stop("breaks must be strictly increasing.");
+// Largest positive (non-NA) value of a 1-based interval index vector; 0 if none.
+static int max_valid_index(const IntegerVector& interval_index) {
+  int k = 0;
+  for (int i = 0; i < interval_index.size(); ++i) {
+    if (interval_index[i] != NA_INTEGER && interval_index[i] > k) {
+      k = interval_index[i];
     }
   }
-
-  IntegerVector out(n);
-  const double *q = REAL(breaks);
-
-  for (int i = 0; i < n; ++i) {
-    double xi = x[i];
-    if (!R_finite(xi)) {
-      out[i] = NA_INTEGER;
-      continue;
-    }
-    // find_interval is 0-based; R-facing interval indices remain 1-based.
-    out[i] = find_interval(xi, q, nb) + 1;
-  }
-
-  return out;
+  return k;
 }
 
+// Accumulate per-interval sufficient statistics (count, sum, sum of squares)
+// of d over observations with a valid 1-based index in 1..k and finite d.
+static void accumulate_interval_stats(
+  const IntegerVector& interval_index,
+  const NumericVector& d,
+  int k,
+  NumericVector& interval_n,
+  NumericVector& interval_s1,
+  NumericVector& interval_s2
+) {
+  const int n = d.size();
+  for (int i = 0; i < n; ++i) {
+    const int idx = interval_index[i];
+    const double di = d[i];
+    if (idx == NA_INTEGER || idx < 1 || idx > k || !R_finite(di)) {
+      continue;
+    }
+    const int pos = idx - 1;
+    interval_n[pos] += 1.0;
+    interval_s1[pos] += di;
+    interval_s2[pos] += di * di;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// cpp_ale_interval_aggregate
+// Purpose:
+//   Aggregate local effects into per-interval sufficient statistics.
+// Inputs:
+//   d_l: local effects per observation (non-finite values are skipped)
+//   interval_index: 1-based interval id per observation (NA skipped)
+// Output:
+//   List of length-k vectors (k = max interval id): interval_n (counts),
+//   interval_s1 (sum of d_l), interval_s2 (sum of d_l^2). Empty vectors if no
+//   valid index.
+// -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 List cpp_ale_interval_aggregate(NumericVector d_l, IntegerVector interval_index) {
   int n = d_l.size();
@@ -111,12 +140,7 @@ List cpp_ale_interval_aggregate(NumericVector d_l, IntegerVector interval_index)
     stop("d_l and interval_index must have the same length.");
   }
 
-  int k = 0;
-  for (int i = 0; i < n; ++i) {
-    if (interval_index[i] != NA_INTEGER && interval_index[i] > k) {
-      k = interval_index[i];
-    }
-  }
+  const int k = max_valid_index(interval_index);
   if (k <= 0) {
     return List::create(
       _["interval_n"] = NumericVector(0),
@@ -128,22 +152,7 @@ List cpp_ale_interval_aggregate(NumericVector d_l, IntegerVector interval_index)
   NumericVector interval_n(k, 0.0);
   NumericVector interval_s1(k, 0.0);
   NumericVector interval_s2(k, 0.0);
-
-  // Compute stats per interval:
-  // - interval_n: count of observations in each interval
-  // - interval_s1: sum(d_l) in each interval
-  // - interval_s2: sum(d_l^2) in each interval
-  for (int i = 0; i < n; ++i) {
-    int idx = interval_index[i];
-    double di = d_l[i];
-    if (idx == NA_INTEGER || idx < 1 || idx > k || !R_finite(di)) {
-      continue;
-    }
-    int pos = idx - 1;
-    interval_n[pos] += 1.0;
-    interval_s1[pos] += di;
-    interval_s2[pos] += di * di;
-  }
+  accumulate_interval_stats(interval_index, d_l, k, interval_n, interval_s1, interval_s2);
 
   return List::create(
     _["interval_n"] = interval_n,
@@ -152,51 +161,50 @@ List cpp_ale_interval_aggregate(NumericVector d_l, IntegerVector interval_index)
   );
 }
 
-// [[Rcpp::export]]
-List cpp_ale_numeric_finalize(
-  NumericVector preds_lower,
-  NumericVector preds_upper,
-  IntegerVector interval_index
+// -----------------------------------------------------------------------------
+// ale_finalize_local_effects
+// Purpose:
+//   Shared body of the numeric and categorical ALE finalization: compute local
+//   effects d_l = upper - lower, accumulate per-interval sufficient statistics,
+//   and broadcast the statistics of each observation's interval back to rows.
+// Inputs:
+//   interval_index: 1-based interval (or level) id per observation
+//   upper, lower: predictions at the upper/lower interval boundary per observation
+//   index_name: name of the index argument, used in the error message
+// Output:
+//   List of length-n vectors: d_l (NA where the index is invalid or a prediction
+//   is non-finite), int_n, int_s1, int_s2 (statistics of the row's interval).
+// -----------------------------------------------------------------------------
+static List ale_finalize_local_effects(
+  const IntegerVector& interval_index,
+  const NumericVector& upper,
+  const NumericVector& lower,
+  const char* index_name
 ) {
-  const int n = preds_lower.size();
-  if (preds_upper.size() != n || interval_index.size() != n) {
-    stop("preds_lower, preds_upper, and interval_index must have the same length.");
-  }
-
-  int k = 0;
-  for (int i = 0; i < n; ++i) {
-    if (interval_index[i] != NA_INTEGER && interval_index[i] > k) {
-      k = interval_index[i];
-    }
-  }
+  const int n = interval_index.size();
+  const int k = max_valid_index(interval_index);
   if (k <= 0) {
-    stop("interval_index must contain at least one valid positive index.");
+    stop("%s must contain at least one valid positive index.", index_name);
   }
 
   NumericVector d_l(n, NA_REAL);
-  NumericVector interval_n(k, 0.0);
-  NumericVector interval_s1(k, 0.0);
-  NumericVector interval_s2(k, 0.0);
-
   for (int i = 0; i < n; ++i) {
     const int idx = interval_index[i];
     if (idx == NA_INTEGER || idx < 1 || idx > k) {
       continue;
     }
-
-    const double lo = preds_lower[i];
-    const double up = preds_upper[i];
+    const double lo = lower[i];
+    const double up = upper[i];
     if (!R_finite(lo) || !R_finite(up)) {
       continue;
     }
-
-    const double di = up - lo;
-    d_l[i] = di;
-    const int pos = idx - 1;
-    interval_n[pos] += 1.0;
-    interval_s1[pos] += di;
-    interval_s2[pos] += di * di;
+    d_l[i] = up - lo;
   }
+
+  NumericVector interval_n(k, 0.0);
+  NumericVector interval_s1(k, 0.0);
+  NumericVector interval_s2(k, 0.0);
+  accumulate_interval_stats(interval_index, d_l, k, interval_n, interval_s1, interval_s2);
 
   NumericVector int_n_row(n, NA_REAL);
   NumericVector int_s1_row(n, NA_REAL);
@@ -220,6 +228,19 @@ List cpp_ale_numeric_finalize(
   );
 }
 
+// -----------------------------------------------------------------------------
+// cpp_ale_numeric_effect_table
+// Purpose:
+//   Build the per-observation ALE effect table for a numeric feature.
+// Inputs:
+//   feat_val: feature value per observation
+//   x_left, x_right: lower/upper break of the observation's interval
+//   interval_index: 1-based interval id per observation
+//   preds_lower, preds_upper: predictions with the feature set to x_left/x_right
+// Output:
+//   List of length-n columns: row_id, feat_val, x_left, x_right,
+//   d_l (= preds_upper - preds_lower), interval_index, int_n, int_s1, int_s2.
+// -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 List cpp_ale_numeric_effect_table(
   NumericVector feat_val,
@@ -235,7 +256,7 @@ List cpp_ale_numeric_effect_table(
     stop("All inputs must have the same length.");
   }
 
-  List finalized = cpp_ale_numeric_finalize(preds_lower, preds_upper, interval_index);
+  List finalized = ale_finalize_local_effects(interval_index, preds_upper, preds_lower, "interval_index");
   IntegerVector row_id(n);
   for (int i = 0; i < n; ++i) {
     row_id[i] = i + 1;
@@ -254,74 +275,20 @@ List cpp_ale_numeric_effect_table(
   );
 }
 
-// [[Rcpp::export]]
-List cpp_ale_categorical_finalize(
-  IntegerVector levels_id,
-  NumericVector y_hat_plus,
-  NumericVector y_hat_neg
-) {
-  const int n = levels_id.size();
-  if (y_hat_plus.size() != n || y_hat_neg.size() != n) {
-    stop("levels_id, y_hat_plus, and y_hat_neg must have the same length.");
-  }
-
-  int k = 0;
-  for (int i = 0; i < n; ++i) {
-    if (levels_id[i] != NA_INTEGER && levels_id[i] > k) {
-      k = levels_id[i];
-    }
-  }
-  if (k <= 0) {
-    stop("levels_id must contain at least one valid positive index.");
-  }
-
-  NumericVector d_l(n, NA_REAL);
-  NumericVector interval_n(k, 0.0);
-  NumericVector interval_s1(k, 0.0);
-  NumericVector interval_s2(k, 0.0);
-
-  for (int i = 0; i < n; ++i) {
-    const int idx = levels_id[i];
-    if (idx == NA_INTEGER || idx < 1 || idx > k) {
-      continue;
-    }
-
-    const double yp = y_hat_plus[i];
-    const double yn = y_hat_neg[i];
-    if (!R_finite(yp) || !R_finite(yn)) {
-      continue;
-    }
-
-    const double di = yp - yn;
-    d_l[i] = di;
-    const int pos = idx - 1;
-    interval_n[pos] += 1.0;
-    interval_s1[pos] += di;
-    interval_s2[pos] += di * di;
-  }
-
-  NumericVector int_n_row(n, NA_REAL);
-  NumericVector int_s1_row(n, NA_REAL);
-  NumericVector int_s2_row(n, NA_REAL);
-  for (int i = 0; i < n; ++i) {
-    const int idx = levels_id[i];
-    if (idx == NA_INTEGER || idx < 1 || idx > k) {
-      continue;
-    }
-    const int pos = idx - 1;
-    int_n_row[i] = interval_n[pos];
-    int_s1_row[i] = interval_s1[pos];
-    int_s2_row[i] = interval_s2[pos];
-  }
-
-  return List::create(
-    _["d_l"] = d_l,
-    _["int_n"] = int_n_row,
-    _["int_s1"] = int_s1_row,
-    _["int_s2"] = int_s2_row
-  );
-}
-
+// -----------------------------------------------------------------------------
+// cpp_ale_categorical_effect_table
+// Purpose:
+//   Build the per-observation ALE effect table for a categorical feature whose
+//   levels have been ordered.
+// Inputs:
+//   feat_val: observed level id per observation
+//   x_left, x_right: neighbouring level ids used for the finite difference
+//   interval_index: 1-based level id per observation
+//   y_hat_plus, y_hat_neg: predictions with the feature set to x_right/x_left
+// Output:
+//   List of length-n columns: row_id, feat_val, x_left, x_right,
+//   d_l (= y_hat_plus - y_hat_neg), interval_index, int_n, int_s1, int_s2.
+// -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 List cpp_ale_categorical_effect_table(
   IntegerVector feat_val,
@@ -337,7 +304,7 @@ List cpp_ale_categorical_effect_table(
     stop("All inputs must have the same length.");
   }
 
-  List finalized = cpp_ale_categorical_finalize(interval_index, y_hat_plus, y_hat_neg);
+  List finalized = ale_finalize_local_effects(interval_index, y_hat_plus, y_hat_neg, "levels_id");
   IntegerVector row_id(n);
   for (int i = 0; i < n; ++i) {
     row_id[i] = i + 1;
@@ -356,6 +323,19 @@ List cpp_ale_categorical_effect_table(
   );
 }
 
+// -----------------------------------------------------------------------------
+// cpp_ale_numeric_prepare
+// Purpose:
+//   Prepare the ALE interval layout for a numeric feature: compute quantile
+//   breaks and assign each observation to its interval.
+// Inputs:
+//   x: numeric feature values (non-finite values get NA index/bounds)
+//   n_intervals: requested number of intervals (>= 1)
+// Output:
+//   List: zero_effect (TRUE if x is empty or all breaks coincide, in which case
+//   interval_index/x_left/x_right are all NA), breaks, interval_index (1-based),
+//   x_left, x_right (lower/upper break of each observation's interval).
+// -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 List cpp_ale_numeric_prepare(NumericVector x, int n_intervals) {
   if (n_intervals < 1) {
@@ -408,6 +388,18 @@ List cpp_ale_numeric_prepare(NumericVector x, int n_intervals) {
   );
 }
 
+// -----------------------------------------------------------------------------
+// cpp_ale_categorical_prepare
+// Purpose:
+//   For an ordered categorical feature, find the neighbouring level ids used for
+//   the ALE finite difference: left = lv - 1 (or lv at the first level) and
+//   right = lv + 1 (or lv at the last level).
+// Inputs:
+//   levels_id: 1-based ordered level id per observation
+//   n_levels: number of levels (>= 1); ids outside 1..n_levels get NA
+// Output:
+//   List: left_id, right_id (integer vectors of length n).
+// -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 List cpp_ale_categorical_prepare(IntegerVector levels_id, int n_levels) {
   if (n_levels < 1) {

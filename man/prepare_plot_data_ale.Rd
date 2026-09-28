@@ -12,21 +12,21 @@ prepare_plot_data_ale(
 )
 }
 \arguments{
-\item{effect}{(`list()`) \cr
+\item{effect}{(\code{list()}) \cr
 List returned by \code{calculate_ale()}.}
 
-\item{idx}{(`integer()` or `list()` or `NULL`) \cr
+\item{idx}{(\code{integer()} or \code{list()} or \code{NULL}) \cr
 Row indices (node subset); list of such vectors; or \code{NULL} for root.}
 
-\item{features}{(`character()`) \cr
+\item{features}{(\code{character()}) \cr
 Features to include (default: all in effect).}
 
-\item{mean_center}{(`logical(1)`) \cr
+\item{mean_center}{(\code{logical(1)}) \cr
 Whether to mean-center ALE curves.}
 }
 \value{
-(`list()`) \cr
-  Named list of \code{mean_effect} data.tables per feature; nested if \code{idx} is list.
+(\code{list()}) \cr
+Named list of \code{mean_effect} data.tables per feature; nested if \code{idx} is list.
 }
 \description{
 Given effect (from \code{calculate_ale}), idx (row indices or list of such), features,
@@ -38,8 +38,7 @@ Rows are subset with \code{effect[[feat]][row_id \%in\% idx]} when \code{idx} is
 
 \code{mean_center_ale()} builds plot grids from aggregated intervals: means sample-wise \code{d_l}
 within each \code{(interval_index, x_left, x_right)} group (\code{delta_aggr}), cumulates, then
-optionally subtracts a weighted scalar \code{f_j0}. Sample-wise \code{d_l == 0} is mapped to
-\code{NA} before aggregation so exact zeros do not enter group means.
+optionally subtracts a weighted scalar \code{f_j0}.
 
 For categorical features, each row of \code{mean_effect} corresponds to one row of
 \code{delta_aggr}; \code{x_grid} uses \code{as.character(delta_aggr$x_left)}, so the number of
@@ -47,3 +46,4 @@ plotted points follows the number of distinct aggregated intervals after subsett
 row per factor level). Factor \code{x_grid} still carries full \code{levels(feat_val)} for axis
 ordering.
 }
+\keyword{internal}

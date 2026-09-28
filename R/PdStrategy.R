@@ -177,7 +177,7 @@ PdStrategy = R6::R6Class(
     #' @return (`list()`) \cr
     #'   \code{left_objective_value_j}, \code{right_objective_value_j},
     #'   \code{left_objective_value}, \code{right_objective_value}.
-    get_child_objectives = function(Z, Y, split_info, idx_left, idx_right, grid_left, grid_right) {
+    get_child_objectives = function(Y, split_info, idx_left, idx_right, grid_left, grid_right) {
       checkmate::assert_integerish(idx_left, min.len = 1, .var.name = "idx_left")
       checkmate::assert_integerish(idx_right, min.len = 1, .var.name = "idx_right")
       checkmate::assert_list(grid_left, .var.name = "grid_left")
@@ -299,7 +299,8 @@ PdStrategy = R6::R6Class(
     #'   Number of grid points for numeric features.
     #' @param pd_engine (`character(1)`) \cr
     #'   When computing ICE/PD from \code{model}: \code{"auto"}, \code{"cpp"} (column-wise stacked
-    #'   \code{newdata}, xplaineff-style), or \code{"r"} (\code{data.table::rbindlist}).
+    #'   \code{newdata}, xplaineff-style), or \code{"r"} (stacked table built in R by repeating
+    #'   each column \code{length(grid)} times).
     #' @param categorical_split (`character(1)` or `NULL`) \cr
     #'   Categorical split mode for PD trees; \code{NULL} keeps the current strategy setting.
     #' @param max_exhaustive_levels (`integer(1)` or `NULL`) \cr
@@ -384,6 +385,7 @@ PdStrategy = R6::R6Class(
 
     #' @description
     #' Drops \code{tree_ref}; effect cache is intentionally retained when present.
+    #' @return (\code{NULL}), invisibly.
     clean = function() {
       self$tree_ref = NULL
     }

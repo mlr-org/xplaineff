@@ -19,33 +19,33 @@ create_plots_for_depth(
 )
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 
-\item{prepared_data}{(`list()`) \cr
+\item{prepared_data}{(\code{list()}) \cr
 Prepared effect data per feature.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Original data.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target column name.}
 
-\item{depth_idx}{(`integer(1)`) \cr
+\item{depth_idx}{(\code{integer(1)}) \cr
 Depth level.}
 
-\item{nodes_to_render}{(`integer()`) \cr
+\item{nodes_to_render}{(\code{integer()}) \cr
 Node indices to render.}
 
-\item{color_ice, color_pd}{(`character(1)`) \cr
+\item{color_ice, color_pd}{(\code{character(1)}) \cr
 Colors for ICE and PDP.}
 
-\item{show_plot, show_point, mean_center}{(`logical(1)`) \cr
+\item{show_plot, show_point, mean_center}{(\code{logical(1)}) \cr
 Plot options.}
 }
 \value{
-(`list()`) \cr
-  Named list of patchwork objects per node.
+(\code{list()}) \cr
+Named list of patchwork objects per node.
 }
 \description{
 Create PD plots for one depth.

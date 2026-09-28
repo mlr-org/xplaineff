@@ -7,15 +7,15 @@
 build_ale_interval_stats(effect, features)
 }
 \arguments{
-\item{effect}{(`list()`) \cr
+\item{effect}{(\code{list()}) \cr
 ALE effect data per feature (from \code{calculate_ale}).}
 
-\item{features}{(`character()`) \cr
+\item{features}{(\code{character()}) \cr
 Feature names to include.}
 }
 \value{
-(`list()`) \cr
-  Statistics: K, offsets, tot_n, tot_s1, tot_s2, r_n, r_s1, r_s2, r_risks, d_l_mat, interval_idx_mat.
+(\code{list()}) \cr
+Statistics: K, offsets, tot_n, tot_s1, tot_s2, r_n, r_s1, r_s2, r_risks, d_l_mat, interval_idx_mat.
 }
 \description{
 Build per-feature interval statistics for ALE effect.

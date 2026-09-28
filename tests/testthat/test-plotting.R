@@ -42,7 +42,7 @@ test_that("merge_ale_y_range_with_response expands ylim to overlaid response", {
 test_that("calculate_y_range_ale_combined includes regional curve range", {
   global_curves = list(f = list(mean_effect = data.frame(d_l = c(0, 1))))
   regional_curves = list(f = list(mean_effect = data.frame(d_l = c(-10, 10))))
-  yr = xplaineff:::calculate_y_range_ale_combined(global_curves, regional_curves, NULL, NULL)
+  yr = xplaineff:::calculate_y_range_ale_combined(global_curves, regional_curves)
   expect_true(yr$ymin <= -10)
   expect_true(yr$ymax >= 10)
 })
@@ -85,18 +85,14 @@ test_that("plot_regional_pd is callable with valid prepared_data", {
     )
   )
   origin_data = data.frame(x1 = c(0, 0.5, 1)[rep(1:3, length.out = n)], y = rnorm(n))
-  p = tryCatch({
-    xplaineff:::plot_regional_pd(
-      prepared_data = prepared_data,
-      origin_data = origin_data,
-      target_feature_name = "y",
-      node_idx = 1,
-      color_ice = "lightblue", color_pd = "red",
-      ymin = NA, ymax = NA, show_point = FALSE, mean_center = TRUE
-    )
-  }, error = function(e) {
-    testthat::skip(paste("plot_regional_pd:", conditionMessage(e)))
-  })
+  p = xplaineff:::plot_regional_pd(
+    prepared_data = prepared_data,
+    origin_data = origin_data,
+    target_feature_name = "y",
+    node_idx = 1,
+    color_ice = "lightblue", color_pd = "red",
+    ymin = NA, ymax = NA, show_point = FALSE, mean_center = TRUE
+  )
   # plot_regional_pd returns list of ggplot objects (one per feature)
   expect_true(is.list(p))
   expect_true(length(p) >= 1)
@@ -141,14 +137,8 @@ test_that("create_plots_for_depth names PD plots with node ids", {
 test_that("ALE tree plot returns list", {
   skip_if_not_installed("mlr3")
   skip_if_not_installed("mlr3learners")
-  n = 5
-  dt = data.table::data.table(
-    row_id = seq_len(n), interval_index = rep(1L, n), d_l = 0, int_n = n, int_s1 = 0, int_s2 = 0
-  )
-  tryCatch(
-    xplaineff:::calculate_ale_heterogeneity_list_cpp(list(x = dt)),
-    error = function(e) testthat::skip("ALE C++ not loaded")
-  )
+  skip_if_not_installed("ranger")
+  skip_ale_cpp_if_unavailable()
   set.seed(123)
   n = 40
   data = data.frame(x1 = rnorm(n), x2 = rnorm(n), y = rnorm(n))

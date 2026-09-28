@@ -15,8 +15,6 @@
 #' @return (ggplot) \cr
 #'   Tree structure visualization.
 #'
-#' @importFrom igraph graph_from_data_frame
-#' @importFrom ggraph create_layout ggraph geom_edge_elbow geom_node_label circle
 #' @importFrom ggplot2 aes coord_flip scale_fill_manual theme_void scale_y_reverse theme expansion arrow unit margin
 #' @importFrom stats setNames na.omit
 #' @importFrom grDevices hcl.colors
@@ -49,7 +47,6 @@ plot_tree_structure = function(tree, label_wrap_width = 34L, node_spread_x = 1.5
   gg = ggraph::ggraph(lay) +
     coord_flip(clip = "off")
 
-  # Only add edges if there are any
   if (nrow(edge_list) > 0) {
     gg = gg + ggraph::geom_edge_elbow(
       arrow = arrow(length = unit(0.05, "cm")),
@@ -64,7 +61,6 @@ plot_tree_structure = function(tree, label_wrap_width = 34L, node_spread_x = 1.5
       aes(label = get("label"), fill = factor(get("depth"))),
       size = 3.5,
       label.padding = unit(0.25, "lines"),
-      # label.size = 0.3,
       label.r = unit(0.1, "lines")
     ) +
     scale_fill_manual(values = hcl.colors(n = length(tree), palette = "Set2")) +

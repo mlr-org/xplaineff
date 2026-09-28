@@ -141,8 +141,11 @@ List ale_sweep_cpp(
     for (int j = 0; j < p; ++j) {
       double d = d_l_mat(j, row);
       int interval_idx_val = interval_idx_mat(j, row);
+      if (interval_idx_val == NA_INTEGER || interval_idx_val <= 0) continue;
       int m = offsets[j] + interval_idx_val - 1;  /* Flattened interval index. */
       if (m < 0 || m >= M) continue;
+      /* Non-finite local effects were excluded from tot_n/s1/s2; skip them here too. */
+      if (!R_finite(d)) continue;
 
       /* Remove row from right: r_n -= 1, r_s1 -= d, r_s2 -= d^2. */
       double r_n_old = r_n[m];
@@ -181,9 +184,10 @@ List ale_sweep_cpp(
     if (!is_cand[t - 1] || t < min_node_size || (n_obs - t) < min_node_size)
       continue;
 
-    /* Left/right constant? (all same z value) -> drop self risk. */
-    bool l_const = (z_sorted.size() > 0 && std::abs(z_sorted[0] - z_sorted[t - 1]) < 1e-15);
-    bool r_const = (z_sorted.size() >= (R_xlen_t)n_obs && std::abs(z_sorted[t] - z_sorted[n_obs - 1]) < 1e-15);
+    /* Left/right constant? (all same z value) -> drop self risk. Both operands
+     * are elements of the same sorted vector, so exact comparison is correct. */
+    bool l_const = (z_sorted.size() > 0 && z_sorted[0] == z_sorted[t - 1]);
+    bool r_const = (z_sorted.size() >= (R_xlen_t)n_obs && z_sorted[t] == z_sorted[n_obs - 1]);
 
     /* Self-ALE splits are ranked by other-feature child risk minus the
      * bias-corrected self gain. */
@@ -296,9 +300,6 @@ List ale_exhaustive_level_set_cpp(
     stop("ale_exhaustive_level_set_cpp: inconsistent sufficient-statistic dimensions.");
   }
 
-  std::vector<double> level_n(K * M, 0.0);
-  std::vector<double> level_s1(K * M, 0.0);
-  std::vector<double> level_s2(K * M, 0.0);
   std::vector<int> level_count(K, 0);
   int observed_n = 0;
 
@@ -308,17 +309,6 @@ List ale_exhaustive_level_set_cpp(
     if (k < 0 || k >= K) continue;
     ++level_count[k];
     ++observed_n;
-    for (int j = 0; j < p; ++j) {
-      const int interval_idx_val = interval_idx_mat(j, i);
-      if (interval_idx_val == NA_INTEGER || interval_idx_val <= 0) continue;
-      const int m = offsets[j] + interval_idx_val - 1;
-      if (m < 0 || m >= M) continue;
-      const double d = d_l_mat(j, i);
-      const int pos = k * M + m;
-      level_n[pos] += 1.0;
-      level_s1[pos] += d;
-      level_s2[pos] += d * d;
-    }
   }
 
   std::vector<int> observed_levels;
@@ -337,6 +327,30 @@ List ale_exhaustive_level_set_cpp(
   }
   if (static_cast<int>(observed_levels.size()) > max_exhaustive_levels) {
     stop("ale_exhaustive_level_set_cpp: too many observed levels for exhaustive search.");
+  }
+
+  /* Per-level sufficient statistics, allocated only once the level count is admissible. */
+  std::vector<double> level_n(K * M, 0.0);
+  std::vector<double> level_s1(K * M, 0.0);
+  std::vector<double> level_s2(K * M, 0.0);
+
+  for (int i = 0; i < N; ++i) {
+    if (z_fac[i] == NA_INTEGER) continue;
+    const int k = z_fac[i] - 1;
+    if (k < 0 || k >= K) continue;
+    for (int j = 0; j < p; ++j) {
+      const int interval_idx_val = interval_idx_mat(j, i);
+      if (interval_idx_val == NA_INTEGER || interval_idx_val <= 0) continue;
+      const int m = offsets[j] + interval_idx_val - 1;
+      if (m < 0 || m >= M) continue;
+      const double d = d_l_mat(j, i);
+      /* Non-finite local effects were excluded from tot_n/s1/s2; skip them here too. */
+      if (!R_finite(d)) continue;
+      const int pos = k * M + m;
+      level_n[pos] += 1.0;
+      level_s1[pos] += d;
+      level_s2[pos] += d * d;
+    }
   }
 
   std::vector<double> current_n(M, 0.0);

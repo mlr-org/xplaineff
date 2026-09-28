@@ -29,7 +29,6 @@ calculate_ale_fast = function(
   } else {
     data[, setdiff(colnames(data), target_feature_name), drop = FALSE]
   }
-  x_features_dt = data.table::as.data.table(X)
 
   n_intervals = as.integer(n_intervals)
   predictor = make_effect_predictor(model = model, predict_fun = predict_fun)
@@ -45,7 +44,6 @@ calculate_ale_fast = function(
   mlr3misc::map(setNames(nm = feature_set), function(feat) {
     ale_feature(
       data = data,
-      X = X,
       stacked = stacked,
       idx_lower = idx_lower,
       idx_upper = idx_upper,
@@ -66,7 +64,7 @@ calculate_ale_matrix = function(
   }
   x_features_dt = data.table::as.data.table(X)
   feature_cols = x_features_dt[, feature_set, with = FALSE]
-  is_supported_col = vapply(feature_cols, function(x) is.numeric(x) || is.integer(x) || is.factor(x), logical(1L))
+  is_supported_col = vapply(feature_cols, function(x) is.numeric(x) || is.factor(x), logical(1L))
   if (!all(is_supported_col)) {
     return(NULL)
   }
@@ -111,7 +109,7 @@ calculate_ale_matrix = function(
         value = factor(levels_orig[prep$right_id], levels = levels_orig))
       data.table::set(stacked, i = idx_upper, j = feat,
         value = factor(levels_orig[prep$left_id], levels = levels_orig))
-      preds_all = predictor$predict(stacked) + 0
+      preds_all = predictor$predict(stacked)
       data.table::set(stacked, j = feat, value = original)
 
       d_l = preds_all[idx_lower] - preds_all[idx_upper]
@@ -137,7 +135,7 @@ calculate_ale_matrix = function(
     }
     data.table::set(stacked, i = idx_lower, j = feat, value = prep$x_left)
     data.table::set(stacked, i = idx_upper, j = feat, value = prep$x_right)
-    preds_all = predictor$predict(stacked) + 0
+    preds_all = predictor$predict(stacked)
     data.table::set(stacked, j = feat, value = original)
 
     d_l = preds_all[idx_upper] - preds_all[idx_lower]
@@ -161,26 +159,11 @@ calculate_ale_matrix = function(
   )
 }
 
-calculate_ale_fast_compact = function(
-  model, data, feature_set, target_feature_name, n_intervals = 10, predict_fun = NULL
-) {
-  calculate_ale_matrix(
-    model = model,
-    data = data,
-    feature_set = feature_set,
-    target_feature_name = target_feature_name,
-    n_intervals = n_intervals,
-    predict_fun = predict_fun
-  )
-}
-
 
 #' Fast ALE for a single feature.
 #'
 #' @param data (`data.frame()` or `data.table()`) \cr
 #'   Training data.
-#' @param X (`data.table()`) \cr
-#'   Features (excl. target). Never modified.
 #' @param stacked (`data.table()`) \cr
 #'   Pre-allocated 2n-row matrix shared across features; modified in-place per call.
 #' @param idx_lower (`integer()`) \cr
@@ -197,19 +180,19 @@ calculate_ale_fast_compact = function(
 #' @return (`data.table()`) \cr
 #'   ALE data with \code{row_id}, \code{feat_val}, \code{d_l}, \code{interval_index}, etc.
 #' @keywords internal
-ale_feature = function(data, X, stacked, idx_lower, idx_upper, feature, n_intervals = 10L, predictor) {
+ale_feature = function(data, stacked, idx_lower, idx_upper, feature, n_intervals = 10L, predictor) {
   if (is.factor(data[[feature]])) {
-    ale_categorical(data = data, X = X, stacked = stacked,
+    ale_categorical(data = data, stacked = stacked,
       idx_lower = idx_lower, idx_upper = idx_upper, feature = feature, predictor = predictor)
   } else {
-    ale_numeric(data = data, X = X, stacked = stacked,
+    ale_numeric(data = data, stacked = stacked,
       idx_lower = idx_lower, idx_upper = idx_upper,
       feature = feature, n_intervals = n_intervals, predictor = predictor)
   }
 }
 
 
-ale_numeric = function(data, X, stacked, idx_lower, idx_upper, feature, n_intervals = 10L, predictor) {
+ale_numeric = function(data, stacked, idx_lower, idx_upper, feature, n_intervals = 10L, predictor) {
   x_num = data[[feature]]
   if (length(unique(na.omit(x_num))) <= 1L) {
     return(ale_zero(feat_val = x_num))
@@ -226,7 +209,7 @@ ale_numeric = function(data, X, stacked, idx_lower, idx_upper, feature, n_interv
   }
   data.table::set(stacked, i = idx_lower, j = feature, value = prep$x_left)
   data.table::set(stacked, i = idx_upper, j = feature, value = prep$x_right)
-  preds_all = predictor$predict(stacked) + 0
+  preds_all = predictor$predict(stacked)
   data.table::set(stacked, j = feature, value = original)
 
   data.table::as.data.table(cpp_ale_numeric_effect_table(
@@ -239,7 +222,7 @@ ale_numeric = function(data, X, stacked, idx_lower, idx_upper, feature, n_interv
   ))
 }
 
-ale_categorical = function(data, X, stacked, idx_lower, idx_upper, feature, predictor) {
+ale_categorical = function(data, stacked, idx_lower, idx_upper, feature, predictor) {
   x_cat = droplevels(data[[feature]])
   k = nlevels(x_cat)
   if (k <= 1L) {
@@ -254,7 +237,7 @@ ale_categorical = function(data, X, stacked, idx_lower, idx_upper, feature, pred
     value = factor(levels_orig[prep$right_id], levels = levels_orig))
   data.table::set(stacked, i = idx_upper, j = feature,
     value = factor(levels_orig[prep$left_id], levels = levels_orig))
-  preds_all = predictor$predict(stacked) + 0
+  preds_all = predictor$predict(stacked)
   data.table::set(stacked, j = feature, value = original)
 
   out = data.table::as.data.table(cpp_ale_categorical_effect_table(

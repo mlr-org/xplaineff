@@ -17,34 +17,34 @@ plot_regional_ale(
 )
 }
 \arguments{
-\item{curves}{(`list()`) \cr
+\item{curves}{(\code{list()}) \cr
 Output of \code{prepare_plot_data_ale} for a node.}
 
-\item{color_ale}{(`character(1)`) \cr
+\item{color_ale}{(\code{character(1)}) \cr
 Color for ALE curves.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target column name; used as the y-axis label (same convention as PD plots).}
 
-\item{mean_center}{(`logical(1)`) \cr
+\item{mean_center}{(\code{logical(1)}) \cr
 Whether ALE curves are mean-centered; controls legend text (\code{"Mean centered ALE"} vs
 \code{"ALE"}), matching PD ICE/PDP labeling.}
 
-\item{ymin, ymax}{(`numeric(1)` or `NULL`) \cr
+\item{ymin, ymax}{(\code{numeric(1)} or \code{NULL}) \cr
 Y-axis limits.}
 
-\item{show_point}{(`logical(1)`) \cr
+\item{show_point}{(\code{logical(1)}) \cr
 Whether to add observation points.}
 
-\item{point_values}{(`list()` or `NULL`) \cr
+\item{point_values}{(\code{list()} or \code{NULL}) \cr
 Per-feature data.frames with \code{x}, \code{y}; used when \code{show_point = TRUE}.}
 
-\item{x_limits}{(`list()` or `NULL`) \cr
+\item{x_limits}{(\code{list()} or \code{NULL}) \cr
 Per-feature x-axis: numeric \code{c(xmin, xmax)} or character (level order).}
 }
 \value{
-(`list()`) \cr
-  Named list of ggplot objects per feature.
+(\code{list()}) \cr
+Named list of ggplot objects per feature.
 }
 \description{
 Helper used by \code{plot_tree_ale()} to generate per-feature ALE mean

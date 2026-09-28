@@ -7,12 +7,12 @@
 calculate_ale_heterogeneity_cpp(Y)
 }
 \arguments{
-\item{Y}{(`list()` or `data.frame()`) \cr
+\item{Y}{(\code{list()} or \code{data.frame()}) \cr
 ALE effect data.}
 }
 \value{
-(`numeric()`) \cr
-  Heterogeneity value(s): vector per feature when Y is list, single value when Y is data.frame.
+(\code{numeric(1)} or \code{list()}) \cr
+Heterogeneity value(s): single value when Y is data.frame, list with one value per feature when Y is list.
 }
 \description{
 Calculate ALE Heterogeneity

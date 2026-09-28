@@ -51,10 +51,6 @@ ordered_categorical_split_groups = function(x, split_value) {
   list(left_levels = left_levels, right_levels = right_levels, split_level_id = split_level_id)
 }
 
-one_vs_rest_categorical_split_groups = function(x, split_value) {
-  categorical_split_groups(x, split_value)
-}
-
 ordered_categorical_left_mask = function(x, split_value) {
   groups = ordered_categorical_split_groups(x, split_value)
   as.integer(x) <= groups$split_level_id

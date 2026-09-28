@@ -14,27 +14,27 @@ calculate_ale_fast(
 )
 }
 \arguments{
-\item{model}{(`any`) \cr
+\item{model}{(\code{any}) \cr
 Fitted model with predict interface.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Training data.}
 
-\item{feature_set}{(`character()`) \cr
+\item{feature_set}{(\code{character()}) \cr
 Features to compute ALE for.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target variable name.}
 
-\item{n_intervals}{(`integer(1)`) \cr
+\item{n_intervals}{(\code{integer(1)}) \cr
 Equal-frequency intervals for numeric features.}
 
-\item{predict_fun}{(`function()` or `NULL`) \cr
+\item{predict_fun}{(\verb{function()} or \code{NULL}) \cr
 \code{function(model, data)} returning predictions; \code{NULL} = default.}
 }
 \value{
-(`list()`) \cr
-  Named list of ALE data.tables, same schema as \code{calculate_ale()}.
+(\code{list()}) \cr
+Named list of ALE data.tables, same schema as \code{calculate_ale()}.
 }
 \description{
 Fast ALE path that keeps model prediction in R, while using C++ kernels for

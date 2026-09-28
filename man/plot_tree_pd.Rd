@@ -20,36 +20,36 @@ plot_tree_pd(
 )
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 
-\item{effect}{(R6 or `list()`) \cr
+\item{effect}{(R6 or \code{list()}) \cr
 Effect object (e.g. FeatureEffect).}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Data with features and target.}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Target column name.}
 
-\item{color_ice, color_pd}{(`character(1)`) \cr
+\item{color_ice, color_pd}{(\code{character(1)}) \cr
 Colors for ICE and PDP curves.}
 
-\item{show_plot, show_point, mean_center}{(`logical(1)`) \cr
+\item{show_plot, show_point, mean_center}{(\code{logical(1)}) \cr
 Plot options.}
 
-\item{depth}{(`integer()` or `NULL`) \cr
+\item{depth}{(\code{integer()} or \code{NULL}) \cr
 Depth levels to render.}
 
-\item{node_id}{(`integer()` or `NULL`) \cr
+\item{node_id}{(\code{integer()} or \code{NULL}) \cr
 Node IDs to render.}
 
-\item{features}{(`character()` or `NULL`) \cr
+\item{features}{(\code{character()} or \code{NULL}) \cr
 Feature subset.}
 }
 \value{
-(`list()`) \cr
-  Nested list (depth -> node -> patchwork).
+(\code{list()}) \cr
+Nested list (depth -> node -> patchwork).
 }
 \description{
 Plot PD/ICE tree by depth and node.

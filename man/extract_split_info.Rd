@@ -7,15 +7,15 @@
 extract_split_info(tree, split_benchmark = NULL)
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects (from \code{convert_tree_to_list}).}
 
-\item{split_benchmark}{(`data.frame()` or `list()` or `NULL`) \cr
+\item{split_benchmark}{(\code{data.frame()} or \code{list()} or \code{NULL}) \cr
 Optional split timing info with columns \code{node_id} and \code{depth}.}
 }
 \value{
-(`data.frame()`) \cr
-  One row per node: split feature/value, statistics, and (if available) timing.
+(\code{data.frame()}) \cr
+One row per node: split feature/value, statistics, and (if available) timing.
 }
 \description{
 Given tree (depth-list of Node objects) and optional split_benchmark:

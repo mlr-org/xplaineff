@@ -10,13 +10,7 @@ test_that("PdStrategy can be created", {
 })
 
 test_that("PdStrategy find_best_split returns expected structure", {
-  tryCatch({
-    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
-  }, error = function(e) {
-    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-      testthat::skip("C++ symbols not loaded (install package with compile)")
-    }
-  })
+  skip_cpp_if_unavailable()
   set.seed(1)
   n = 30
   Z = data.frame(x = runif(n), y = runif(n))
@@ -33,13 +27,8 @@ test_that("PdStrategy find_best_split returns expected structure", {
 })
 
 test_that("fit-time active-effect hidden option keeps PD grids full", {
-  tryCatch({
-    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
-  }, error = function(e) {
-    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-      testthat::skip("C++ symbols not loaded (install package with compile)")
-    }
-  })
+  skip_if_not_installed("withr")
+  skip_cpp_if_unavailable()
   n = 10L
   signal = c(rep(2, 5L), rep(-2, 5L))
   weak = seq(-0.02, 0.02, length.out = n)
@@ -66,13 +55,7 @@ test_that("fit-time active-effect hidden option keeps PD grids full", {
 })
 
 test_that("PdStrategy fit can use exhaustive categorical level-set splits", {
-  tryCatch({
-    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
-  }, error = function(e) {
-    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-      testthat::skip("C++ symbols not loaded (install package with compile)")
-    }
-  })
+  skip_cpp_if_unavailable()
   group = factor(rep(c("a", "b", "c", "d"), each = 2L), levels = c("a", "b", "c", "d"))
   curve_left = c(5, 5, -5, -5)
   curve_right = -curve_left
@@ -104,6 +87,53 @@ test_that("PdStrategy fit can use exhaustive categorical level-set splits", {
   expect_equal(tree$root$children$right_child$parent$split_condition, "group in {c, d}")
 })
 
+test_that("GadgetTree plot (PD) honors depth, node_id and features", {
+  skip_cpp_if_unavailable()
+  n = 8L
+  Y_x1 = matrix(
+    c(rep(c(-1, 0, 1), 4L), rep(c(1, 0, -1), 4L)),
+    nrow = n, byrow = TRUE, dimnames = list(NULL, c("1", "4.5", "8"))
+  )
+  Y_x2 = matrix(
+    c(rep(c(-2, 2), 4L), rep(c(2, -2), 4L)),
+    nrow = n, byrow = TRUE, dimnames = list(NULL, c("0", "1"))
+  )
+  effect = structure(
+    list(Y = list(x1 = Y_x1, x2 = Y_x2), grid = list(x1 = c("1", "4.5", "8"), x2 = c("0", "1"))),
+    class = "xplaineff_pd_matrix"
+  )
+  data = data.frame(x1 = seq_len(n), x2 = rep(c(0, 1), 4L), y = 0)
+
+  tree = GadgetTree$new(strategy = PdStrategy$new(), n_split = 1L, min_node_size = 2L, impr_par = 0)
+  tree$fit(data = data, target_feature_name = "y", effect = effect)
+  expect_equal(tree$root$split$feature, "x1")
+
+  all_plots = tree$plot(data = data, target_feature_name = "y", show_plot = FALSE)
+  expect_named(all_plots, c("Depth_1", "Depth_2"))
+  expect_named(all_plots$Depth_1, "Node_1")
+  expect_named(all_plots$Depth_2, c("Node_2", "Node_3"))
+
+  depth_plots = tree$plot(data = data, target_feature_name = "y", show_plot = FALSE, depth = 2)
+  expect_named(depth_plots, "Depth_2")
+  expect_named(depth_plots$Depth_2, c("Node_2", "Node_3"))
+
+  node_plots = tree$plot(data = data, target_feature_name = "y", show_plot = FALSE, node_id = 3)
+  expect_named(node_plots, "Depth_2")
+  expect_named(node_plots$Depth_2, "Node_3")
+  expect_s3_class(node_plots$Depth_2$Node_3, "patchwork")
+
+  feature_plots = tree$plot(data = data, target_feature_name = "y", show_plot = FALSE, features = "x2")
+  expect_named(feature_plots, c("Depth_1", "Depth_2"))
+  expect_length(feature_plots$Depth_2, 2L)
+  expect_s3_class(feature_plots$Depth_1$Node_1, "patchwork")
+
+  expect_warning(
+    missing_plots <- tree$plot(data = data, target_feature_name = "y", show_plot = FALSE, node_id = 99),
+    "No valid depths to render"
+  )
+  expect_length(missing_plots, 0L)
+})
+
 test_that("PdStrategy heterogeneity returns numeric vector", {
   Y = list(matrix(rnorm(20), ncol = 2), matrix(rnorm(20), ncol = 2))
   strategy = PdStrategy$new()
@@ -115,13 +145,7 @@ test_that("PdStrategy heterogeneity returns numeric vector", {
 })
 
 test_that("PdStrategy child objectives reuse non-split feature objectives only", {
-  tryCatch({
-    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
-  }, error = function(e) {
-    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-      testthat::skip("C++ symbols not loaded (install package with compile)")
-    }
-  })
+  skip_cpp_if_unavailable()
   strategy = PdStrategy$new()
   Y = list(
     x = matrix(
@@ -167,7 +191,7 @@ test_that("PdStrategy child objectives reuse non-split feature objectives only",
   )
 
   result = strategy$get_child_objectives(
-    Z = NULL, Y = Y, split_info = split_info,
+    Y = Y, split_info = split_info,
     idx_left = idx_left, idx_right = idx_right,
     grid_left = grid_left, grid_right = grid_right
   )
@@ -193,15 +217,43 @@ test_that("AleStrategy can be created", {
   expect_equal(exhaustive_strategy$max_exhaustive_levels, 8L)
 })
 
+test_that("AleStrategy fit can use exhaustive categorical level-set splits", {
+  skip_ale_cpp_if_unavailable()
+  set.seed(321)
+  n = 200L
+  data = data.frame(
+    x = runif(n, -1, 1),
+    group = factor(sample(c("a", "b", "c", "d"), n, replace = TRUE), levels = c("a", "b", "c", "d"))
+  )
+  predict_fun = function(model, newdata) {
+    ifelse(newdata$group %in% c("a", "c"), 3 * newdata$x, -3 * newdata$x)
+  }
+  data$y = predict_fun(NULL, data)
+
+  tree = GadgetTree$new(strategy = AleStrategy$new(), n_split = 1L, min_node_size = 10L, impr_par = 0)
+  tree$fit(
+    model = list(),
+    data = data,
+    target_feature_name = "y",
+    n_intervals = 5L,
+    predict_fun = predict_fun,
+    feature_set = "x",
+    split_feature = "group",
+    categorical_split = "exhaustive"
+  )
+
+  expect_equal(tree$strategy$categorical_split, "exhaustive")
+  expect_equal(tree$root$split$feature, "group")
+  expect_equal(tree$root$split$value, "{a, c}")
+  expect_equal(tree$root$split$levels, c("a", "c"))
+  expect_equal(tree$root$children$left_child$parent$split_condition, "group in {a, c}")
+  expect_equal(tree$root$children$right_child$parent$split_condition, "group in {b, d}")
+  expect_true(all(data$group[tree$root$children$left_child$subset_idx] %in% c("a", "c")))
+  expect_true(all(data$group[tree$root$children$right_child$subset_idx] %in% c("b", "d")))
+})
+
 test_that("AleStrategy heterogeneity returns numeric for ALE-like list", {
-  tryCatch({
-    dt = data.table::data.table(row_id = 1:5, interval_index = rep(1L, 5), d_l = 0, int_n = 5L, int_s1 = 0, int_s2 = 0)
-    xplaineff:::calculate_ale_heterogeneity_list_cpp(list(x = dt))
-  }, error = function(e) {
-    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
-      testthat::skip("ALE C++ symbols not loaded (install package with compile)")
-    }
-  })
+  skip_ale_cpp_if_unavailable()
   n = 20
   dt = data.table::data.table(
     row_id = seq_len(n),
@@ -235,7 +287,7 @@ test_that("AleStrategy child objectives use the selected split when best splits 
   )
 
   obj = strategy$get_child_objectives(
-    Z = NULL, Y = NULL, split_info = split_info,
+    Y = NULL, split_info = split_info,
     idx_left = NULL, idx_right = NULL, grid_left = NULL, grid_right = NULL
   )
 

@@ -1,8 +1,8 @@
 #include <Rcpp.h>
 #include <cstring>
 
-// PDP/ICE stacked newdata construction (xplaineff-style), adapted from xplaineff/src/pdp.c.
-// Builds an n*m-row table: for each grid point k, rows1..n are a copy of the original data with
+// PDP/ICE stacked newdata construction.
+// Builds an n*m-row table: for each grid point k, rows 1..n are a copy of the original data with
 // the focal feature replaced by grid[k]. Non-FOI columns are block-replicated via memcpy where possible.
 
 static R_xlen_t pd_list_nrow(const Rcpp::List& cols) {
@@ -144,6 +144,23 @@ static SEXP make_pdp_feature_col_mx(SEXP col, SEXP grid, R_xlen_t n, R_xlen_t m,
   return out;
 }
 
+// -----------------------------------------------------------------------------
+// cpp_pd_stack_newdata
+// Purpose:
+//   Build the stacked newdata table for PD/ICE prediction: for each grid value
+//   k, rows (k-1)*n+1..k*n are a copy of the original data with the focal
+//   feature replaced by grid[k].
+// Inputs:
+//   data_cols: named list of equal-length columns (one per feature); supported
+//     types are double, integer, logical, character (non-focal) and integer or
+//     double for the focal column
+//   feature_index: 0-based index of the focal feature in data_cols
+//   grid: integer or double vector of grid values (length m >= 1); an integer
+//     focal column is promoted to double when grid is double
+// Output:
+//   data.frame with n*m rows and the columns of data_cols (attributes such as
+//   factor levels copied from the source columns).
+// -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 Rcpp::List cpp_pd_stack_newdata(Rcpp::List data_cols, int feature_index, SEXP grid) {
   const int p = data_cols.size();

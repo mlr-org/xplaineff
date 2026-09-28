@@ -17,36 +17,36 @@ prepare_split_data_ale(
 )
 }
 \arguments{
-\item{model}{(`any`) \cr
+\item{model}{(\code{any}) \cr
 Fitted model with predict interface.}
 
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Training data (features and target).}
 
-\item{target_feature_name}{(`character(1)`) \cr
+\item{target_feature_name}{(\code{character(1)}) \cr
 Name of the target variable.}
 
-\item{n_intervals}{(`integer(1)`) \cr
+\item{n_intervals}{(\code{integer(1)}) \cr
 Number of intervals for numeric ALE.}
 
-\item{feature_set}{(`character()` or `NULL`) \cr
+\item{feature_set}{(\code{character()} or \code{NULL}) \cr
 Features to compute ALE for; \code{NULL} = all.}
 
-\item{split_feature}{(`character()` or `NULL`) \cr
+\item{split_feature}{(\code{character()} or \code{NULL}) \cr
 Features for splitting; \code{NULL} = all.}
 
-\item{predict_fun}{(`function()` or `NULL`) \cr
+\item{predict_fun}{(\verb{function()} or \code{NULL}) \cr
 \code{function(model, data)} returning predictions; \code{NULL} = default.}
 
-\item{order_method}{(`character(1)`) \cr
+\item{order_method}{(\code{character(1)}) \cr
 Categorical level order: \code{"mds"}, \code{"pca"}, \code{"random"}, or \code{"raw"}.}
 
-\item{ale_engine}{(`character(1)`) \cr
+\item{ale_engine}{(\code{character(1)}) \cr
 ALE engine: \code{"auto"}, \code{"cpp"}, or \code{"r"}.}
 }
 \value{
-(`list()`) \cr
-  \code{Z}: data.table of split features; \code{Y}: list of ALE effect data per feature.
+(\code{list()}) \cr
+\code{Z}: data.table of split features; \code{Y}: list of ALE effect data per feature.
 }
 \description{
 Given model, data, target_feature_name, n_intervals, and optional feature/split sets:
@@ -57,13 +57,13 @@ calls \code{calculate_ale} for Y. Returns list \code{Z}, \code{Y}.
 \details{
 Steps performed:
 \enumerate{
-  \item Resolve \code{feature_set} and \code{split_feature} against feature columns (see
-    \code{GadgetTree}/\code{AleStrategy} for target-column validation).
-  \item For \code{union(feature_set, split_feature)}, convert character
-    columns to factor and order levels via
-    \code{order_categorical_levels} (using \code{droplevels} internally).
-  \item Build \code{Z} as \code{data[split_feature]} (data.table).
-  \item Call \code{calculate_ale(model, data, feature_set, ...)} to get \code{Y}.
+\item Resolve \code{feature_set} and \code{split_feature} against feature columns (see
+\code{GadgetTree}/\code{AleStrategy} for target-column validation).
+\item For \code{union(feature_set, split_feature)}, convert character
+columns to factor and order levels via
+\code{order_categorical_levels} (using \code{droplevels} internally).
+\item Build \code{Z} as \code{data[split_feature]} (data.table).
+\item Call \code{calculate_ale(model, data, feature_set, ...)} to get \code{Y}.
 }
 Stops with an error if any requested feature is missing from \code{data}.
 }

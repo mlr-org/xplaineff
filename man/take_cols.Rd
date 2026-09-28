@@ -7,15 +7,15 @@
 take_cols(data, cols)
 }
 \arguments{
-\item{data}{(`data.frame()` or `data.table()`) \cr
+\item{data}{(\code{data.frame()} or \code{data.table()}) \cr
 Data.}
 
-\item{cols}{(`character()`) \cr
+\item{cols}{(\code{character()}) \cr
 Column names.}
 }
 \value{
-(`data.frame()` or `data.table()`) \cr
-  Subset of columns.
+(\code{data.frame()} or \code{data.table()}) \cr
+Subset of columns.
 }
 \description{
 Subset columns from data.frame or data.table.

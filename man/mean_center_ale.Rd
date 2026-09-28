@@ -7,18 +7,18 @@
 mean_center_ale(feat, mean_center = TRUE)
 }
 \arguments{
-\item{feat}{(`data.table()`) \cr
+\item{feat}{(\code{data.table()}) \cr
 Per-interval ALE derivatives and metadata.}
 
-\item{mean_center}{(`logical(1)`) \cr
+\item{mean_center}{(\code{logical(1)}) \cr
 Whether to mean-center the ALE curve.}
 }
 \value{
-(`data.table()`) \cr
-  Cumulative ALE with \code{x_grid} and cumulative values in column \code{d_l}.
+(\code{data.table()}) \cr
+Cumulative ALE with \code{x_grid} and cumulative values in column \code{d_l}.
 }
 \description{
 Given ALE data.table for one feature and mean_center: cumsums d_l by interval;
-optionally subtracts global mean. Returns data.table with x_grid and .value (cumulative ALE).
+optionally subtracts global mean. Returns data.table with x_grid and d_l (cumulative ALE).
 }
 \keyword{internal}

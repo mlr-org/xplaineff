@@ -7,18 +7,18 @@
 select_depths_to_render(tree, depth, node_id)
 }
 \arguments{
-\item{tree}{(`list()`) \cr
+\item{tree}{(\code{list()}) \cr
 Depth-based list of Node objects.}
 
-\item{depth}{(`integer()` or `NULL`) \cr
+\item{depth}{(\code{integer()} or \code{NULL}) \cr
 Depth levels to consider; \code{NULL} = all.}
 
-\item{node_id}{(`integer()` or `NULL`) \cr
+\item{node_id}{(\code{integer()} or \code{NULL}) \cr
 Node IDs to render; \code{NULL} = all nodes at selected depths.}
 }
 \value{
-(`integer()`) \cr
-  Depth indices to render.
+(\code{integer()}) \cr
+Depth indices to render.
 }
 \description{
 Select depth indices to render based on tree, depth, and node_id.

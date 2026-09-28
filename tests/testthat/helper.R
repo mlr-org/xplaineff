@@ -9,5 +9,17 @@ skip_ale_cpp_if_unavailable = function() {
     if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
       testthat::skip("ALE C++ symbols not loaded (install package with compile)")
     }
+    stop(e)
+  })
+}
+
+skip_cpp_if_unavailable = function() {
+  tryCatch({
+    xplaineff:::search_best_split_cpp(Z = data.frame(x = 1:5), Y = list(matrix(1:10, ncol = 2)), min_node_size = 2)
+  }, error = function(e) {
+    if (grepl("not available for .Call", conditionMessage(e), fixed = TRUE)) {
+      testthat::skip("C++ symbols not loaded (install package with compile)")
+    }
+    stop(e)
   })
 }

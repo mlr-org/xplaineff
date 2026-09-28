@@ -7,12 +7,12 @@
 node_heterogeneity(Y)
 }
 \arguments{
-\item{Y}{(`list()`) \cr
+\item{Y}{(\code{list()}) \cr
 List of numeric matrices (ICE effect per feature).}
 }
 \value{
-(`numeric()`) \cr
-  Heterogeneity per feature, length \code{length(Y)}.
+(\code{numeric()}) \cr
+Heterogeneity per feature, length \code{length(Y)}.
 }
 \description{
 Given Y (list of numeric matrices): for each matrix, computes sum over
