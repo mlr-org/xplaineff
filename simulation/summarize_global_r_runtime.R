@@ -85,7 +85,7 @@ setDTthreads(1L)
 
 make_global_label = function(package, impl) {
   fcase(
-    package == "xplaineff" & impl == "auto", "xplaineff-auto",
+    package == "xplaineff" & impl == "auto", "xplaineff",
     package == "xplaineff" & impl == "r", "xplaineff-r",
     package == "xplaineff" & impl == "cpp", "xplaineff-cpp",
     default = package
@@ -154,7 +154,7 @@ if (nzchar(summary_file)) {
 }
 
 palette_values = c(
-  "xplaineff-auto" = "#1f77b4",
+  "xplaineff" = "#1f77b4",
   "xplaineff-r" = "#1f77b4",
   "xplaineff-cpp" = "#17becf",
   "pdp" = "#ff7f0e",
@@ -164,7 +164,7 @@ palette_values = c(
   "effectplots" = "#8c564b"
 )
 shape_values = c(
-  "xplaineff-auto" = 16,
+  "xplaineff" = 16,
   "xplaineff-r" = 16,
   "xplaineff-cpp" = 4,
   "pdp" = 17,
@@ -174,7 +174,7 @@ shape_values = c(
   "effectplots" = 7
 )
 x_offset_values = c(
-  "xplaineff-auto" = 0.952,
+  "xplaineff" = 0.952,
   "xplaineff-r" = 0.952,
   "xplaineff-cpp" = 0.968,
   "pdp" = 0.984,
