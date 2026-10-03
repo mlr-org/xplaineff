@@ -377,7 +377,7 @@ test_that("compute_ice_r preserves fractional grid values for cached integer fea
   testthat::expect_equal(stacked_pd_cache$stacked$x, as.numeric(rep(data$x, times = length(grid))))
 })
 
-test_that("extract_numeric_prediction uses response then first prob column for mlr3 Prediction", {
+test_that("extract_numeric_prediction uses first prob column for mlr3 classification predictions", {
   testthat::skip_if_not_installed("mlr3")
   testthat::skip_if_not_installed("mlr3learners")
   testthat::skip_if_not_installed("ranger")
@@ -385,18 +385,31 @@ test_that("extract_numeric_prediction uses response then first prob column for m
   lrn = mlr3::lrn("classif.ranger", predict_type = "prob", num.trees = 30L, num.threads = 1L)
   lrn$train(task)
   pred = lrn$predict_newdata(iris[1:10, ])
-  testthat::expect_equal(
-    xplaineff:::extract_numeric_prediction(pred),
-    as.numeric(pred$response)
-  )
-
-  prob = matrix(c(0.7, 0.2, 0.3, 0.8), ncol = 2L, dimnames = list(NULL, c("A", "B")))
-  prob_only = structure(list(response = NULL, prob = prob), class = "Prediction")
   testthat::expect_warning(
-    prob_pred <- xplaineff:::extract_numeric_prediction(prob_only),
+    prob_pred <- xplaineff:::extract_numeric_prediction(pred),
     "first class probability column"
   )
-  testthat::expect_equal(prob_pred, c(0.7, 0.2))
+  testthat::expect_equal(prob_pred, unname(pred$prob[, 1L]))
+
+  prob = matrix(c(0.7, 0.2, 0.3, 0.8), ncol = 2L, dimnames = list(NULL, c("A", "B")))
+  response = factor(c("A", "B"))
+  testthat::expect_equal(xplaineff:::extract_numeric_prediction(list(response = response, prob = prob)), c(0.7, 0.2))
+  testthat::expect_error(xplaineff:::extract_numeric_prediction(list(response = response)), "class labels only")
+})
+
+test_that("default prediction returns positive class probability for binary mlr3 tasks", {
+  testthat::skip_if_not_installed("mlr3")
+  testthat::skip_if_not_installed("rpart")
+  task = mlr3::tsk("sonar")
+  x = task$data(1:10, cols = task$feature_names)
+  for (positive in c("M", "R")) {
+    task$positive = positive
+    lrn = mlr3::lrn("classif.rpart", predict_type = "prob")$train(task)
+    testthat::expect_equal(
+      xplaineff:::default_predict_fun(lrn, x),
+      unname(lrn$predict_newdata(x)$prob[, positive])
+    )
+  }
 })
 
 test_that("PdStrategy PD path can target one class prob via predict_fun", {

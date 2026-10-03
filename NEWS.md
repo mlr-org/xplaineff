@@ -1,3 +1,7 @@
+# xplaineff (development version)
+
+- Default predictions for mlr3 classification learners now use the positive class probability instead of numeric factor level codes, so binary PD and ALE effects no longer flip sign with `task$positive`; probability learners no longer error, binary tasks no longer trigger the multiclass warning, and response-only classifiers now error with a hint to set `predict_type = "prob"` (no issue).
+
 # xplaineff 0.1.1
 
 - Coco Bögel, Giuseppe Casalicchio, and Bernd Bischl are listed as package authors (no issue).
