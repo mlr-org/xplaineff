@@ -1,7 +1,7 @@
 Package: xplaineff
 Type: Package
 Title: Decomposing Global Feature Effects Based on Feature Interactions
-Version: 0.1.1
+Version: 0.1.1.9000
 Authors@R: c(
     person(
       "Zizheng", "Zhang",
