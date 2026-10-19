@@ -1,5 +1,6 @@
 # xplaineff (development version)
 
+- The vignette trains its random forest with a fixed seed and a single thread so that its printed results do not depend on the random number stream (no issue).
 - Default predictions for mlr3 classification learners now use the positive class probability instead of numeric factor level codes, so binary PD and ALE effects no longer flip sign with `task$positive`; probability learners no longer error, binary tasks no longer trigger the multiclass warning, and response-only classifiers now error with a hint to set `predict_type = "prob"` (@jemus42, #8).
 
 # xplaineff 0.1.1

@@ -169,7 +169,7 @@ bike_data = bike[, c("hr", "temp", "workingday", "season", "mnth", "day", "holid
 names(bike_data)[names(bike_data) == "bikers"] = "target"
 
 task = TaskRegr$new(id = "bike", backend = bike_data, target = "target")
-learner = lrn("regr.ranger")
+learner = lrn("regr.ranger", seed = 123L, num.threads = 1L)
 learner$train(task)
 ```
 
