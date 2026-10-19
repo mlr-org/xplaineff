@@ -105,7 +105,7 @@ syn_tree$fit(
   model = syn_model,
   feature_set = "x2",
   split_feature = c("x1", "x3"),
-  n_grid = 20L
+  n_grid = 20
 )
 ```
 
@@ -169,7 +169,7 @@ bike_data = bike[, c("hr", "temp", "workingday", "season", "mnth", "day", "holid
 names(bike_data)[names(bike_data) == "bikers"] = "target"
 
 task = TaskRegr$new(id = "bike", backend = bike_data, target = "target")
-learner = lrn("regr.ranger", seed = 123L, num.threads = 1L)
+learner = lrn("regr.ranger", seed = 123, num.threads = 1)
 learner$train(task)
 ```
 
@@ -194,7 +194,7 @@ bike_pd$fit(
   model = learner,
   feature_set = effect_features,
   split_feature = split_features,
-  n_grid = 20L
+  n_grid = 20
 )
 ```
 

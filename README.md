@@ -130,7 +130,7 @@ tree$fit(
   data = bike_data,
   target_feature_name = "target",
   model = learner,
-  n_grid = 20L
+  n_grid = 20
 )
 
 # 4) Inspect the tree structure, splits, and regional PD/ICE curves
