@@ -13,6 +13,22 @@ for (p in c("xplaineff", "mlr3", "mlr3learners", "ranger", "ISLR2")) {
 }
 cat("\n")
 
+# Minimal ranger-only demonstration from https://github.com/imbs-hl/ranger/issues/533:
+# with seed = NULL ranger takes its seed from the R stream; the issue reports
+# OOB error 10.77% on macOS and 7.69% on Windows for this call.
+cat("== ranger issue #533 snippet (set.seed(1), seed = NULL, 1 tree)\n")
+set.seed(1)
+fit = ranger::ranger(Species ~ ., data = iris, seed = NULL, num.trees = 1,
+  importance = "impurity", num.threads = 1)
+cat("OOB error:", fit$prediction.error, "\n")
+print(round(fit$variable.importance, 2))
+cat("== ranger with set.seed(123) and seed = 123, 500 trees\n")
+set.seed(123)
+fit = ranger::ranger(Species ~ ., data = iris, seed = 123, num.trees = 500,
+  importance = "impurity", num.threads = 1)
+cat("OOB error:", fit$prediction.error, "\n")
+print(round(fit$variable.importance, 2))
+
 data("Bikeshare", package = "ISLR2")
 set.seed(123)
 bike = Bikeshare[sample(seq_len(nrow(Bikeshare)), 1000), ]
